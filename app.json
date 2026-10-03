@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "e32e5e37-c849-44fc-bcfe-9f1d8ec99528"
+      }
+    },
+    "android": {
+      "package": "com.deuslano.pmvads20261e4infrat1gestaodecondominioprovisorio"
+    }
+  }
+}

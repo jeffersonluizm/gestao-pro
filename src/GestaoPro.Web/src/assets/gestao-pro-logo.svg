@@ -1,0 +1,21 @@
+<svg width="720" height="720" viewBox="0 0 720 720" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="title desc">
+  <title id="title">Gestão Pro</title>
+  <desc id="desc">Logo Gestão Pro com letras GP e prédios de condomínio.</desc>
+  <rect width="720" height="720" rx="36" fill="#FFFFFF"/>
+  <g transform="translate(156 122)">
+    <path d="M185 165H120C76 165 40 201 40 245C40 289 76 325 120 325H220V270H142" stroke="#0E243F" stroke-width="28" stroke-linecap="butt" stroke-linejoin="miter"/>
+    <path d="M246 350V195H318C358 195 390 226 390 265C390 304 358 335 318 335H284" stroke="#C8953D" stroke-width="28" stroke-linecap="butt" stroke-linejoin="miter"/>
+    <path d="M246 185V40L325 88V185" stroke="#0E243F" stroke-width="9" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M206 185V93L246 70" stroke="#36404A" stroke-width="8" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M342 122L382 146V206" stroke="#36404A" stroke-width="8" stroke-linecap="square" stroke-linejoin="miter"/>
+    <path d="M286 91V103M286 126V138M286 161V173" stroke="#36404A" stroke-width="10" stroke-linecap="square"/>
+  </g>
+  <g transform="translate(132 510)">
+    <text x="228" y="0" text-anchor="middle" dominant-baseline="middle" font-family="Montserrat, Arial, sans-serif" font-size="54" letter-spacing="12" font-weight="500">
+      <tspan fill="#0E243F">GESTÃO</tspan><tspan fill="#C8953D"> PRO</tspan>
+    </text>
+    <line x1="0" y1="57" x2="54" y2="57" stroke="#0E243F" stroke-width="4"/>
+    <line x1="402" y1="57" x2="456" y2="57" stroke="#0E243F" stroke-width="4"/>
+    <text x="228" y="62" text-anchor="middle" dominant-baseline="middle" font-family="Montserrat, Arial, sans-serif" font-size="20" letter-spacing="8" fill="#3F4650">EFICIÊNCIA PARA SEU CONDOMÍNIO</text>
+  </g>
+</svg>

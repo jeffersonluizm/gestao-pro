@@ -1,0 +1,143 @@
+﻿using GestaoPro.API.DTOs;
+using GestaoPro.API.Models;
+using GestaoPro.API.Repositories;
+
+namespace GestaoPro.API.Services;
+
+public class ReservationService : IReservationService
+{
+    private readonly IReservationRepository _repository;
+    private readonly ICommonAreaRepository _commonAreaRepository;
+
+    public ReservationService(IReservationRepository repository, ICommonAreaRepository commonAreaRepository)
+    {
+        _repository = repository;
+        _commonAreaRepository = commonAreaRepository;
+    }
+
+    public Task<List<Reservation>> GetAllAsync() => _repository.GetAllAsync();
+
+    public Task<Reservation?> GetByIdAsync(string id) => _repository.GetByIdAsync(id);
+
+    public Task<List<Reservation>> GetByCondominiumAsync(string condominiumId) =>
+        _repository.GetByCondominiumAsync(condominiumId);
+
+    public Task<List<Reservation>> GetByUserAsync(string userId) =>
+        _repository.GetByUserAsync(userId);
+
+    public Task<List<Reservation>> GetByCommonAreaAsync(string commonAreaId) =>
+        _repository.GetByCommonAreaAsync(commonAreaId);
+
+    public Task<List<Reservation>> GetByStatusAsync(string status) =>
+        _repository.GetByStatusAsync(status);
+
+    public Task<List<Reservation>> GetByDateAsync(string date) =>
+        _repository.GetByDateAsync(date);
+
+    public async Task<Reservation> CreateAsync(CreateReservationDto dto)
+    {
+        var commonArea = await _commonAreaRepository.GetByIdAsync(dto.CommonAreaId);
+        if (commonArea is null || !commonArea.IsActive)
+            throw new InvalidOperationException("Área comum inválida.");
+
+        EnsureDateIsNotPast(dto.Date);
+        EnsureReservationTimeIsValid(dto.StartTime, dto.EndTime, commonArea);
+        await EnsureNoConflictAsync(dto.CommonAreaId, dto.Date, dto.StartTime, dto.EndTime);
+
+        var reservation = new Reservation
+        {
+            CommonAreaId = dto.CommonAreaId,
+            UserId = dto.UserId,
+            CondominiumId = string.IsNullOrWhiteSpace(dto.CondominiumId) ? commonArea.CondominiumId : dto.CondominiumId,
+            Date = dto.Date,
+            StartTime = dto.StartTime,
+            EndTime = dto.EndTime,
+            Observations = dto.Observations,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+        return await _repository.CreateAsync(reservation);
+    }
+
+    public async Task<Reservation?> UpdateAsync(string id, UpdateReservationDto dto)
+    {
+        var reservation = await _repository.GetByIdAsync(id);
+        if (reservation is null) return null;
+
+        if (dto.Date is not null) reservation.Date = dto.Date;
+        if (dto.StartTime is not null) reservation.StartTime = dto.StartTime;
+        if (dto.EndTime is not null) reservation.EndTime = dto.EndTime;
+        if (dto.Status is not null) reservation.Status = dto.Status;
+        if (dto.Observations is not null) reservation.Observations = dto.Observations;
+
+        var commonArea = await _commonAreaRepository.GetByIdAsync(reservation.CommonAreaId);
+        if (commonArea is null || !commonArea.IsActive)
+            throw new InvalidOperationException("Área comum inválida.");
+
+        EnsureDateIsNotPast(reservation.Date);
+        EnsureReservationTimeIsValid(reservation.StartTime, reservation.EndTime, commonArea);
+        await EnsureNoConflictAsync(
+            reservation.CommonAreaId,
+            reservation.Date,
+            reservation.StartTime,
+            reservation.EndTime,
+            reservation.Id);
+
+        reservation.UpdatedAt = DateTime.UtcNow;
+
+        await _repository.UpdateAsync(id, reservation);
+        return reservation;
+    }
+
+    public async Task<bool> DeleteAsync(string id)
+    {
+        var reservation = await _repository.GetByIdAsync(id);
+        if (reservation is null) return false;
+
+        await _repository.DeleteAsync(id);
+        return true;
+    }
+
+    private static void EnsureReservationTimeIsValid(string startTime, string endTime, CommonArea commonArea)
+    {
+        if (string.Compare(startTime, endTime, StringComparison.Ordinal) >= 0)
+            throw new InvalidOperationException("O horário de início deve ser menor que o horário de término.");
+
+        var outsideOpeningHours =
+            string.Compare(startTime, commonArea.OpenTime, StringComparison.Ordinal) < 0 ||
+            string.Compare(endTime, commonArea.CloseTime, StringComparison.Ordinal) > 0;
+
+        if (outsideOpeningHours)
+            throw new InvalidOperationException($"Esta área só funciona das {commonArea.OpenTime} às {commonArea.CloseTime}.");
+    }
+
+    private static void EnsureDateIsNotPast(string date)
+    {
+        if (!DateOnly.TryParse(date, out var reservationDate))
+            throw new InvalidOperationException("Data inválida.");
+
+        if (reservationDate < DateOnly.FromDateTime(DateTime.Today))
+            throw new InvalidOperationException("Não é permitido registrar evento em data anterior a hoje.");
+    }
+
+    private async Task EnsureNoConflictAsync(
+        string commonAreaId,
+        string date,
+        string startTime,
+        string endTime,
+        string? ignoredReservationId = null)
+    {
+        var reservations = await _repository.GetByCommonAreaAsync(commonAreaId);
+        var hasConflict = reservations.Any(reservation =>
+            reservation.Id != ignoredReservationId &&
+            reservation.Date == date &&
+            reservation.Status != ReservationStatus.Cancelada &&
+            reservation.Status != ReservationStatus.Rejeitada &&
+            string.Compare(startTime, reservation.EndTime, StringComparison.Ordinal) < 0 &&
+            string.Compare(endTime, reservation.StartTime, StringComparison.Ordinal) > 0);
+
+        if (hasConflict)
+            throw new InvalidOperationException("Desculpe, este horário já está ocupado por outra reserva.");
+    }
+}
+

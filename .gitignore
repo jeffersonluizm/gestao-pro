@@ -1,0 +1,24 @@
+.vs/
+
+# Build artifacts
+out/
+bin/
+obj/
+
+# User-specific files
+*.user
+*.suo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+
+node_modules/
+dist/
+bin/
+obj/
+.keys/
+.build-check/
+appsettings.Local.json
+**/appsettings.Local.json

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "GestaoPro",
+    "slug": "gestaopro-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "gestaopro",
+    "userInterfaceStyle": "light",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.gestaopro.mobile"
+    },
+    "android": {
+      "package": "com.gestaopro.mobile",
+      "versionCode": 1,
+      "jsEngine": "jsc",
+      "usesCleartextTraffic": true,
+      "permissions": [
+        "INTERNET",
+        "ACCESS_NETWORK_STATE"
+      ]
+    },
+    "web": {},
+    "plugins": [
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "3eb35a23-f818-4946-bcef-18d8f40d6455"
+      }
+    },
+    "owner": "jeffersonluiz_m"
+  }
+}
