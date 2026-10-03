@@ -146,15 +146,17 @@ export default function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Credenciais de teste */}
-        <View style={styles.testCard}>
-          <Text style={styles.testTitle}>🧪 Credenciais de teste</Text>
-          <Text style={styles.testLine}>Admin → admin@gestaopro.local / Admin@123</Text>
-          <Text style={styles.testLine}>CPFs mock para cadastro:</Text>
-          <Text style={styles.testLine}>  111.111.111-11 (João da Silva)</Text>
-          <Text style={styles.testLine}>  222.222.222-22 (Maria Santos)</Text>
-          <Text style={styles.testLine}>  333.333.333-33 (Pedro Oliveira)</Text>
-        </View>
+        {/* Credenciais de teste: a API só cria essas contas em desenvolvimento */}
+        {__DEV__ && (
+          <View style={styles.testCard}>
+            <Text style={styles.testTitle}>🧪 Credenciais de teste</Text>
+            <Text style={styles.testLine}>Admin → admin@gestaopro.local / Admin@123</Text>
+            <Text style={styles.testLine}>CPFs mock para cadastro:</Text>
+            <Text style={styles.testLine}>  111.111.111-11 (João da Silva)</Text>
+            <Text style={styles.testLine}>  222.222.222-22 (Maria Santos)</Text>
+            <Text style={styles.testLine}>  333.333.333-33 (Pedro Oliveira)</Text>
+          </View>
+        )}
       </ScrollView>
     </KeyboardAvoidingView>
   );

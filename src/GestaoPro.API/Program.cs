@@ -121,8 +121,10 @@ var app = builder.Build();
 app.UseSwagger();
 app.UseSwaggerUI();
 
-using (var scope = app.Services.CreateScope())
+// A conta admin de demonstração tem senha conhecida: só existe em desenvolvimento.
+if (app.Environment.IsDevelopment())
 {
+    using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
     await seeder.SeedAsync();
 }
