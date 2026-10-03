@@ -1,0 +1,7 @@
+# segredos locais e artefatos que nao devem entrar na imagem
+**/appsettings.Local.json
+**/.keys/
+**/bin/
+**/obj/
+**/node_modules/
+.git/
