@@ -14,15 +14,34 @@ public class ApiAccessMiddleware
 
     public async Task InvokeAsync(HttpContext context)
     {
-        if (HttpMethods.IsGet(context.Request.Method) ||
-            HttpMethods.IsHead(context.Request.Method) ||
-            HttpMethods.IsOptions(context.Request.Method))
+        var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
+
+        if (HttpMethods.IsOptions(context.Request.Method))
         {
             await _next(context);
             return;
         }
 
-        var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
+        if (HttpMethods.IsGet(context.Request.Method) ||
+            HttpMethods.IsHead(context.Request.Method))
+        {
+            // Leitura exige login; ficam abertas só a lista de condomínios (tela de cadastro) e o health check.
+            var isPublicRead =
+                !path.StartsWith("/api/") ||
+                path == "/api/condominiums" ||
+                path.StartsWith("/api/health/");
+
+            if (!isPublicRead && context.User.Identity?.IsAuthenticated != true)
+            {
+                context.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                await context.Response.WriteAsJsonAsync(new { message = "Login obrigatório para consultar estes dados." });
+                return;
+            }
+
+            await _next(context);
+            return;
+        }
+
         var isInitialCredentialCreation =
             HttpMethods.IsPost(context.Request.Method) &&
             path.StartsWith("/api/users/") &&
