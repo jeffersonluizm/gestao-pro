@@ -295,6 +295,38 @@ public class ParkingAppServiceTests
 
     // ── Helpers ──────────────────────────────────────────────────
 
+    // O número da vaga é único dentro do condomínio, não entre condomínios.
+    [Fact]
+    public async Task CreateAsync_MesmoNumeroEmOutroCondominio_Cria()
+    {
+        var dto = MakeDto();
+        var deOutroCondominio = MakeModel();
+        deOutroCondominio.CondominiumId = "cond2";
+        _repoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ParkingModel> { deOutroCondominio });
+        _repoMock.Setup(r => r.CreateAsync(It.IsAny<ParkingModel>()))
+                 .ReturnsAsync((ParkingModel p) => { p.Id = "park2"; return p; });
+
+        var result = await _service.CreateAsync(dto);
+
+        Assert.Equal("cond1", result.CondominiumId);
+    }
+
+    [Fact]
+    public async Task UpdateAsync_NumeroUsadoEmOutroCondominio_Atualiza()
+    {
+        var existing = MakeModel();
+        var deOutroCondominio = MakeModel();
+        deOutroCondominio.Id = "park9";
+        deOutroCondominio.Number = "B-02";
+        deOutroCondominio.CondominiumId = "cond2";
+        _repoMock.Setup(r => r.GetByIdAsync("park1")).ReturnsAsync(existing);
+        _repoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ParkingModel> { existing, deOutroCondominio });
+
+        var result = await _service.UpdateAsync("park1", new UpdateParkingDto { Number = "B-02" });
+
+        Assert.Equal("B-02", result!.Number);
+    }
+
     private static CreateParkingDto MakeDto() => new()
     {
         Number = "A-01",
