@@ -18,7 +18,7 @@ public class VisitorControllerAccessTests
 
     public VisitorControllerAccessTests()
     {
-        _controller = new VisitorController(new VisitorAppService(_repository.Object), NullLogger<VisitorController>.Instance);
+        _controller = new VisitorController(new VisitorAppService(_repository.Object), new Mock<IUserDirectory>().Object, NullLogger<VisitorController>.Instance);
         var all = new List<VisitorModel> { DoJoao, DaMaria, DeOutroCondominio };
         _repository.Setup(r => r.GetAllAsync()).ReturnsAsync(all);
         _repository.Setup(r => r.GetByIdAsync(It.IsAny<string>()))
