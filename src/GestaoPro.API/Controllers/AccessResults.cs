@@ -1,0 +1,27 @@
+using GestaoPro.API.Services.Access;
+using Microsoft.AspNetCore.Mvc;
+
+namespace GestaoPro.API.Controllers;
+
+// Tradução das decisões de ResourceAccess para HTTP, igual em todos os controllers:
+// 403 com { message } quando logado sem permissão; 404 igual ao de inexistente para outro condomínio.
+public static class AccessResults
+{
+    public const string ForbiddenMessage = "Você não tem permissão para consultar estes dados.";
+    public const string InvalidSessionMessage = "Sessão sem condomínio. Saia e entre novamente.";
+
+    public static Caller Caller(this ControllerBase controller) =>
+        Services.Access.Caller.From(controller.User);
+
+    // null quando permitido; senão, a resposta a devolver.
+    public static ActionResult? Deny(this ControllerBase controller, AccessDecision decision) => decision switch
+    {
+        AccessDecision.Allowed => null,
+        AccessDecision.NotFound => controller.NotFound(),
+        AccessDecision.InvalidSession => controller.StatusCode(StatusCodes.Status403Forbidden, new { message = InvalidSessionMessage }),
+        _ => controller.Forbidden(),
+    };
+
+    public static ActionResult Forbidden(this ControllerBase controller) =>
+        controller.StatusCode(StatusCodes.Status403Forbidden, new { message = ForbiddenMessage });
+}
