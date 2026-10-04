@@ -22,3 +22,9 @@ obj/
 .build-check/
 appsettings.Local.json
 **/appsettings.Local.json
+
+# Variaveis locais (copie de .env.example)
+.env
+.env.local
+.env.*.local
+!.env.example
