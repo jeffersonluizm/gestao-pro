@@ -123,4 +123,16 @@ public class NotificacaoHubAuthTests : IDisposable
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
+
+    // O access_token na query vale só para o hub: no resto da API o token na URL vazaria em logs e histórico.
+    [Fact]
+    public async Task Token_valido_na_query_fora_do_hub_continua_recusado()
+    {
+        await using var factory = CreateFactory();
+        var client = factory.CreateClient();
+
+        var response = await client.GetAsync($"/api/Bills/user/x?access_token={TokenFor("admin")}");
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
 }

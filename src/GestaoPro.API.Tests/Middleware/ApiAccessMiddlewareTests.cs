@@ -98,4 +98,30 @@ public class ApiAccessMiddlewareTests
 
         Assert.True(nextCalled);
     }
+
+    // O desvio do middleware vale só para o hub; caminhos que apenas começam com o nome dele seguem a regra comum.
+    [Theory]
+    [InlineData("POST", "/notificacaoHubX")]
+    [InlineData("POST", "/notificacaoHubX/negotiate")]
+    [InlineData("POST", "/notificacaoHub-admin/negotiate")]
+    public async Task Caminho_parecido_com_o_hub_nao_ganha_o_desvio_do_middleware(string method, string path)
+    {
+        var (anonymousStatus, anonymousNext) = await InvokeAsync(method, path);
+        var (residentStatus, residentNext) = await InvokeAsync(method, path, AuthenticatedUser("morador"));
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, anonymousStatus);
+        Assert.False(anonymousNext);
+        Assert.Equal(StatusCodes.Status403Forbidden, residentStatus);
+        Assert.False(residentNext);
+    }
+
+    [Theory]
+    [InlineData("POST", "/notificacaoHub/negotiate")]
+    [InlineData("GET", "/notificacaoHub")]
+    public async Task Hub_continua_com_o_desvio_do_middleware(string method, string path)
+    {
+        var (_, nextCalled) = await InvokeAsync(method, path, AuthenticatedUser("morador"));
+
+        Assert.True(nextCalled);
+    }
 }
