@@ -14,7 +14,8 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// Segredos locais com prioridade abaixo das variáveis de ambiente e da linha de comando (ver LocalSettings).
+builder.Configuration.AddLocalSettingsFile(builder.Environment.ContentRootPath);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
