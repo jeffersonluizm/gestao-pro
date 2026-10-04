@@ -8,11 +8,16 @@ public class ReservationService : IReservationService
 {
     private readonly IReservationRepository _repository;
     private readonly ICommonAreaRepository _commonAreaRepository;
+    private readonly IReservationSlotLock _slotLock;
 
-    public ReservationService(IReservationRepository repository, ICommonAreaRepository commonAreaRepository)
+    public ReservationService(
+        IReservationRepository repository,
+        ICommonAreaRepository commonAreaRepository,
+        IReservationSlotLock? slotLock = null)
     {
         _repository = repository;
         _commonAreaRepository = commonAreaRepository;
+        _slotLock = slotLock ?? new InProcessReservationSlotLock();
     }
 
     public Task<List<Reservation>> GetAllAsync() => _repository.GetAllAsync();
@@ -42,6 +47,9 @@ public class ReservationService : IReservationService
 
         EnsureDateIsNotPast(dto.Date);
         EnsureReservationTimeIsValid(dto.StartTime, dto.EndTime, commonArea);
+
+        // Conferência de conflito e gravação sob a mesma trava (área e data): sem corrida entre pedidos simultâneos.
+        await using var slot = await _slotLock.AcquireAsync(dto.CommonAreaId, dto.Date);
         await EnsureNoConflictAsync(dto.CommonAreaId, dto.Date, dto.StartTime, dto.EndTime);
 
         var reservation = new Reservation
@@ -76,6 +84,8 @@ public class ReservationService : IReservationService
 
         EnsureDateIsNotPast(reservation.Date);
         EnsureReservationTimeIsValid(reservation.StartTime, reservation.EndTime, commonArea);
+
+        await using var slot = await _slotLock.AcquireAsync(reservation.CommonAreaId, reservation.Date);
         await EnsureNoConflictAsync(
             reservation.CommonAreaId,
             reservation.Date,

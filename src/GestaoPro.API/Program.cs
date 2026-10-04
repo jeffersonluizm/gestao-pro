@@ -102,6 +102,7 @@ builder.Services.AddSingleton<EmailService>();
 builder.Services.AddSingleton<SmsService>();
 
 builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddSingleton<IReservationSlotLock, MongoReservationSlotLock>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<ICommonAreaService, CommonAreaService>();
 builder.Services.AddScoped<VisitorAppService>();
