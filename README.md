@@ -39,6 +39,16 @@ A connection string do MongoDB e a chave JWT não ficam no repositório. Crie o 
 
 Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__ConnectionString` e `JwtSettings__SecretKey` **antes** do deploy: sem elas a API recusa a partida com uma mensagem dizendo o que falta.
 
+#### Cadastro de moradores e limites de tentativa
+
+O morador ativa a própria conta pela tela "Cadastrar-se" (painel web ou app) informando o condomínio, o CPF e o **código do condomínio**. O código é a senha padrão do condomínio, definida no cadastro do condomínio e entregue pela administração aos moradores (é também a senha inicial das contas criadas pela administração). Regras:
+
+- só contas de morador são ativadas assim; síndico, administrador e porteiro recebem o acesso da administração;
+- a verificação do CPF não mostra nome nem diz o motivo de uma recusa: a mensagem é sempre a mesma;
+- a troca de senha sem login vale só no primeiro acesso (conta marcada para trocar a senha).
+
+As rotas de login, verificação de CPF, cadastro e troca de senha do primeiro acesso aceitam até 10 tentativas por minuto por IP; acima disso a API responde 429. O limite é configurável em `RateLimiting:Auth:PermitLimit` e `RateLimiting:Auth:WindowSeconds`. Atenção: atrás de proxy (Render) a API ainda não lê o IP real do cliente (`X-Forwarded-For`), então todos os acessos contam como um único IP e o limite vale para todos juntos; ajuste o limite ou configure o repasse do IP antes de usar em produção.
+
 #### Dados antigos sem condomínio
 
 Cada leitura e alteração é limitada ao condomínio de quem está logado. Visitantes e vagas gravados antes dessa regra podem estar sem o campo `condominiumId`, e a administração recebe "Registro não encontrado" ao editá-los. Por isso, a cada partida a API preenche o campo em segundo plano, sem atrasar a subida:
