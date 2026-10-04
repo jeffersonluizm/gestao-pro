@@ -97,7 +97,6 @@ public class ApiAccessMiddleware
             path.StartsWith("/api/occurrences") && HttpMethods.IsPost(context.Request.Method) ||
             path.StartsWith("/api/vote") && HttpMethods.IsPost(context.Request.Method) ||
             path == "/api/visitor/register" && HttpMethods.IsPost(context.Request.Method) ||
-            path.StartsWith("/api/visitor/resident/") && HttpMethods.IsGet(context.Request.Method) ||
             isDeliveryPickup ||
             isDoormanDeliveryAction;
 
