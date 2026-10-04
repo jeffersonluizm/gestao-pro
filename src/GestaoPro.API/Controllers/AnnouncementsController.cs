@@ -19,28 +19,30 @@ public class AnnouncementsController : ControllerBase
         _service = service;
     }
 
-    /// <summary>Lista todos os avisos e comunicados</summary>
+    /// <summary>Lista os avisos do condomínio de quem está logado (paginação opcional: page, pageSize até 100)</summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetAll()
-    {
-        var caller = this.Caller();
-        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+    public Task<IActionResult> GetAll([FromQuery] int? page = null, [FromQuery] int? pageSize = null) =>
+        ListAsync(activeOnly: false, category: null, page, pageSize);
 
-        var announcements = await _service.GetAllAsync();
-        return Ok(caller.InCondominium(announcements, announcement => announcement.CondominiumId));
-    }
-
-    /// <summary>Lista apenas os avisos ativos</summary>
+    /// <summary>Lista apenas os avisos ativos do condomínio</summary>
     [HttpGet("active")]
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetActive()
+    public Task<IActionResult> GetActive([FromQuery] int? page = null, [FromQuery] int? pageSize = null) =>
+        ListAsync(activeOnly: true, category: null, page, pageSize);
+
+    // A consulta já vem filtrada pelo condomínio do token (no banco, com índice); o total vai em X-Total-Count.
+    private async Task<IActionResult> ListAsync(bool activeOnly, string? category, int? page, int? pageSize)
     {
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (Paging.Normalize(page, pageSize) is not var (normalizedPage, normalizedSize))
+            return BadRequest(new { message = $"Página inválida: page a partir de 1 e pageSize de 1 a {Paging.MaxPageSize}." });
 
-        var announcements = await _service.GetActiveAsync();
-        return Ok(caller.InCondominium(announcements, announcement => announcement.CondominiumId));
+        var result = await _service.QueryAsync(new AnnouncementQuery(
+            caller.CondominiumId!, activeOnly, category, normalizedPage, normalizedSize));
+        Response.Headers["X-Total-Count"] = result.Total.ToString();
+        return Ok(result.Items);
     }
 
     /// <summary>Busca um aviso pelo ID</summary>
@@ -68,14 +70,8 @@ public class AnnouncementsController : ControllerBase
     /// <summary>Filtra avisos por categoria</summary>
     [HttpGet("category/{category}")]
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
-    public async Task<IActionResult> GetByCategory(string category)
-    {
-        var caller = this.Caller();
-        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
-
-        var announcements = await _service.GetByCategoryAsync(category);
-        return Ok(caller.InCondominium(announcements, announcement => announcement.CondominiumId));
-    }
+    public Task<IActionResult> GetByCategory(string category, [FromQuery] int? page = null, [FromQuery] int? pageSize = null) =>
+        ListAsync(activeOnly: false, category, page, pageSize);
 
     /// <summary>Cria um novo aviso ou comunicado</summary>
     [HttpPost]

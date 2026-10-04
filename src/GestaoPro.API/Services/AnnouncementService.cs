@@ -13,17 +13,12 @@ public class AnnouncementService : IAnnouncementService
         _repository = repository;
     }
 
-    public Task<List<Announcement>> GetAllAsync() => _repository.GetAllAsync();
+    public Task<PagedResult<Announcement>> QueryAsync(AnnouncementQuery query) => _repository.QueryAsync(query);
 
     public Task<Announcement?> GetByIdAsync(string id) => _repository.GetByIdAsync(id);
 
     public Task<List<Announcement>> GetByCondominiumAsync(string condominiumId) =>
         _repository.GetByCondominiumAsync(condominiumId);
-
-    public Task<List<Announcement>> GetActiveAsync() => _repository.GetActiveAsync();
-
-    public Task<List<Announcement>> GetByCategoryAsync(string category) =>
-        _repository.GetByCategoryAsync(category);
 
     public async Task<Announcement> CreateAsync(CreateAnnouncementDto dto)
     {

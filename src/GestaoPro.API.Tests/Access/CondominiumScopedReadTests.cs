@@ -116,9 +116,13 @@ public class AnnouncementsControllerReadTests
             new() { Id = "aviso-a", CondominiumId = CondominioA, Category = "geral" },
             new() { Id = "aviso-b", CondominiumId = CondominioB, Category = "geral" },
         };
-        _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
-        _service.Setup(s => s.GetActiveAsync()).ReturnsAsync(all);
-        _service.Setup(s => s.GetByCategoryAsync("geral")).ReturnsAsync(all);
+        // O filtro por condomínio é do banco: o serviço só devolve o que a consulta pede.
+        _service.Setup(s => s.QueryAsync(It.IsAny<AnnouncementQuery>()))
+            .ReturnsAsync((AnnouncementQuery q) =>
+            {
+                var items = all.Where(a => a.CondominiumId == q.CondominiumId).ToList();
+                return new PagedResult<AnnouncementModel>(items, items.Count);
+            });
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => all.FirstOrDefault(a => a.Id == id));
     }
 
@@ -135,6 +139,36 @@ public class AnnouncementsControllerReadTests
             Assert.Equal(new[] { "aviso-a" }, ValueOf<IEnumerable<AnnouncementModel>>(list).Select(a => a.Id));
         Assert.Equal(404, StatusOf(other));
         Assert.Equal(404, StatusOf(byOther));
+    }
+
+    [Fact]
+    public async Task Listas_consultam_so_o_condominio_do_token_com_filtros_e_pagina()
+    {
+        var queries = new List<AnnouncementQuery>();
+        _service.Setup(s => s.QueryAsync(Capture.In(queries)))
+            .ReturnsAsync(new PagedResult<AnnouncementModel>(new List<AnnouncementModel>(), 42));
+        var controller = _controller.As("joao", "morador");
+
+        await controller.GetAll(page: 2, pageSize: 10);
+        await controller.GetActive();
+        await controller.GetByCategory("geral");
+
+        Assert.All(queries, q => Assert.Equal(CondominioA, q.CondominiumId));
+        Assert.Equal((2, 10), (queries[0].Page, queries[0].PageSize));
+        Assert.True(queries[1].ActiveOnly);
+        Assert.Equal("geral", queries[2].Category);
+        Assert.Equal("42", controller.Response.Headers["X-Total-Count"].ToString());
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(1, 0)]
+    [InlineData(1, 101)]
+    public async Task Pagina_invalida_e_400(int page, int pageSize)
+    {
+        var result = await _controller.As("joao", "morador").GetAll(page, pageSize);
+
+        Assert.Equal(400, StatusOf(result));
     }
 }
 
