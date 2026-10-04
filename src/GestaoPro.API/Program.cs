@@ -113,6 +113,8 @@ builder.Services.AddScoped<IUserDirectory>(provider => provider.GetRequiredServi
 builder.Services.AddScoped<PetAppService>();
 builder.Services.AddScoped<IPetService>(provider => provider.GetRequiredService<PetAppService>());
 builder.Services.AddScoped<AuthAppService>();
+builder.Services.AddScoped<ISelfServiceAccounts, MongoSelfServiceAccounts>();
+builder.Services.AddScoped<SelfServiceAuthService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<OccurrenceAppService>();
 builder.Services.AddScoped<IOccurrenceService>(provider => provider.GetRequiredService<OccurrenceAppService>());

@@ -11,11 +11,13 @@ public class AuthController : ControllerBase
 {
     private readonly AuthAppService _service;
     private readonly IUserDirectory _users;
+    private readonly SelfServiceAuthService _selfService;
 
-    public AuthController(AuthAppService service, IUserDirectory users)
+    public AuthController(AuthAppService service, IUserDirectory users, SelfServiceAuthService selfService)
     {
         _service = service;
         _users = users;
+        _selfService = selfService;
     }
 
     [HttpPost("login")]
@@ -63,7 +65,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            await _service.ChangePasswordAsync(request);
+            await _selfService.ChangePasswordOnFirstAccessAsync(request);
             return NoContent();
         }
         catch (InvalidOperationException ex)
@@ -93,7 +95,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var result = await _service.CheckCpfAsync(request);
+            var result = await _selfService.CheckCpfAsync(request);
             return Ok(result);
         }
         catch (Exception ex)
@@ -107,7 +109,7 @@ public class AuthController : ControllerBase
     {
         try
         {
-            var result = await _service.SelfRegisterAsync(request);
+            var result = await _selfService.SelfRegisterAsync(request);
             return Ok(result);
         }
         catch (InvalidOperationException ex)

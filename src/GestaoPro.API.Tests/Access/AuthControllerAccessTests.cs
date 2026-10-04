@@ -14,7 +14,7 @@ public class AuthControllerAccessTests
     }
 
     // O AuthAppService não é exercitado aqui (depende do MongoDB): as recusas acontecem antes dele.
-    private AuthController Controller() => new AuthController(null!, _users.Object).As("admin-a", "admin");
+    private AuthController Controller() => new AuthController(null!, _users.Object, null!).As("admin-a", "admin");
 
     [Fact]
     public async Task Admin_nao_mexe_na_credencial_de_usuario_de_outro_condominio()
