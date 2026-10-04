@@ -392,6 +392,8 @@ export const createCondominium = (data: {
   zipCode: string;
   rules?: string;
   regulations?: string;
+  // Código do condomínio (senha padrão): obrigatório no cadastro, forte (a API recusa código óbvio).
+  defaultPassword: string;
 }) =>
   request<Condominium>('/api/Condominiums', {
     method: 'POST',
@@ -409,6 +411,8 @@ export const updateCondominium = (id: string, data: {
   zipCode: string;
   rules?: string;
   regulations?: string;
+  // Em branco mantém o código atual.
+  defaultPassword?: string;
 }) =>
   request<Condominium>(`/api/Condominiums/${encodeURIComponent(id)}`, {
     method: 'PUT',

@@ -32,6 +32,7 @@ const INITIAL_FORM = {
   zipCode: '',
   rules: '',
   regulations: '',
+  defaultPassword: '',
 };
 
 function canManageCondominiums(role?: string) {
@@ -100,6 +101,10 @@ export default function CondominiosScreen() {
       setFormError('Informe um CEP valido no formato 00000-000.');
       return;
     }
+    if (!editingId && !form.defaultPassword) {
+      setFormError('Informe o código do condomínio (mínimo 8 caracteres, sem sequências como 12345678).');
+      return;
+    }
 
     savingRef.current = true;
     setSaving(true);
@@ -116,6 +121,7 @@ export default function CondominiosScreen() {
         zipCode: form.zipCode.trim(),
         rules: form.rules.trim(),
         regulations: form.regulations.trim(),
+        defaultPassword: form.defaultPassword,
       };
 
       if (editingId) {
@@ -161,6 +167,7 @@ export default function CondominiosScreen() {
       zipCode: condominium.zipCode ?? '',
       rules: condominium.rules ?? '',
       regulations: condominium.regulations ?? '',
+      defaultPassword: '',
     });
     setFormError('');
     setModalVisible(true);
@@ -281,6 +288,14 @@ export default function CondominiosScreen() {
             <Field label="CEP *" placeholder="00000-000" keyboardType="numeric" maxLength={9} value={form.zipCode} onChangeText={zipCode => setForm({ ...form, zipCode: maskCep(zipCode) })} />
             <Field label="Regras" multiline value={form.rules} onChangeText={rules => setForm({ ...form, rules })} />
             <Field label="Regulamento" multiline value={form.regulations} onChangeText={regulations => setForm({ ...form, regulations })} />
+            <Field
+              label={editingId ? 'Código do condomínio (em branco mantém o atual)' : 'Código do condomínio *'}
+              placeholder="Mínimo 8 caracteres, sem sequências como 12345678"
+              secureTextEntry
+              autoCapitalize="none"
+              value={form.defaultPassword}
+              onChangeText={defaultPassword => setForm({ ...form, defaultPassword })}
+            />
             <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
               <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</Text>
             </TouchableOpacity>
