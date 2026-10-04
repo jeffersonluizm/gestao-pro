@@ -12,7 +12,7 @@ public class BillsControllerAccessTests
 
     public BillsControllerAccessTests()
     {
-        _controller = new BillsController(_billService.Object);
+        _controller = new BillsController(_billService.Object, new Mock<IUserDirectory>().Object);
         _billService.Setup(s => s.GetBillByIdAsync("cobranca-joao"))
             .ReturnsAsync(MakeBill("cobranca-joao", "joao", CondominioA));
         _billService.Setup(s => s.GetBillByIdAsync("cobranca-outro-condominio"))

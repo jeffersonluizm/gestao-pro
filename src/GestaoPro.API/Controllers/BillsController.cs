@@ -11,10 +11,12 @@ namespace GestaoPro.API.Controllers;
 public class BillsController : ControllerBase
 {
     private readonly IBillService _billService;
+    private readonly IUserDirectory _users;
 
-    public BillsController(IBillService billService)
+    public BillsController(IBillService billService, IUserDirectory users)
     {
         _billService = billService;
+        _users = users;
     }
 
     [HttpPost]
@@ -23,6 +25,7 @@ public class BillsController : ControllerBase
         // Admin/síndico emite cobrança só no próprio condomínio.
         var caller = this.Caller();
         if (this.DenyManage(caller, dto.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+        if (await DenyOtherCondominiumResidentAsync(caller, dto.UserId) is { } otherResident) return otherResident;
 
         var result = await _billService.CreateBillAsync(dto);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
@@ -64,9 +67,18 @@ public class BillsController : ControllerBase
         if (this.DenyManage(caller, existing.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
         // Não move a cobrança para outro condomínio.
         if (dto.CondominiumId is not null && this.DenyManage(caller, dto.CondominiumId, staff: true) is { } moved) return moved;
+        if (dto.UserId is not null && await DenyOtherCondominiumResidentAsync(caller, dto.UserId) is { } otherResident)
+            return otherResident;
 
         var bill = await _billService.UpdateBillAsync(id, dto);
         return bill is null ? NotFound() : Ok(bill);
+    }
+
+    // A cobrança é do morador: ele precisa ser do condomínio da cobrança (o do token); outro ou inexistente: 404.
+    private async Task<ActionResult?> DenyOtherCondominiumResidentAsync(Caller caller, string userId)
+    {
+        var resident = await _users.GetByIdAsync(userId);
+        return this.DenyManage(caller, resident?.CondominiumId, staff: true);
     }
 
     // Cobrança não faz parte do fluxo do porteiro; sem condomínio no token, nada é lido.
