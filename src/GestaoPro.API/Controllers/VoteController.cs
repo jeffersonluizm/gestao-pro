@@ -2,6 +2,7 @@ using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Repositories;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -30,6 +31,7 @@ public class VoteController : ControllerBase
             return Unauthorized(new { message = "Login obrigatório para votar." });
 
         dto.UserId = currentUserId;
+        if (await DenyOtherCondominiumAssemblyAsync(dto.AssemblyId) is { } denied) return denied;
 
         if (await _voteService.HasUserVotedAsync(dto.AssemblyId, dto.UserId, dto.TopicIndex))
             return BadRequest(new { message = "Você já votou nesta pauta." });
@@ -52,6 +54,8 @@ public class VoteController : ControllerBase
     [HttpGet("assembly/{assemblyId}")]
     public async Task<IActionResult> GetResults(string assemblyId)
     {
+        if (await DenyOtherCondominiumAssemblyAsync(assemblyId) is { } denied) return denied;
+
         var allVotes = await _voteService.GetByAssemblyAsync(assemblyId);
         var currentUserId = CurrentUserId();
         var visibleVotes = IsAdministrator()
@@ -97,7 +101,20 @@ public class VoteController : ControllerBase
     public async Task<IActionResult> GetById(string id)
     {
         var vote = await _voteService.GetByIdAsync(id);
-        return vote is null ? NotFound() : Ok(await ToVoteResponseAsync(vote, CurrentUserId()));
+        if (vote is null) return NotFound();
+        if (await DenyOtherCondominiumAssemblyAsync(vote.AssemblyId) is { } denied) return denied;
+
+        return Ok(await ToVoteResponseAsync(vote, CurrentUserId()));
+    }
+
+    // A assembleia é do condomínio: votar e ver votos só no condomínio do token (outro ou inexistente: 404).
+    private async Task<IActionResult?> DenyOtherCondominiumAssemblyAsync(string assemblyId)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+
+        var assembly = await _assemblyRepository.GetByIdAsync(assemblyId);
+        return string.Equals(assembly?.CondominiumId, caller.CondominiumId, StringComparison.Ordinal) ? null : NotFound();
     }
 
     private string? CurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
