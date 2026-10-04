@@ -61,9 +61,10 @@ public sealed class MongoReservationSlotLock : IReservationSlotLock
         {
             try
             {
-                await _leases.InsertOneAsync(new SlotLease { Id = key, ExpiresAt = DateTime.UtcNow + LeaseDuration },
+                var owner = Guid.NewGuid().ToString("N");
+                await _leases.InsertOneAsync(new SlotLease { Id = key, Owner = owner, ExpiresAt = DateTime.UtcNow + LeaseDuration },
                     cancellationToken: cancellationToken);
-                return new Release(_leases, key);
+                return new Release(_leases, key, owner);
             }
             catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
             {
@@ -79,11 +80,13 @@ public sealed class MongoReservationSlotLock : IReservationSlotLock
     public sealed class SlotLease
     {
         public string Id { get; set; } = string.Empty;
+        // Quem segura a trava: só o dono a libera (se a trava venceu e outro pedido a pegou, não apaga a dele).
+        public string Owner { get; set; } = string.Empty;
         public DateTime ExpiresAt { get; set; }
     }
 
-    private sealed class Release(IMongoCollection<SlotLease> leases, string key) : IAsyncDisposable
+    private sealed class Release(IMongoCollection<SlotLease> leases, string key, string owner) : IAsyncDisposable
     {
-        public async ValueTask DisposeAsync() => await leases.DeleteOneAsync(l => l.Id == key);
+        public async ValueTask DisposeAsync() => await leases.DeleteOneAsync(l => l.Id == key && l.Owner == owner);
     }
 }

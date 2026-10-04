@@ -60,6 +60,29 @@ public class ReservationRaceTests
         Assert.Single(_stored);
     }
 
+    // A mesma data e o mesmo horário escritos de outro jeito ("2026/10/20", "9:00") não podem escapar da conferência.
+    [Theory]
+    [InlineData("yyyy/MM/dd", "18:00", "20:00")]
+    [InlineData("yyyy-M-d", "18:00", "20:00")]
+    [InlineData("yyyy-MM-dd", "18:0", "20:00")]
+    public async Task Data_e_hora_em_outro_formato_ainda_conflitam(string formatoData, string inicio, string fim)
+    {
+        var service = new ReservationService(_repository.Object, _areas.Object, new InProcessReservationSlotLock());
+        var dia = DateTime.Today.AddDays(5);
+        var primeiro = Pedido("morador-1");
+        primeiro.Date = dia.ToString("yyyy-MM-dd");
+        await service.CreateAsync(primeiro);
+
+        var pedido = Pedido("morador-2");
+        pedido.Date = dia.ToString(formatoData, System.Globalization.CultureInfo.InvariantCulture);
+        pedido.StartTime = inicio;
+        pedido.EndTime = fim;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => service.CreateAsync(pedido));
+        Assert.Single(_stored);
+        Assert.All(_stored, r => Assert.Equal(dia.ToString("yyyy-MM-dd"), r.Date));
+    }
+
     [Fact]
     public async Task Areas_diferentes_nao_esperam_uma_pela_outra()
     {

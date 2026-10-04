@@ -1,4 +1,5 @@
-﻿using GestaoPro.API.DTOs;
+﻿using System.Globalization;
+using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Repositories;
 
@@ -41,6 +42,11 @@ public class ReservationService : IReservationService
 
     public async Task<Reservation> CreateAsync(CreateReservationDto dto)
     {
+        // Formato único antes de qualquer conferência: "2026/10/20" e "9:00" viram "2026-10-20" e "09:00".
+        dto.Date = NormalizeDate(dto.Date);
+        dto.StartTime = NormalizeTime(dto.StartTime);
+        dto.EndTime = NormalizeTime(dto.EndTime);
+
         var commonArea = await _commonAreaRepository.GetByIdAsync(dto.CommonAreaId);
         if (commonArea is null || !commonArea.IsActive)
             throw new InvalidOperationException("Área comum inválida.");
@@ -72,9 +78,9 @@ public class ReservationService : IReservationService
         var reservation = await _repository.GetByIdAsync(id);
         if (reservation is null) return null;
 
-        if (dto.Date is not null) reservation.Date = dto.Date;
-        if (dto.StartTime is not null) reservation.StartTime = dto.StartTime;
-        if (dto.EndTime is not null) reservation.EndTime = dto.EndTime;
+        if (dto.Date is not null) reservation.Date = NormalizeDate(dto.Date);
+        if (dto.StartTime is not null) reservation.StartTime = NormalizeTime(dto.StartTime);
+        if (dto.EndTime is not null) reservation.EndTime = NormalizeTime(dto.EndTime);
         if (dto.Status is not null) reservation.Status = dto.Status;
         if (dto.Observations is not null) reservation.Observations = dto.Observations;
 
@@ -107,6 +113,19 @@ public class ReservationService : IReservationService
         await _repository.DeleteAsync(id);
         return true;
     }
+
+    private static readonly string[] DateFormats = { "yyyy-MM-dd", "yyyy-M-d", "yyyy/MM/dd", "yyyy/M/d", "dd/MM/yyyy", "d/M/yyyy" };
+    private static readonly string[] TimeFormats = { "HH:mm", "H:mm", "H:m", "HH:m" };
+
+    private static string NormalizeDate(string? date) =>
+        DateOnly.TryParseExact((date ?? string.Empty).Trim(), DateFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value)
+            ? value.ToString("yyyy-MM-dd", CultureInfo.InvariantCulture)
+            : throw new InvalidOperationException("Data inválida. Use o formato AAAA-MM-DD.");
+
+    private static string NormalizeTime(string? time) =>
+        TimeOnly.TryParseExact((time ?? string.Empty).Trim(), TimeFormats, CultureInfo.InvariantCulture, DateTimeStyles.None, out var value)
+            ? value.ToString("HH:mm", CultureInfo.InvariantCulture)
+            : throw new InvalidOperationException("Horário inválido. Use o formato HH:MM.");
 
     private static void EnsureReservationTimeIsValid(string startTime, string endTime, CommonArea commonArea)
     {
