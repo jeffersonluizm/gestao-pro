@@ -129,6 +129,37 @@ describe('navegação', () => {
   })
 })
 
+describe('Cadastro', () => {
+  // O cadastro anônimo exige o código do condomínio (a senha padrão que a administração entrega).
+  it('pede o código do condomínio e o envia ao cadastrar', async () => {
+    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = new URL(String(input), 'http://localhost')
+      const method = (init?.method ?? 'GET').toUpperCase()
+      calls.push({ method, path: url.pathname, body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      const body = url.pathname === '/api/Condominiums'
+        ? [{ id: 'c-1', name: 'Condomínio Teste' }]
+        : { registrationNumber: 'maria@condominio.com', name: 'Maria' }
+      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
+    }))
+    const user = userEvent.setup()
+    render(<App />)
+    await user.click(screen.getByRole('button', { name: 'Cadastrar-se' }))
+
+    await user.selectOptions(await screen.findByLabelText('Condomínio'), 'c-1')
+    await user.type(screen.getByLabelText('CPF'), '11111111111')
+    await user.type(screen.getByLabelText('Código do condomínio'), 'codigo-123')
+    await user.type(screen.getByLabelText('Senha'), 'senha-nova')
+    await user.type(screen.getByLabelText('Confirmar senha'), 'senha-nova')
+    await user.click(screen.getByRole('button', { name: 'Cadastrar' }))
+
+    await waitFor(() => expect(calls).toContainEqual(expect.objectContaining({
+      method: 'POST',
+      path: '/api/auth/register',
+      body: { cpf: '11111111111', condominiumId: 'c-1', condominiumCode: 'codigo-123', password: 'senha-nova' },
+    })))
+  })
+})
+
 describe('Visitantes', () => {
   it('porteiro registra entrada e saída de visitante', async () => {
     loginAs('porteiro')

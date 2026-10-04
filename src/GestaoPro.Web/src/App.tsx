@@ -1347,7 +1347,7 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
   const [message, setMessage] = useState('')
   const [registrationNumber, setRegistrationNumber] = useState('')
   const [registeredName, setRegisteredName] = useState('')
-  const [form, setForm] = useState({ condominiumId: '', cpf: '', password: '', confirmPassword: '' })
+  const [form, setForm] = useState({ condominiumId: '', cpf: '', condominiumCode: '', password: '', confirmPassword: '' })
 
   useEffect(() => {
     fetch(`${API_BASE}/api/Condominiums`)
@@ -1366,6 +1366,7 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
     e.preventDefault()
     if (!form.condominiumId) { setMessage('Selecione um condomínio.'); return }
     if (!isValidCpfFormat(form.cpf)) { setMessage('Informe um CPF válido no formato 000.000.000-00.'); return }
+    if (!form.condominiumCode.trim()) { setMessage('Informe o código do condomínio.'); return }
     if (form.password !== form.confirmPassword) { setMessage('As senhas não coincidem.'); return }
     if (form.password.length < 6) { setMessage('A senha deve ter pelo menos 6 caracteres.'); return }
     setLoading(true)
@@ -1373,7 +1374,7 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
     try {
       const result = await requestJson<{ registrationNumber: string; name: string }>('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ cpf: onlyDigits(form.cpf), condominiumId: form.condominiumId, password: form.password }),
+        body: JSON.stringify({ cpf: onlyDigits(form.cpf), condominiumId: form.condominiumId, condominiumCode: form.condominiumCode.trim(), password: form.password }),
       })
       setRegistrationNumber(result.registrationNumber)
       setRegisteredName(result.name)
@@ -1406,7 +1407,7 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
       <section className="panel">
         <h2>Cadastrar-se</h2>
         <p style={{ marginBottom: '1rem', color: 'var(--text-muted, #666)' }}>
-          Seu CPF precisa estar pré-cadastrado pelo administrador do condomínio.
+          Seu CPF precisa estar pré-cadastrado pelo administrador do condomínio, que também informa o código do condomínio.
         </p>
         <form onSubmit={handleSubmit} className="form-grid">
           <label>
@@ -1429,6 +1430,16 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
               placeholder="000.000.000-00"
               value={form.cpf}
               onChange={e => setForm(f => ({ ...f, cpf: maskCpf(e.target.value) }))}
+              required
+            />
+          </label>
+          <label>
+            Código do condomínio
+            <input
+              type="password"
+              autoComplete="off"
+              value={form.condominiumCode}
+              onChange={e => setForm(f => ({ ...f, condominiumCode: e.target.value }))}
               required
             />
           </label>
