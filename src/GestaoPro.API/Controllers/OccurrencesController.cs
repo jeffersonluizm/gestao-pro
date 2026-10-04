@@ -6,6 +6,8 @@ using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
+// Ocorrência é do morador que registrou: ele vê e remove as próprias; a administração vê e trata as do condomínio.
+// A identidade vem do token (os cabeçalhos X-User-Id/X-Condominium-Id não decidem mais nada).
 [ApiController]
 [Route("api/[controller]")]
 public class OccurrencesController : ControllerBase
@@ -18,40 +20,66 @@ public class OccurrencesController : ControllerBase
     }
 
     [HttpGet("condominium/{condominiumId}")]
-    public async Task<IActionResult> GetAllByCondominium(string condominiumId) =>
-        Ok(await _service.GetAllByCondominiumAsync(condominiumId));
+    public async Task<IActionResult> GetAllByCondominium(string condominiumId)
+    {
+        var caller = this.Caller();
+        if (DenyCondominium(caller, condominiumId) is { } denied) return denied;
+
+        return Ok(Visible(caller, await _service.GetAllByCondominiumAsync(condominiumId)));
+    }
 
     [HttpGet("condominium/{condominiumId}/status/{status}")]
     public async Task<IActionResult> GetByCondominiumAndStatus(
-        string condominiumId, OccurrenceStatus status) =>
-        Ok(await _service.GetByCondominiumAndStatusAsync(condominiumId, status));
+        string condominiumId, OccurrenceStatus status)
+    {
+        var caller = this.Caller();
+        if (DenyCondominium(caller, condominiumId) is { } denied) return denied;
+
+        return Ok(Visible(caller, await _service.GetByCondominiumAndStatusAsync(condominiumId, status)));
+    }
 
     [HttpGet("user/{userId}")]
-    public async Task<IActionResult> GetByUser(string userId) =>
-        Ok(await _service.GetByUserAsync(userId));
+    public async Task<IActionResult> GetByUser(string userId)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!caller.IsAdministrator && !string.Equals(caller.UserId, userId, StringComparison.Ordinal))
+            return this.Forbidden();
+
+        return Ok(Visible(caller, await _service.GetByUserAsync(userId)));
+    }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var occurrence = await _service.GetByIdAsync(id);
-        return occurrence is null ? NotFound() : Ok(occurrence);
+        if (occurrence is null) return NotFound();
+
+        return this.Deny(ResourceAccess.Decide(caller, occurrence.UserId, occurrence.CondominiumId, caller.IsAdministrator))
+            ?? Ok(occurrence);
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateOccurrenceRequest request)
     {
-        var userIdLogado = Request.Headers["X-User-Id"].ToString();
-        var condominiumId = Request.Headers["X-Condominium-Id"].ToString();
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        if (string.IsNullOrEmpty(userIdLogado)) return Unauthorized();
-        if (string.IsNullOrEmpty(condominiumId)) return Unauthorized();
-
-        // Sobrescreve os valores do body com os do token
-        request = request with
+        if (caller.IsAdministrator)
         {
-            UserId = userIdLogado,
-            CondominiumId = condominiumId
-        };
+            // A administração registra para um morador (o painel manda o morador em X-User-Id), só no próprio condomínio.
+            var userId = FirstFilled(Request.Headers["X-User-Id"].ToString(), request.UserId);
+            var condominiumId = FirstFilled(Request.Headers["X-Condominium-Id"].ToString(), request.CondominiumId);
+            if (this.DenyManage(caller, condominiumId, staff: true) is { } denied) return denied;
+            request = request with { UserId = userId ?? caller.UserId!, CondominiumId = condominiumId! };
+        }
+        else
+        {
+            request = request with { UserId = caller.UserId!, CondominiumId = caller.CondominiumId! };
+        }
 
         try
         {
@@ -67,8 +95,7 @@ public class OccurrencesController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateOccurrenceRequest request)
     {
-        var userIdLogado = Request.Headers["X-User-Id"].ToString();
-        if (string.IsNullOrEmpty(userIdLogado)) return Unauthorized();
+        if (await DenyManageAsync(id) is { } denied) return denied;
 
         try
         {
@@ -85,11 +112,10 @@ public class OccurrencesController : ControllerBase
     public async Task<IActionResult> UpdateStatus(
         string id, [FromBody] UpdateOccurrenceStatusRequest request)
     {
-        var userIdLogado = Request.Headers["X-User-Id"].ToString();
-        if (string.IsNullOrEmpty(userIdLogado)) return Unauthorized();
+        if (await DenyManageAsync(id) is { } denied) return denied;
 
-        // Sobrescreve o UpdatedByUserId com o do token
-        request = request with { UpdatedByUserId = userIdLogado };
+        // Quem mudou o status é sempre o usuário do token.
+        request = request with { UpdatedByUserId = this.Caller().UserId! };
 
         try
         {
@@ -105,7 +131,7 @@ public class OccurrencesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        // Identidade vem do token, não de cabeçalho: o morador remove as próprias; a administração, as do condomínio.
+        // O morador remove as próprias; a administração, as do condomínio.
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
@@ -117,5 +143,29 @@ public class OccurrencesController : ControllerBase
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();
     }
-}
 
+    private ActionResult? DenyCondominium(Caller caller, string condominiumId)
+    {
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+        return string.Equals(caller.CondominiumId, condominiumId, StringComparison.Ordinal) ? null : NotFound();
+    }
+
+    private async Task<ActionResult?> DenyManageAsync(string id)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        var occurrence = await _service.GetByIdAsync(id);
+        if (occurrence is null) return NotFound();
+        return this.DenyManage(caller, occurrence.CondominiumId, staff: true);
+    }
+
+    private static List<OccurrenceResponse> Visible(Caller caller, IEnumerable<OccurrenceResponse> occurrences) =>
+        occurrences
+            .Where(occurrence => ResourceAccess.CanSee(caller, occurrence.UserId, occurrence.CondominiumId, caller.IsAdministrator))
+            .ToList();
+
+    private static string? FirstFilled(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+}
