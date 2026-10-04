@@ -7,7 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 
-import { checkCpf, selfRegister, getCondominiums, Condominium, getFriendlyErrorMessage } from '../../api/client';
+import { checkCpf, selfRegister, getPublicCondominiums, CondominiumSummary, getFriendlyErrorMessage } from '../../api/client';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { isValidCpfFormat, maskCpf, maskPhoneBR, onlyDigits } from '../../utils/formatters';
 
@@ -18,7 +18,7 @@ type Step = 'cpf' | 'form' | 'success';
 export default function RegisterScreen({ navigation }: Props) {
   const [step, setStep] = useState<Step>('cpf');
   const [loading, setLoading] = useState(false);
-  const [condominiums, setCondominiums] = useState<Condominium[]>([]);
+  const [condominiums, setCondominiums] = useState<CondominiumSummary[]>([]);
 
   // Passo 1
   const [cpf, setCpf] = useState('');
@@ -38,7 +38,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [registeredEmail, setRegisteredEmail] = useState('');
 
   useEffect(() => {
-    getCondominiums()
+    getPublicCondominiums()
       .then(setCondominiums)
       .catch(() => Alert.alert('Aviso', 'Não foi possível carregar os condomínios. Verifique a conexão com a API.'));
   }, []);

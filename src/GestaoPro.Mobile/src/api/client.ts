@@ -378,8 +378,18 @@ export const changeUserPassword = (userId: string, currentPassword: string, newP
   });
 
 // ─── Condomínios ──────────────────────────────────────────────────────────────
+// Com login: só o condomínio do próprio token (lista de um item).
 export const getCondominiums = () =>
   request<Condominium[]>('/api/Condominiums');
+
+// Sem login (tela de cadastro): só id e nome.
+export interface CondominiumSummary {
+  id: string;
+  name: string;
+}
+
+export const getPublicCondominiums = () =>
+  request<CondominiumSummary[]>('/api/Condominiums/public', {}, false);
 
 export const createCondominium = (data: {
   name: string;

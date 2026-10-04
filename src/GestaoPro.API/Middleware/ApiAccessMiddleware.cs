@@ -28,10 +28,10 @@ public class ApiAccessMiddleware
         if (HttpMethods.IsGet(context.Request.Method) ||
             HttpMethods.IsHead(context.Request.Method))
         {
-            // Leitura exige login; ficam abertas só a lista de condomínios (tela de cadastro) e o health check.
+            // Leitura exige login; ficam abertas só a lista pública de condomínios ({id, nome}, tela de cadastro) e o health check.
             var isPublicRead =
                 !path.StartsWith("/api/") ||
-                path == "/api/condominiums" ||
+                path == "/api/condominiums/public" ||
                 path.StartsWith("/api/health/");
 
             if (!isPublicRead && context.User.Identity?.IsAuthenticated != true)

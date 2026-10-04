@@ -158,7 +158,7 @@ describe('Cadastro', () => {
       const url = new URL(String(input), 'http://localhost')
       const method = (init?.method ?? 'GET').toUpperCase()
       calls.push({ method, path: url.pathname, body: init?.body ? JSON.parse(String(init.body)) : undefined })
-      const body = url.pathname === '/api/Condominiums'
+      const body = url.pathname === '/api/Condominiums/public'
         ? [{ id: 'c-1', name: 'Condomínio Teste' }]
         : { registrationNumber: 'maria@condominio.com', name: 'Maria' }
       return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })

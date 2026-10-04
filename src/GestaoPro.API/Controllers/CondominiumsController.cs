@@ -16,14 +16,26 @@ public class CondominiumsController : ControllerBase
         _service = service;
     }
 
+    // Com login: o condomínio do próprio token (lista de um item, para as telas de gestão).
     [HttpGet]
-    public async Task<IActionResult> GetAll() =>
-        Ok(await _service.GetAllAsync());
+    public async Task<IActionResult> GetAll()
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        var own = await _service.GetByIdAsync(caller.CondominiumId!);
+        return Ok(own is null ? new List<CondominiumResponse>() : new List<CondominiumResponse> { own });
+    }
+
+    // Sem login (tela de cadastro): só id e nome de cada condomínio.
+    [HttpGet("public")]
+    public async Task<IActionResult> GetPublic() =>
+        Ok(await _service.GetPublicAsync());
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        // A lista (GET /api/condominiums) segue pública para a tela de cadastro; o detalhe é só do próprio condomínio.
+        // O detalhe é só do próprio condomínio.
         if (this.DenyOtherCondominium(this.Caller(), id) is { } denied) return denied;
 
         var condominium = await _service.GetByIdAsync(id);

@@ -42,7 +42,7 @@ public interface IUnitService
 
 public interface ICondominiumService
 {
-    Task<List<CondominiumResponse>> GetAllAsync();
+    Task<List<CondominiumSummary>> GetPublicAsync();
     Task<CondominiumResponse?> GetByIdAsync(string id);
     Task<CondominiumResponse> CreateAsync(CreateCondominiumRequest request);
     Task<CondominiumResponse?> UpdateAsync(string id, UpdateCondominiumRequest request);

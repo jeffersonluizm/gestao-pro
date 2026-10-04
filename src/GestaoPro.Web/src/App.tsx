@@ -1371,7 +1371,7 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
   const [form, setForm] = useState({ condominiumId: '', cpf: '', condominiumCode: '', password: '', confirmPassword: '' })
 
   useEffect(() => {
-    fetch(`${API_BASE}/api/Condominiums`)
+    fetch(`${API_BASE}/api/Condominiums/public`)
       .then(r => r.ok ? r.json() : Promise.reject())
       .then((data: Record<string, unknown>[]) => {
         setCondominiums(

@@ -31,6 +31,9 @@ public record UpdateCondominiumRequest(
     string? Regulations
 );
 
+// Lista pública (tela de cadastro, sem login): só o necessário para escolher o condomínio.
+public sealed record CondominiumSummary(string Id, string Name);
+
 public class CondominiumResponse
 {
     public string Id { get; set; } = string.Empty;

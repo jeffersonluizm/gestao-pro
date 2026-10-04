@@ -224,6 +224,40 @@ public class CondominiumsControllerReadTests
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => new CondominiumResponse { Id = id });
     }
 
+    // Tela de cadastro (anônima): só id e nome, sem CNPJ, endereço nem contagem de moradores.
+    [Fact]
+    public async Task Lista_publica_tem_so_id_e_nome()
+    {
+        _service.Setup(s => s.GetPublicAsync()).ReturnsAsync(new List<CondominiumSummary>
+        {
+            new(CondominioA, "Residencial A"),
+            new(CondominioB, "Residencial B"),
+        });
+
+        var result = await _controller.GetPublic();
+
+        var list = ValueOf<IEnumerable<CondominiumSummary>>(result).ToList();
+        Assert.Equal(new[] { "Residencial A", "Residencial B" }, list.Select(c => c.Name));
+        Assert.Equal(new[] { "Id", "Name" }, typeof(CondominiumSummary).GetProperties().Select(p => p.Name).OrderBy(n => n));
+    }
+
+    [Fact]
+    public async Task Lista_com_login_traz_so_o_proprio_condominio()
+    {
+        var result = await _controller.As("admin-a", "admin").GetAll();
+
+        var list = ValueOf<IEnumerable<CondominiumResponse>>(result).ToList();
+        Assert.Equal(new[] { CondominioA }, list.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task Lista_com_token_sem_condominio_e_recusada()
+    {
+        var result = await _controller.As("admin-a", "admin", condominiumId: null).GetAll();
+
+        Assert.Equal(403, StatusOf(result));
+    }
+
     [Fact]
     public async Task Detalhe_so_do_proprio_condominio()
     {

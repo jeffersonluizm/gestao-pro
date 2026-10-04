@@ -1,4 +1,5 @@
 ﻿using MongoDB.Driver;
+using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Settings;
 using Microsoft.Extensions.Options;
@@ -26,6 +27,13 @@ public class CondominiumRepository
     // Busca todos os condomínios.
     public async Task<List<Condominium>> GetAllAsync() =>
         await _condominiums.Find(_ => true).ToListAsync();
+
+    // Id e nome de todos, ordenados pelo nome (lista pública da tela de cadastro).
+    public async Task<List<CondominiumSummary>> GetSummariesAsync() =>
+        await _condominiums.Find(_ => true)
+            .SortBy(c => c.Name)
+            .Project(c => new CondominiumSummary(c.Id!, c.Name))
+            .ToListAsync();
 
     // Busca um condomínio específico pelo _id do MongoDB.
     public async Task<Condominium?> GetByIdAsync(string id) =>
