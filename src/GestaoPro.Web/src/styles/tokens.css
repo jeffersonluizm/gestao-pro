@@ -1,0 +1,79 @@
+/*
+ * Identidade visual do Gestão Pro (fonte única de cores, tipografia e espaçamentos do painel).
+ * Os mesmos nomes existem no app em src/GestaoPro.Mobile/src/theme/theme.ts (gp-color-brand = color.brand).
+ * Origem: a logo (marinho #0E243F e dourado #C8953D); o teal #176B87 é a cor de ação.
+ * Contraste conferido (WCAG AA): ver docs/06-Template Padrão da Aplicação.md.
+ */
+:root {
+  /* Marca */
+  --gp-color-brand: #0e243f;          /* marinho da logo: sidebar, títulos de destaque */
+  --gp-color-brand-strong: #081a2f;
+  --gp-color-brand-accent: #c8953d;   /* dourado da logo: só ícones e superfícies sobre o marinho (2,7:1 no branco) */
+  --gp-color-accent-text: #8a6220;    /* dourado escurecido para texto sobre claro (5,5:1) */
+  --gp-color-accent-soft: #f7eddc;
+  --gp-color-on-brand: #ffffff;
+  --gp-color-on-brand-muted: #b9c9d6;
+
+  /* Ação */
+  --gp-color-action: #176b87;         /* botões e links (6,0:1 com branco) */
+  --gp-color-action-hover: #0f5268;
+  --gp-color-action-soft: #e9f6f9;
+  --gp-color-on-action: #ffffff;
+
+  /* Neutros */
+  --gp-color-ink: #17212b;
+  --gp-color-ink-muted: #55626f;      /* 5,8:1 sobre o fundo */
+  --gp-color-background: #f5f7fb;
+  --gp-color-surface: #ffffff;
+  --gp-color-surface-soft: #eef3f7;
+  --gp-color-border: #dce4ea;         /* divisórias */
+  --gp-color-border-strong: #8795a3;  /* borda de campo: 3:1 com o branco */
+
+  /* Estados */
+  --gp-color-success: #1f7a4d;
+  --gp-color-success-soft: #e9f7ee;
+  --gp-color-danger: #b42318;
+  --gp-color-danger-hover: #8f1c13;
+  --gp-color-danger-soft: #fff0ed;
+  --gp-color-warning: #8a5300;
+  --gp-color-warning-soft: #fff6e5;
+
+  /* Tipografia (Inter carregada de @fontsource-variable/inter, sem CDN) */
+  --gp-font-family: 'Inter Variable', Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --gp-font-size-xs: 0.75rem;
+  --gp-font-size-sm: 0.875rem;
+  --gp-font-size-md: 1rem;
+  --gp-font-size-lg: 1.125rem;
+  --gp-font-size-xl: 1.5rem;
+  --gp-font-size-2xl: 2rem;
+  --gp-font-size-3xl: clamp(2rem, 4vw, 3rem);
+  --gp-font-weight-regular: 400;
+  --gp-font-weight-medium: 500;
+  --gp-font-weight-semibold: 600;
+  --gp-font-weight-bold: 700;
+  --gp-line-height: 1.5;
+
+  /* Espaçamento (escala de 4 px) */
+  --gp-space-1: 4px;
+  --gp-space-2: 8px;
+  --gp-space-3: 12px;
+  --gp-space-4: 16px;
+  --gp-space-5: 24px;
+  --gp-space-6: 32px;
+  --gp-space-7: 48px;
+  --gp-space-8: 64px;
+
+  /* Forma */
+  --gp-radius-sm: 6px;
+  --gp-radius-md: 10px;
+  --gp-radius-lg: 16px;
+  --gp-radius-pill: 999px;
+  --gp-shadow-sm: 0 1px 2px rgba(14, 36, 63, 0.08);
+  --gp-shadow-md: 0 12px 28px rgba(14, 36, 63, 0.10);
+  --gp-focus-ring: 0 0 0 3px rgba(23, 107, 135, 0.55);
+
+  /* Layout */
+  --gp-sidebar-width: 248px;
+  --gp-content-max: 1240px;
+  --gp-control-height: 40px;
+}

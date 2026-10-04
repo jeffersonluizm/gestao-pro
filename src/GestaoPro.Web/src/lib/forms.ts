@@ -1,4 +1,4 @@
-import { FieldDef, FieldType, LookupData, LookupKey, ModuleDef } from '../domain/types'
+import { AppSession, FieldDef, FieldType, LookupData, LookupKey, ModuleDef } from '../domain/types'
 import { normalizeId } from './format'
 import { formatOptionLabel } from './labels'
 import { apiDateToBR, dateBRToApi, formatBirthDate, isValidCpfFormat, isValidTime, maskCep, maskCnpj, maskCpf, maskPhoneBR, maskTime, onlyDigits, parseBirthDate } from './masks'
@@ -173,4 +173,15 @@ export function resolveSelectValue(field: FieldDef, value: string) {
     return label.includes(normalizedValue) || normalizedValue.includes(label)
   })
   return byContainedText?.value ?? ''
+}
+
+// O condomínio vem sempre da sessão (o token só permite o próprio): o campo some dos formulários
+// e o valor entra no corpo da requisição.
+export function withoutSessionFields(fields: FieldDef[] | undefined) {
+  return fields?.filter(field => field.name !== 'condominiumId')
+}
+
+export function withSessionCondominium(module: ModuleDef, payload: Record<string, unknown>, session: AppSession) {
+  const usesCondominium = [...(module.fields ?? []), ...(module.editFields ?? [])].some(field => field.name === 'condominiumId')
+  return usesCondominium ? { ...payload, condominiumId: session.condominiumId } : payload
 }

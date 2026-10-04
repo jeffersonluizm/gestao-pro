@@ -1,0 +1,60 @@
+/* Base: reset leve, tipografia e foco visível. Cores e medidas vêm de tokens.css. */
+*, *::before, *::after { box-sizing: border-box; }
+
+:root {
+  color: var(--gp-color-ink);
+  background: var(--gp-color-background);
+  font-family: var(--gp-font-family);
+  font-size: 16px;
+  line-height: var(--gp-line-height);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--gp-color-background);
+}
+
+h1, h2, h3, p { margin: 0; }
+h1 { font-size: var(--gp-font-size-2xl); line-height: 1.2; font-weight: var(--gp-font-weight-bold); letter-spacing: -0.01em; }
+h2 { font-size: var(--gp-font-size-lg); line-height: 1.3; font-weight: var(--gp-font-weight-semibold); }
+h3 { font-size: var(--gp-font-size-md); font-weight: var(--gp-font-weight-semibold); }
+ul { margin: 0; padding-left: 18px; }
+a { color: var(--gp-color-action); font-weight: var(--gp-font-weight-medium); }
+a:hover { color: var(--gp-color-action-hover); }
+img, svg { max-width: 100%; }
+
+button, input, select, textarea { font: inherit; color: inherit; }
+
+/* Foco sempre visível no teclado (WCAG 2.4.7). */
+:focus-visible {
+  outline: 2px solid var(--gp-color-action);
+  outline-offset: 2px;
+  box-shadow: var(--gp-focus-ring);
+}
+
+.visually-hidden {
+  position: absolute !important;
+  width: 1px; height: 1px;
+  padding: 0; margin: -1px;
+  overflow: hidden; clip: rect(0 0 0 0);
+  white-space: nowrap; border: 0;
+}
+
+.skip-link {
+  position: absolute;
+  left: var(--gp-space-3);
+  top: -60px;
+  z-index: 100;
+  padding: var(--gp-space-2) var(--gp-space-4);
+  border-radius: var(--gp-radius-sm);
+  color: var(--gp-color-on-action);
+  background: var(--gp-color-action);
+}
+.skip-link:focus { top: var(--gp-space-3); color: var(--gp-color-on-action); }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

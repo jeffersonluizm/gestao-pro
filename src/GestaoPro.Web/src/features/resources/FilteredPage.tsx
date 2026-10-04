@@ -1,148 +1,91 @@
-import { ReactNode, useEffect, useState } from 'react'
-import { requestJson } from '../../api/http'
+import { useEffect, useState } from 'react'
 import { JsonForm } from '../../components/form/ResourceForm'
 import { DataTable } from '../../components/ui/DataTable'
-import { LookupData, LookupKey, ModuleDef } from '../../domain/types'
+import { ErrorState, LoadingState } from '../../components/ui/States'
+import { AppSession, LookupData, LookupKey, ModuleDef, Row } from '../../domain/types'
 import { normalizeId } from '../../lib/format'
-import { withLookupOptions } from '../../lib/forms'
-import { createSuccessMessages, deleteConfirmationMessage, deleteSuccessMessages, isSuccessMessage, updateSuccessMessages } from '../../lib/labels'
+import { withLookupOptions, withoutSessionFields } from '../../lib/forms'
+import { useResourceCrud } from './useResourceCrud'
 
-export function UnitsPage({ module, canManage, lookups }: { module: ModuleDef; canManage: boolean; lookups: LookupData }) {
-  const [condominiumId, setCondominiumId] = useState('')
-  const endpointPath = condominiumId ? `/api/Units/condominium/${encodeURIComponent(condominiumId)}` : ''
-  return (
-    <FilteredPage
-      module={{ ...module, listEndpoint: endpointPath || undefined }}
-      canManage={canManage}
-      lookups={lookups}
-      filters={
-        <div className="filter-row">
-          <select value={condominiumId} onChange={event => setCondominiumId(event.target.value)}>
-            <option value="">Selecione o condomínio</option>
-            {lookups.condominiums.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-          </select>
-        </div>
-      }
-    />
-  )
+export interface ListFilter {
+  label: string
+  lookupKey: LookupKey
+  build: (value: string) => string
 }
 
-export const petFilters = [
-  { label: 'Por condomínio', lookupKey: 'condominiums' as LookupKey, build: (value: string) => `/api/Pets/condominium/${encodeURIComponent(value)}` },
-  { label: 'Por unidade', lookupKey: 'units' as LookupKey, build: (value: string) => `/api/Pets/unit/${encodeURIComponent(value)}` },
-  { label: 'Por tutor', lookupKey: 'users' as LookupKey, build: (value: string) => `/api/Pets/owner/${encodeURIComponent(value)}` },
+export const petFilters: ListFilter[] = [
+  { label: 'Por unidade', lookupKey: 'units', build: value => `/api/Pets/unit/${encodeURIComponent(value)}` },
+  { label: 'Por tutor', lookupKey: 'users', build: value => `/api/Pets/owner/${encodeURIComponent(value)}` },
 ]
 
-export const occurrenceFilters = [
-  { label: 'Por condomínio', lookupKey: 'condominiums' as LookupKey, build: (value: string) => `/api/Occurrences/condominium/${encodeURIComponent(value)}` },
-  { label: 'Por usuário', lookupKey: 'users' as LookupKey, build: (value: string) => `/api/Occurrences/user/${encodeURIComponent(value)}` },
+export const occurrenceFilters: ListFilter[] = [
+  { label: 'Por morador', lookupKey: 'users', build: value => `/api/Occurrences/user/${encodeURIComponent(value)}` },
 ]
 
 // A API só lista cobranças por morador (GET /api/Bills/user/{userId}).
-export const billFilters = [
-  { label: 'Por morador', lookupKey: 'users' as LookupKey, build: (value: string) => `/api/Bills/user/${encodeURIComponent(value)}` },
+export const billFilters: ListFilter[] = [
+  { label: 'Por morador', lookupKey: 'users', build: value => `/api/Bills/user/${encodeURIComponent(value)}` },
 ]
 
+// Lista que carrega direto do endpoint da sessão (quando há) e, para a gestão, permite filtrar.
 export function FilteredPage({
   module,
   filters,
   canManage,
+  session,
   lookups,
 }: {
   module: ModuleDef
-  filters: ReactNode | { label: string; lookupKey: LookupKey; build: (value: string) => string }[]
+  filters: ListFilter[] | null
   canManage: boolean
+  session: AppSession
   lookups: LookupData
 }) {
   const [selected, setSelected] = useState(0)
   const [filterValue, setFilterValue] = useState('')
-  const [rows, setRows] = useState<Record<string, unknown>[]>([])
-  const [message, setMessage] = useState('')
-  const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null)
-  const formFields = withLookupOptions(module.fields, lookups)
-  const editFields = withLookupOptions(module.editFields ?? module.fields, lookups)
+  const [currentPath, setCurrentPath] = useState(module.listEndpoint)
+  const [editingRow, setEditingRow] = useState<Row | null>(null)
+  const crud = useResourceCrud(module, session, { list: currentPath, write: module.createEndpoint })
+  const residentOccurrence = module.id === 'occurrences' && !canManage
+  const formFields = withLookupOptions(
+    withoutSessionFields(residentOccurrence ? module.fields?.filter(field => !['userId', 'status'].includes(field.name)) : module.fields),
+    lookups,
+  )
+  const editFields = withLookupOptions(withoutSessionFields(module.editFields ?? module.fields), lookups)
+  const canCreate = Boolean(formFields?.length && module.createEndpoint && (canManage || residentOccurrence))
+  const selectedFilter = filters?.[selected]
+  const { load } = crud
 
-  const selectedFilter = Array.isArray(filters) ? filters[selected] : undefined
-  const selectedOptions = selectedFilter ? lookups[selectedFilter.lookupKey] : []
-  const filterNode = Array.isArray(filters) ? (
-    <div className="filter-row">
-      <select value={selected} onChange={event => setSelected(Number(event.target.value))}>
-        {filters.map((filter, index) => <option key={filter.label} value={index}>{filter.label}</option>)}
-      </select>
-      <select value={filterValue} onChange={event => setFilterValue(event.target.value)}>
-        <option value="">Selecione</option>
-        {selectedOptions.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
-      </select>
-      <button type="button" onClick={loadFiltered}>Consultar</button>
-    </div>
-  ) : filters
+  useEffect(() => { load() }, [load])
 
-  async function loadFiltered() {
-    const endpointPath = module.listEndpoint || (Array.isArray(filters) && filterValue ? filters[selected].build(filterValue) : '')
-    if (!endpointPath) return
-    try {
-      const data = await requestJson<Record<string, unknown>[]>(endpointPath)
-      setRows(Array.isArray(data) ? data : [])
-      setMessage('')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro ao consultar.')
-    }
+  async function consult() {
+    if (!selectedFilter || !filterValue) return
+    const path = selectedFilter.build(filterValue)
+    // Caminho novo recarrega pelo efeito; o mesmo caminho recarrega aqui (botão Consultar de novo).
+    if (path === currentPath) await load(path)
+    else setCurrentPath(path)
   }
 
-  useEffect(() => {
-    if (module.listEndpoint) loadFiltered()
-  }, [module.listEndpoint])
-
-  async function create(payload: Record<string, unknown>) {
-    if (!module.createEndpoint) return
-    await requestJson(module.createEndpoint, {
-      method: 'POST',
-      headers: module.createHeaders?.(payload),
-      body: JSON.stringify(payload),
-    })
-    await loadFiltered()
-    setMessage(createSuccessMessages[module.id] ?? 'Registro criado com sucesso.')
+  async function create(payload: Row) {
+    await crud.create(payload, residentOccurrence ? { userId: session.userId } : {})
+    await load(currentPath)
   }
 
-  async function update(payload: Record<string, unknown>) {
-    const id = editingRow ? normalizeId(editingRow) : ''
-    if (!id || !module.createEndpoint) return
-    await requestJson(`${module.createEndpoint}/${id}`, {
-      method: 'PUT',
-      headers: module.createHeaders?.(payload),
-      body: JSON.stringify(payload),
-    })
+  async function update(payload: Row) {
+    if (!editingRow) return
+    await crud.update(editingRow, payload)
     setEditingRow(null)
-    await loadFiltered()
-    setMessage(updateSuccessMessages[module.id] ?? 'Registro atualizado com sucesso.')
+    await load(currentPath)
   }
 
-  async function remove(row: Record<string, unknown>) {
-    const id = normalizeId(row)
-    const deleteEndpoint = module.createEndpoint || module.listEndpoint
-    if (!id || !deleteEndpoint) {
-      setMessage('Não foi possível identificar o registro para remoção.')
-      return
-    }
-    if (!window.confirm(deleteConfirmationMessage(module.id))) return
-    try {
-      await requestJson(`${deleteEndpoint}/${id}`, { method: 'DELETE' })
-      await loadFiltered()
-      setMessage(deleteSuccessMessages[module.id] ?? 'Registro removido com sucesso.')
-    } catch (error) {
-      setMessage(error instanceof Error ? error.message : 'Erro ao remover.')
-    }
+  async function remove(row: Row) {
+    if (await crud.remove(row)) await load(currentPath)
   }
 
   return (
-    <div className="panel-grid">
-      {canManage && formFields && (
-        <JsonForm
-          title="Novo registro"
-          fields={formFields}
-          onSubmit={create}
-          successMessage=""
-        />
+    <div className={canCreate ? 'panel-grid' : 'panel-grid read-only'}>
+      {canCreate && formFields && (
+        <JsonForm title={residentOccurrence ? 'Nova ocorrência' : 'Novo registro'} fields={formFields} onSubmit={create} successMessage="" />
       )}
       {canManage && editFields && editingRow && (
         <JsonForm
@@ -156,17 +99,40 @@ export function FilteredPage({
           onCancel={() => setEditingRow(null)}
         />
       )}
-      <section className="panel">
-        <h2>Consulta</h2>
-        {filterNode}
-        {message && <div className={isSuccessMessage(message) ? 'notice' : 'notice error'}>{message}</div>}
-        <DataTable
-          rows={rows}
-          columns={module.columns}
-          lookups={lookups}
-          onEdit={canManage && editFields ? row => setEditingRow(row) : undefined}
-          onDelete={canManage && module.createEndpoint && !module.noDelete ? remove : undefined}
-        />
+      <section className="panel" aria-busy={crud.loading}>
+        <h2>{residentOccurrence ? 'Minhas ocorrências' : 'Consulta'}</h2>
+        {filters && canManage && (
+          <div className="filter-row">
+            <label className="field">
+              <span className="field-label">Filtrar</span>
+              <select value={selected} onChange={event => { setSelected(Number(event.target.value)); setFilterValue('') }}>
+                {filters.map((filter, index) => <option key={filter.label} value={index}>{filter.label}</option>)}
+              </select>
+            </label>
+            <label className="field">
+              <span className="field-label">Valor</span>
+              <select value={filterValue} onChange={event => setFilterValue(event.target.value)}>
+                <option value="">Selecione</option>
+                {(selectedFilter ? lookups[selectedFilter.lookupKey] : []).map(option => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            </label>
+            <button type="button" onClick={consult} disabled={!filterValue} style={{ alignSelf: 'end' }}>Consultar</button>
+          </div>
+        )}
+        {crud.error && <ErrorState message={crud.error} onRetry={() => load(currentPath)} />}
+        {crud.loading && !crud.rows.length ? <LoadingState /> : (
+          <DataTable
+            rows={crud.rows}
+            columns={module.columns}
+            lookups={lookups}
+            caption={module.title}
+            emptyTitle={currentPath ? 'Nenhum registro encontrado.' : 'Escolha um filtro e clique em Consultar.'}
+            onEdit={canManage && editFields ? row => setEditingRow(row) : undefined}
+            onDelete={canManage && module.createEndpoint && !module.noDelete ? remove : undefined}
+          />
+        )}
       </section>
     </div>
   )

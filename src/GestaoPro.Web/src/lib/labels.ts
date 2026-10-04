@@ -36,26 +36,26 @@ export const updateSuccessMessages: Partial<Record<ModuleId, string>> = {
 }
 
 export const deleteSuccessMessages: Partial<Record<ModuleId, string>> = {
-  users: 'Usuario desativado com sucesso.',
+  users: 'Usuário desativado com sucesso.',
   assembly: 'Assembleia removida com sucesso.',
   units: 'Unidade removida com sucesso.',
-  condominiums: 'Condominio removido com sucesso.',
-  commonAreas: 'Area comum removida com sucesso.',
+  condominiums: 'Condomínio removido com sucesso.',
+  commonAreas: 'Área comum removida com sucesso.',
   visitors: 'Visitante removido com sucesso.',
   pets: 'Pet removido com sucesso.',
   reservations: 'Reserva removida com sucesso.',
   announcements: 'Aviso removido com sucesso.',
-  occurrences: 'Ocorrencia removida com sucesso.',
+  occurrences: 'Ocorrência removida com sucesso.',
   deliveries: 'Encomenda removida com sucesso.',
   parking: 'Vaga removida com sucesso.',
 }
 
 export function deleteConfirmationMessage(moduleId: ModuleId) {
-  if (moduleId === 'users') return 'Desativar este usuario?'
-  if (moduleId === 'assembly') return 'Remover esta assembleia? Os votos e o historico serao preservados.'
+  if (moduleId === 'users') return 'Desativar este usuário? Ele deixa de conseguir entrar.'
+  if (moduleId === 'assembly') return 'Remover esta assembleia? Os votos e o histórico serão preservados.'
   if (moduleId === 'visitors') return 'Remover este visitante?'
   if (moduleId === 'pets') return 'Deseja realmente remover este pet?'
-  return 'Tem certeza que deseja remover este registro?'
+  return 'Este registro será removido. Essa ação não pode ser desfeita.'
 }
 
 export function isSuccessMessage(message: string) {
@@ -159,7 +159,7 @@ export const optionLabels: Record<string, string> = {
   admin: 'Administrador',
   usuario: 'Usuário',
   sindico: 'Síndico',
-  morador: 'Usuário',
+  morador: 'Morador',
   porteiro: 'Porteiro',
   apt: 'Apartamento',
   house: 'Casa',

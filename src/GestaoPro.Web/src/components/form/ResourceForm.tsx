@@ -64,7 +64,7 @@ export function JsonForm({
       <form className="form-grid" onSubmit={submit}>
         {fields.map(field => (
           <label key={field.name} className={field.type === 'textarea' ? 'span-two' : ''}>
-            <span>{field.label}{field.required ? ' *' : ''}</span>
+            <span>{field.label}{field.required ? <span aria-hidden="true"> *</span> : ''}</span>
             {renderInput(field, data[field.name], value => setData(current => ({ ...current, [field.name]: value })))}
           </label>
         ))}
@@ -73,7 +73,11 @@ export function JsonForm({
           <button type="submit" disabled={busy || submitting}>{busy || submitting ? 'Salvando...' : submitLabel}</button>
         </div>
       </form>
-      {message && <div className={message === successMessage ? 'notice' : 'notice error'}>{message}</div>}
+      {message && (
+        <div className={message === successMessage ? 'notice' : 'notice error'} role={message === successMessage ? 'status' : 'alert'}>
+          {message}
+        </div>
+      )}
     </section>
   )
 }

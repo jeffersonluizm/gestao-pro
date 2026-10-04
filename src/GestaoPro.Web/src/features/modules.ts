@@ -59,25 +59,8 @@ export const condominiumCodeField: FieldDef = {
   placeholder: 'Mínimo 8 caracteres, sem sequências como 12345678',
 }
 
+// Quem vê cada módulo e quem administra: features/moduleRoutes.ts.
 export const modules: ModuleDef[] = [
-  {
-    id: 'dashboard',
-    label: 'Painel',
-    title: 'Painel',
-    adminOnly: true,
-    description: 'Resumo operacional do condomínio.',
-  },
-  {
-    id: 'auth',
-    label: 'Login',
-    title: 'Autenticação',
-    description: 'Login e criação de credenciais.',
-    fields: [
-      { name: 'registrationNumber', label: 'E-mail', type: 'email', required: true },
-      { name: 'accessType', label: 'Tipo de acesso', type: 'select', options: ['admin', 'usuario'], defaultValue: 'usuario', required: true },
-      { name: 'password', label: 'Senha', type: 'password', required: true },
-    ],
-  },
   {
     id: 'condominiums',
     label: 'Condomínios',
@@ -85,7 +68,6 @@ export const modules: ModuleDef[] = [
     description: 'Cadastro e consulta de condomínios.',
     listEndpoint: '/api/Condominiums',
     createEndpoint: '/api/Condominiums',
-    adminOnly: true,
     columns: ['name', 'cnpj', 'city', 'state', 'residentCount'],
     fields: [
       ...condominiumFields,
@@ -103,7 +85,6 @@ export const modules: ModuleDef[] = [
     description: 'Moradores, síndicos, porteiros e administradores.',
     listEndpoint: '/api/Users',
     createEndpoint: '/api/Users',
-    adminOnly: true,
     columns: ['name', 'registrationNumber', 'unitId', 'email', 'phone', 'role', 'isActive'],
     fields: [
       { name: 'condominiumId', label: 'Condomínio', required: true },
@@ -123,7 +104,6 @@ export const modules: ModuleDef[] = [
     title: 'Unidades',
     description: 'Apartamentos, casas e vínculos de moradores.',
     createEndpoint: '/api/Units',
-    adminOnly: true,
     columns: ['number', 'block', 'floor', 'type', 'residentCount'],
     fields: [
       { name: 'condominiumId', label: 'Condomínio', required: true },
@@ -212,7 +192,6 @@ export const modules: ModuleDef[] = [
     title: 'Pets',
     description: 'Cadastro e controle de pets por unidade.',
     createEndpoint: '/api/Pets',
-    adminOnly: true,
     columns: ['name', 'species', 'breed', 'color', 'vaccination', 'isActive'],
     fields: [
       { name: 'ownerId', label: 'Tutor', required: true },
@@ -232,7 +211,6 @@ export const modules: ModuleDef[] = [
     title: 'Ocorrências',
     description: 'Registros de manutenção, reclamações e sugestões.',
     createEndpoint: '/api/Occurrences',
-    adminOnly: true,
     createHeaders: payload => ({
       'X-User-Id': String(payload.userId || ''),
       'X-Condominium-Id': String(payload.condominiumId || ''),
@@ -255,7 +233,6 @@ export const modules: ModuleDef[] = [
     description: 'Encomendas, lanches e notificação.',
     listEndpoint: '/api/Delivery',
     createEndpoint: '/api/Delivery',
-    adminOnly: true,
     columns: ['trackingCode', 'type', 'description', 'residentId', 'unitId', 'status', 'arrivedAt', 'pickedUpAt'],
     fields: [
       { name: 'trackingCode', label: 'Código', required: true },
@@ -273,7 +250,6 @@ export const modules: ModuleDef[] = [
     title: 'Cobranças',
     description: 'Boletos e taxas por morador.',
     createEndpoint: '/api/Bills',
-    hiddenForRoles: ['porteiro'],
     noDelete: true,
     columns: ['description', 'amount', 'dueDate', 'status', 'barcode', 'userId'],
     fields: billFields,
@@ -288,7 +264,6 @@ export const modules: ModuleDef[] = [
     title: 'Pagamentos',
     description: 'Pagamentos registrados por cobrança.',
     createEndpoint: '/api/Payments',
-    hiddenForRoles: ['porteiro'],
     noDelete: true,
     columns: ['paymentDate', 'amountPaid', 'paymentMethod', 'receiptUrl'],
     fields: paymentFields,
@@ -316,7 +291,6 @@ export const modules: ModuleDef[] = [
     description: 'Assembleias e pautas.',
     listEndpoint: '/api/assembly',
     createEndpoint: '/api/assembly',
-    adminOnly: true,
     columns: ['title', 'description', 'startTime', 'endTime', 'voteStatus', 'topics'],
     fields: [
       { name: 'condominiumId', label: 'Condomínio', required: true },

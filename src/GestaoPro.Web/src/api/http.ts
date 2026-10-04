@@ -24,7 +24,7 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
     if (response.status === 401) {
       clearStoredSession()
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
-      throw new Error('Sessão expirada ou login obrigatório. Saia e entre novamente.')
+      throw new Error('Sua sessão expirou. Entre novamente.')
     }
     throw new Error(formatApiError(text, response.status))
   }
@@ -51,6 +51,8 @@ export async function resolveLoggedUserName(userId: string, fallback: string) {
 export function formatApiError(text: string, status: number) {
   if (status === 403) return 'Você não tem permissão para realizar esta ação.'
   if (status === 404) return 'Registro não encontrado.'
+  // Erro do servidor (ProblemDetails): nunca mostra o título técnico em inglês.
+  if (status >= 500) return 'Ocorreu um erro inesperado. Tente novamente.'
   if (!text) return 'Não foi possível concluir a operação. Tente novamente.'
 
   try {

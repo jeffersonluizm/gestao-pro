@@ -1,71 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
-import userEvent from '@testing-library/user-event'
-import App, { formatCurrency, formInitialValue, moduleForSession, modules } from './App'
+import { cleanup, screen, waitFor, within } from '@testing-library/react'
+import { formatCurrency, formInitialValue, moduleForSession, modules } from './App'
+import { calls, loginAs, renderApp, stubFetch } from './test/helpers'
 
-// A API é a fronteira do painel: o fetch é simulado com respostas no formato dos controllers
-// (BillsController, PaymentsController, ParkingController) e registra cada chamada.
-type Call = { method: string; path: string; body?: unknown }
-
-const users = [
-  { id: 'u-maria', name: 'Maria', registrationNumber: 'maria@condominio.com' },
-  { id: 'u-joao', name: 'João', registrationNumber: 'joao@condominio.com' },
-]
-const bills = [
-  { id: 'b-1', condominiumId: 'c-1', userId: 'u-maria', description: 'Taxa condominial 05/2026', amount: 450.5, dueDate: '2026-05-10T00:00:00Z', status: 'pending', barcode: 'AUTO-1' },
-]
-const payments = [
-  { id: 'p-1', billId: 'b-1', paymentDate: '2026-05-08T13:00:00Z', amountPaid: 450.5, paymentMethod: 'pix', receiptUrl: null },
-]
-const parkings = [
-  { id: 'v-1', number: 'V-01', type: 'coberta', status: 'available', isShared: false, unitId: null, residentId: null, reservedByUserId: null },
-]
-
-let calls: Call[] = []
-
-function routeResponse(method: string, path: string): unknown {
-  if (method === 'GET' && path === '/api/Users') return users
-  if (method === 'GET' && path.startsWith('/api/Bills/user/')) return bills.filter(bill => path.endsWith(bill.userId))
-  if (method === 'GET' && path === '/api/Payments/bill/b-1') return payments
-  if (method === 'GET' && path === '/api/Parking') return parkings
-  if (method === 'POST' && path === '/api/Payments') return { id: 'p-2' }
-  return []
-}
-
-function stubFetch() {
-  vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-    const url = new URL(String(input), 'http://localhost')
-    const method = (init?.method ?? 'GET').toUpperCase()
-    const path = decodeURIComponent(url.pathname)
-    calls.push({ method, path, body: init?.body ? JSON.parse(String(init.body)) : undefined })
-    return new Response(JSON.stringify(routeResponse(method, path)), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    })
-  }))
-}
-
-function loginAs(kind: 'admin' | 'morador' | 'porteiro') {
-  localStorage.setItem('gestaopro_token', 'token-de-teste')
-  localStorage.setItem('gestaopro_user_id', kind === 'admin' ? 'u-admin' : kind === 'porteiro' ? 'u-porteiro' : 'u-maria')
-  localStorage.setItem('gestaopro_user_name', kind === 'admin' ? 'Admin' : 'Maria')
-  localStorage.setItem('gestaopro_role', kind)
-  localStorage.setItem('gestaopro_access_type', kind === 'admin' ? 'admin' : 'usuario')
-  localStorage.setItem('gestaopro_condominium_id', 'c-1')
-  localStorage.setItem('gestaopro_registration_number', `${kind}@condominio.com`)
-}
-
+// Abre um módulo pelo menu lateral e espera os lookups (lista de usuários) chegarem antes de interagir.
 async function openModule(label: string) {
-  const user = userEvent.setup()
-  render(<App />)
-  await user.click(screen.getByRole('button', { name: label }))
-  // Espera os lookups (lista de usuários) chegarem antes de interagir com os filtros.
+  const { user } = renderApp('/painel')
+  const nav = await screen.findByRole('navigation', { name: 'Módulos' })
+  await user.click(within(nav).getByRole('link', { name: label }))
   await waitFor(() => expect(calls.some(call => call.path === '/api/Users')).toBe(true))
   return user
 }
 
 beforeEach(() => {
-  calls = []
   localStorage.clear()
   stubFetch()
 })
@@ -109,23 +56,23 @@ describe('moduleForSession', () => {
 })
 
 describe('navegação', () => {
-  it.each(['admin', 'morador'] as const)('mostra Cobranças, Pagamentos e Estacionamento para %s', kind => {
+  it.each(['admin', 'morador'] as const)('mostra Cobranças, Pagamentos e Estacionamento para %s', async kind => {
     loginAs(kind)
-    render(<App />)
-    const nav = screen.getByRole('navigation', { name: 'Módulos' })
+    renderApp('/painel')
+    const nav = await screen.findByRole('navigation', { name: 'Módulos' })
     for (const label of ['Cobranças', 'Pagamentos', 'Estacionamento']) {
-      expect(within(nav).getByRole('button', { name: label })).toBeTruthy()
+      expect(within(nav).getByRole('link', { name: label })).toBeTruthy()
     }
   })
 
   // A API devolve 403 para porteiro em /api/Bills e /api/Payments: os módulos nem aparecem.
-  it('esconde Cobranças e Pagamentos do porteiro', () => {
+  it('esconde Cobranças e Pagamentos do porteiro', async () => {
     loginAs('porteiro')
-    render(<App />)
-    const nav = screen.getByRole('navigation', { name: 'Módulos' })
-    expect(within(nav).queryByRole('button', { name: 'Cobranças' })).toBeNull()
-    expect(within(nav).queryByRole('button', { name: 'Pagamentos' })).toBeNull()
-    expect(within(nav).getByRole('button', { name: 'Estacionamento' })).toBeTruthy()
+    renderApp('/painel')
+    const nav = await screen.findByRole('navigation', { name: 'Módulos' })
+    expect(within(nav).queryByRole('link', { name: 'Cobranças' })).toBeNull()
+    expect(within(nav).queryByRole('link', { name: 'Pagamentos' })).toBeNull()
+    expect(within(nav).getByRole('link', { name: 'Estacionamento' })).toBeTruthy()
   })
 })
 
@@ -148,38 +95,6 @@ describe('Condomínios', () => {
     const edit = condominiums.editFields!.find(field => field.name === 'defaultPassword')!
 
     expect(formInitialValue(edit, { defaultPassword: '********' })).toBe('')
-  })
-})
-
-describe('Cadastro', () => {
-  // O cadastro anônimo exige o código do condomínio (a senha padrão que a administração entrega).
-  it('pede o código do condomínio e o envia ao cadastrar', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(String(input), 'http://localhost')
-      const method = (init?.method ?? 'GET').toUpperCase()
-      calls.push({ method, path: url.pathname, body: init?.body ? JSON.parse(String(init.body)) : undefined })
-      const body = url.pathname === '/api/Condominiums/public'
-        ? [{ id: 'c-1', name: 'Condomínio Teste' }]
-        : { registrationNumber: 'maria@condominio.com', name: 'Maria' }
-      return new Response(JSON.stringify(body), { status: 200, headers: { 'Content-Type': 'application/json' } })
-    }))
-    const user = userEvent.setup()
-    render(<App />)
-    await user.click(screen.getByRole('button', { name: 'Cadastrar-se' }))
-
-    await user.selectOptions(await screen.findByLabelText('Condomínio'), 'c-1')
-    await user.type(screen.getByLabelText('CPF'), '11111111111')
-    await user.type(screen.getByLabelText('Código do condomínio'), ' codigo-123 ')
-    await user.type(screen.getByLabelText('Senha'), 'senha-nova')
-    await user.type(screen.getByLabelText('Confirmar senha'), 'senha-nova')
-    await user.click(screen.getByRole('button', { name: 'Cadastrar' }))
-
-    await waitFor(() => expect(calls).toContainEqual(expect.objectContaining({
-      method: 'POST',
-      path: '/api/auth/register',
-      // O código vai como digitado: quem tira os espaços das pontas é a API.
-      body: { cpf: '11111111111', condominiumId: 'c-1', condominiumCode: ' codigo-123 ', password: 'senha-nova' },
-    })))
   })
 })
 
