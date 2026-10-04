@@ -77,6 +77,7 @@ builder.Services.AddSingleton<UnitRepository>();
 builder.Services.AddSingleton<CondominiumRepository>();
 builder.Services.AddSingleton<PetRepository>();
 builder.Services.AddSingleton<CredentialRepository>();
+builder.Services.AddSingleton<IAdministratorLookup>(provider => provider.GetRequiredService<CredentialRepository>());
 builder.Services.AddSingleton<OccurrenceRepository>();
 builder.Services.AddSingleton<CacheService>();
 builder.Services.AddSingleton<EmailService>();

@@ -5,7 +5,7 @@ using Microsoft.Extensions.Options;
 
 namespace GestaoPro.API.Repositories;
 
-public class CredentialRepository
+public class CredentialRepository : IAdministratorLookup
 {
     private readonly IMongoCollection<Credential> _credentials;
 

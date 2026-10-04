@@ -47,7 +47,7 @@ public class ApiAccessMiddleware
             path.StartsWith("/api/users/") &&
             path.EndsWith("/credentials");
         var hasAdministratorCredential =
-            await context.RequestServices.GetRequiredService<CredentialRepository>().HasAnyAdministratorAsync();
+            await context.RequestServices.GetRequiredService<IAdministratorLookup>().HasAnyAdministratorAsync();
         var isFirstUserCreation =
             HttpMethods.IsPost(context.Request.Method) &&
             path == "/api/users" &&
