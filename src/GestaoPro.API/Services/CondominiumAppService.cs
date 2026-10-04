@@ -35,6 +35,10 @@ public class CondominiumAppService : ICondominiumService
     // Cria condominio e sub classe endereço.
     public async Task<CondominiumResponse> CreateAsync(CreateCondominiumRequest request)
     {
+        // O código do condomínio (senha padrão) é obrigatório e forte: é a prova de vínculo no autoatendimento.
+        if (!CondominiumCodePolicy.IsStrong(request.DefaultPassword))
+            throw new InvalidOperationException(CondominiumCodePolicy.WeakCodeMessage);
+
         // Verifica se já existe condomínio com esse CNPJ
         var existing = await _condominiumRepository.GetByCnpjAsync(request.Cnpj);
         if (existing is not null)
@@ -53,7 +57,7 @@ public class CondominiumAppService : ICondominiumService
                 State = request.State,
                 ZipCode = request.ZipCode
             },
-            DefaultPassword = HashPasswordIfNeeded(string.IsNullOrWhiteSpace(request.DefaultPassword) ? "123456" : request.DefaultPassword),
+            DefaultPassword = HashPasswordIfNeeded(CondominiumCodePolicy.Normalize(request.DefaultPassword)),
             Rules = request.Rules ?? string.Empty,
             Regulations = request.Regulations ?? string.Empty
         };
@@ -65,13 +69,18 @@ public class CondominiumAppService : ICondominiumService
     // Atualiza condominio e sub classe endereço.
     public async Task<CondominiumResponse?> UpdateAsync(string id, UpdateCondominiumRequest request)
     {
+        // Código em branco mantém o atual; informado, precisa ser forte.
+        var newCode = string.IsNullOrWhiteSpace(request.DefaultPassword) ? null : request.DefaultPassword;
+        if (newCode is not null && !CondominiumCodePolicy.IsStrong(newCode))
+            throw new InvalidOperationException(CondominiumCodePolicy.WeakCodeMessage);
+
         var condominium = await _condominiumRepository.GetByIdAsync(id);
         if (condominium is null) return null;
 
         if (request.Name is not null) condominium.Name = request.Name;
         if (request.Rules is not null) condominium.Rules = request.Rules;
         if (request.Regulations is not null) condominium.Regulations = request.Regulations;
-        if (request.DefaultPassword is not null) condominium.DefaultPassword = HashPasswordIfNeeded(request.DefaultPassword);
+        if (newCode is not null) condominium.DefaultPassword = HashPasswordIfNeeded(CondominiumCodePolicy.Normalize(newCode));
 
         // Atualiza endereço
         if (request.Street is not null) condominium.Address.Street = request.Street;
