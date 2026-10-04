@@ -98,4 +98,69 @@ public class ApiAccessMiddlewareTests
 
         Assert.True(nextCalled);
     }
+
+    // O desvio do middleware vale só para o hub; caminhos que apenas começam com o nome dele seguem a regra comum.
+    [Theory]
+    [InlineData("POST", "/notificacaoHubX")]
+    [InlineData("POST", "/notificacaoHubX/negotiate")]
+    [InlineData("POST", "/notificacaoHub-admin/negotiate")]
+    public async Task Caminho_parecido_com_o_hub_nao_ganha_o_desvio_do_middleware(string method, string path)
+    {
+        var (anonymousStatus, anonymousNext) = await InvokeAsync(method, path);
+        var (residentStatus, residentNext) = await InvokeAsync(method, path, AuthenticatedUser("morador"));
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, anonymousStatus);
+        Assert.False(anonymousNext);
+        Assert.Equal(StatusCodes.Status403Forbidden, residentStatus);
+        Assert.False(residentNext);
+    }
+
+    [Theory]
+    [InlineData("POST", "/notificacaoHub/negotiate")]
+    [InlineData("GET", "/notificacaoHub")]
+    public async Task Hub_continua_com_o_desvio_do_middleware(string method, string path)
+    {
+        var (_, nextCalled) = await InvokeAsync(method, path, AuthenticatedUser("morador"));
+
+        Assert.True(nextCalled);
+    }
+
+    // Ações que os clientes usam fora da administração; o controller confere dono e condomínio.
+    [Theory]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password", "morador")]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password", "porteiro")]
+    [InlineData("DELETE", "/api/reservations/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("DELETE", "/api/Occurrences/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("POST", "/api/Visitor/check-in/665f1c2e9b1e8a0012345678", "porteiro")]
+    [InlineData("POST", "/api/Visitor/check-out/665f1c2e9b1e8a0012345678", "porteiro")]
+    public async Task Acoes_do_proprio_papel_chegam_ao_controller(string method, string path, string role)
+    {
+        var (_, nextCalled) = await InvokeAsync(method, path, AuthenticatedUser(role));
+
+        Assert.True(nextCalled);
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/Visitor/check-in/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("POST", "/api/Visitor/check-out/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("PUT", "/api/Visitor/665f1c2e9b1e8a0012345678", "porteiro")]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/password", "morador")]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/reset-password", "morador")]
+    [InlineData("PUT", "/api/reservations/665f1c2e9b1e8a0012345678", "morador")]
+    public async Task Acoes_fora_do_papel_continuam_403(string method, string path, string role)
+    {
+        var (statusCode, nextCalled) = await InvokeAsync(method, path, AuthenticatedUser(role));
+
+        Assert.Equal(StatusCodes.Status403Forbidden, statusCode);
+        Assert.False(nextCalled);
+    }
+
+    [Fact]
+    public async Task Trocar_senha_sem_login_continua_401()
+    {
+        var (statusCode, nextCalled) = await InvokeAsync("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password");
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
+        Assert.False(nextCalled);
+    }
 }

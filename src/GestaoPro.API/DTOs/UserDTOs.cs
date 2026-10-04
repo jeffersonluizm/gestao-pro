@@ -64,6 +64,28 @@ public class UserResponse
         $"{Math.Abs(DateTime.UtcNow.Month - CreatedAt.Month)} mês(es)";
 }
 
+// O que quem não administra vê de outros usuários do condomínio: o suficiente para mostrar nomes e unidades,
+// sem CPF, e-mail, telefone ou data de nascimento.
+public class UserSummaryResponse
+{
+    public string Id { get; set; } = string.Empty;
+    public string CondominiumId { get; set; } = string.Empty;
+    public string? UnitId { get; set; }
+    public string Name { get; set; } = string.Empty;
+    public UserRole Role { get; set; }
+    public bool IsActive { get; set; }
+
+    public static UserSummaryResponse From(UserResponse user) => new()
+    {
+        Id = user.Id,
+        CondominiumId = user.CondominiumId,
+        UnitId = user.UnitId,
+        Name = user.Name,
+        Role = user.Role,
+        IsActive = user.IsActive,
+    };
+}
+
 public record ChangePasswordRequest(
     [Required] string CurrentPassword,
     [Required] string NewPassword

@@ -23,6 +23,8 @@ export default function RegisterScreen({ navigation }: Props) {
   // Passo 1
   const [cpf, setCpf] = useState('');
   const [condominiumId, setCondominiumId] = useState('');
+  // Código do condomínio (senha padrão entregue pela administração): prova o vínculo com o condomínio.
+  const [condominiumCode, setCondominiumCode] = useState('');
 
   // Passo 2
   const [name, setName] = useState('');
@@ -31,7 +33,6 @@ export default function RegisterScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [needsProfileData, setNeedsProfileData] = useState(true);
-  const [existingName, setExistingName] = useState('');
 
   // Sucesso
   const [registeredEmail, setRegisteredEmail] = useState('');
@@ -46,24 +47,16 @@ export default function RegisterScreen({ navigation }: Props) {
     const rawCpf = onlyDigits(cpf);
     if (!isValidCpfFormat(cpf)) { Alert.alert('Atenção', 'Informe um CPF válido no formato 000.000.000-00.'); return; }
     if (!condominiumId) { Alert.alert('Atenção', 'Selecione um condomínio.'); return; }
+    if (!condominiumCode.trim()) { Alert.alert('Atenção', 'Informe o código do condomínio.'); return; }
 
     setLoading(true);
     try {
-      const res = await checkCpf(rawCpf, condominiumId);
-      if (!res.found) {
-        Alert.alert('CPF não encontrado', 'Seu CPF não está cadastrado neste condomínio. Entre em contato com o administrador.');
-        return;
-      }
-      if (res.hasCredential) {
-        Alert.alert('Conta já existe', 'Já existe uma conta para este CPF. Use seu e-mail para fazer login.', [
-          { text: 'Ir para Login', onPress: () => navigation.goBack() },
-          { text: 'OK' },
-        ]);
+      const res = await checkCpf(rawCpf, condominiumId, condominiumCode);
+      if (!res.canProceed) {
+        Alert.alert('Não foi possível continuar', res.message);
         return;
       }
       setNeedsProfileData(res.needsProfileData);
-      setExistingName(res.name ?? '');
-      if (!res.needsProfileData && res.name) setName(res.name);
       setStep('form');
     } catch (err: any) {
       console.error('Erro ao verificar CPF:', err);
@@ -85,6 +78,7 @@ export default function RegisterScreen({ navigation }: Props) {
       const res = await selfRegister({
         cpf: onlyDigits(cpf),
         condominiumId,
+        condominiumCode,
         password,
         name: needsProfileData ? name.trim() : undefined,
         email: email.trim().toLowerCase(),
@@ -141,6 +135,16 @@ export default function RegisterScreen({ navigation }: Props) {
               maxLength={14}
             />
 
+            <Text style={styles.label}>Código do condomínio</Text>
+            <TextInput
+              style={styles.input}
+              placeholder="Informado pela administração"
+              secureTextEntry
+              autoCapitalize="none"
+              value={condominiumCode}
+              onChangeText={setCondominiumCode}
+            />
+
             <TouchableOpacity style={styles.button} onPress={handleCheckCpf} disabled={loading}>
               {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verificar CPF</Text>}
             </TouchableOpacity>
@@ -171,11 +175,7 @@ export default function RegisterScreen({ navigation }: Props) {
           <View style={styles.header}>
             <Ionicons name="create-outline" size={48} color="#176b87" />
             <Text style={styles.title}>Complete seu cadastro</Text>
-            {!needsProfileData && existingName ? (
-              <Text style={styles.subtitle}>Olá, <Text style={{ fontWeight: '700' }}>{existingName}</Text>! Defina seu e-mail e senha.</Text>
-            ) : (
-              <Text style={styles.subtitle}>CPF verificado! Preencha seus dados para criar a conta.</Text>
-            )}
+            <Text style={styles.subtitle}>CPF verificado! Preencha seus dados para criar a conta.</Text>
           </View>
 
           <View style={styles.card}>

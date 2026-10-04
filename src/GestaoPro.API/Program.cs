@@ -1,8 +1,10 @@
+using GestaoPro.API.Controllers;
 using GestaoPro.API.Middleware;
 using GestaoPro.API.Repositories;
 using GestaoPro.API.Services;
 using GestaoPro.API.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
@@ -58,6 +60,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
         };
+        // WebSocket do navegador não envia cabeçalho: o cliente SignalR manda o token em access_token.
+        // Aceito só no caminho do hub, para não expor tokens em URLs do resto da API.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/notificacaoHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddSingleton<IAnnouncementRepository, AnnouncementRepository>();
@@ -90,21 +107,35 @@ builder.Services.AddScoped<VisitorAppService>();
 builder.Services.AddScoped<ParkingAppService>();
 builder.Services.AddScoped<PackageAppService>();
 builder.Services.AddScoped<CondominiumAppService>();
+builder.Services.AddScoped<ICondominiumService>(provider => provider.GetRequiredService<CondominiumAppService>());
 builder.Services.AddScoped<UnitAppService>();
+builder.Services.AddScoped<IUnitService>(provider => provider.GetRequiredService<UnitAppService>());
 builder.Services.AddScoped<UserAppService>();
+builder.Services.AddScoped<IUserDirectory>(provider => provider.GetRequiredService<UserAppService>());
 builder.Services.AddScoped<PetAppService>();
+builder.Services.AddScoped<IPetService>(provider => provider.GetRequiredService<PetAppService>());
 builder.Services.AddScoped<AuthAppService>();
+builder.Services.AddScoped<ISelfServiceAccounts, MongoSelfServiceAccounts>();
+builder.Services.AddSingleton<IPasswordVerifier, BcryptPasswordVerifier>();
+builder.Services.AddScoped<SelfServiceAuthService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<OccurrenceAppService>();
+builder.Services.AddScoped<IOccurrenceService>(provider => provider.GetRequiredService<OccurrenceAppService>());
 builder.Services.AddScoped<IAssemblyService, AssemblyService>();
 builder.Services.AddScoped<IVoteService, VoteService>();
 builder.Services.AddScoped<IBillService, BillService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<DeliveryService>();
+builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredService<DeliveryService>());
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddHostedService<VoteIndexInitializer>();
+// Preenche o condomínio de visitantes e vagas antigos (em segundo plano; falha só gera log).
+builder.Services.AddSingleton<ILegacyCondominiumStore, MongoLegacyCondominiumStore>();
+builder.Services.AddScoped<LegacyCondominiumBackfill>();
+builder.Services.AddHostedService<LegacyCondominiumBackfillInitializer>();
 
-builder.Services.AddControllers()
+// Id de rota malformado responde 400 em vez de 500 (MalformedIdFilter).
+builder.Services.AddControllers(options => options.Filters.Add<MalformedIdFilter>())
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -112,6 +143,23 @@ builder.Services.AddControllers()
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
+
+// Limites das rotas anônimas de autenticação (por IP e por condomínio; ver AuthRateLimit).
+builder.Services.AddAuthRateLimits(builder.Configuration);
+
+// Atrás de proxy (Render), o IP do cliente vem no X-Forwarded-For. Só é lido com Proxy:ConfiarNoProxy=true:
+// sem proxy na frente, qualquer cliente poderia forjar o cabeçalho e escapar dos limites por IP.
+var trustProxy = builder.Configuration.GetValue("Proxy:ConfiarNoProxy", false);
+if (trustProxy)
+{
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
 
 builder.Services.AddCors(options =>
 {
@@ -136,11 +184,15 @@ if (app.Environment.IsDevelopment())
     await seeder.SeedAsync();
 }
 
+if (trustProxy) app.UseForwardedHeaders();
 app.UseCors();
+app.UseRateLimiter();
 app.UseAuthentication();
 app.UseMiddleware<ApiAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<NotificacaoHub>("/notificacaoHub");
+// Conexão aberta não sobrevive ao JWT: ao expirar, o cliente precisa reconectar com token novo.
+app.MapHub<NotificacaoHub>("/notificacaoHub", options => options.CloseOnAuthenticationExpiration = true)
+    .RequireAuthorization();
 
 app.Run();

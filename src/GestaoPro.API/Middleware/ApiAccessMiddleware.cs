@@ -16,7 +16,10 @@ public class ApiAccessMiddleware
     {
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
 
-        if (HttpMethods.IsOptions(context.Request.Method))
+        // O hub SignalR exige login no próprio endpoint (RequireAuthorization em Program.cs)
+        // e precisa aceitar qualquer papel: o negotiate é um POST e cairia na regra de escrita abaixo.
+        if (HttpMethods.IsOptions(context.Request.Method) ||
+            path == "/notificacaohub" || path.StartsWith("/notificacaohub/"))
         {
             await _next(context);
             return;
@@ -89,12 +92,26 @@ public class ApiAccessMiddleware
             (HttpMethods.IsPost(context.Request.Method) ||
              HttpMethods.IsPut(context.Request.Method) ||
              HttpMethods.IsDelete(context.Request.Method));
+        // Ações próprias de quem não administra; o controller confere dono e condomínio.
+        var isOwnPasswordChange =
+            HttpMethods.IsPatch(context.Request.Method) &&
+            path.StartsWith("/api/users/") &&
+            path.EndsWith("/change-password");
+        var isOwnRecordRemoval =
+            HttpMethods.IsDelete(context.Request.Method) &&
+            (path.StartsWith("/api/reservations/") || path.StartsWith("/api/occurrences/"));
+        var isDoormanVisitorCheck =
+            role is "porteiro" &&
+            HttpMethods.IsPost(context.Request.Method) &&
+            (path.StartsWith("/api/visitor/check-in/") || path.StartsWith("/api/visitor/check-out/"));
         var isUserAllowedAction =
+            isOwnPasswordChange ||
+            isOwnRecordRemoval ||
+            isDoormanVisitorCheck ||
             path.StartsWith("/api/reservations") && HttpMethods.IsPost(context.Request.Method) ||
             path.StartsWith("/api/occurrences") && HttpMethods.IsPost(context.Request.Method) ||
             path.StartsWith("/api/vote") && HttpMethods.IsPost(context.Request.Method) ||
             path == "/api/visitor/register" && HttpMethods.IsPost(context.Request.Method) ||
-            path.StartsWith("/api/visitor/resident/") && HttpMethods.IsGet(context.Request.Method) ||
             isDeliveryPickup ||
             isDoormanDeliveryAction;
 

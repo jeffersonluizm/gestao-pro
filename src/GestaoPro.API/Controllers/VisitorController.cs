@@ -1,6 +1,7 @@
 ﻿using GestaoPro.API.Models;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 
@@ -11,46 +12,99 @@ namespace GestaoPro.API.Controllers
     public class VisitorController : ControllerBase
     {
         private readonly VisitorAppService _visitorService;
+        private readonly IUserDirectory _users;
         private readonly ILogger<VisitorController> _logger;
 
-        public VisitorController(VisitorAppService visitorService, ILogger<VisitorController> logger)
+        public VisitorController(VisitorAppService visitorService, IUserDirectory users, ILogger<VisitorController> logger)
         {
             _visitorService = visitorService;
+            _users = users;
             _logger = logger;
         }
 
         [HttpGet]
         public async Task<ActionResult<List<Visitor>>> Get()
         {
-            var visitors = await _visitorService.GetAllAsync();
-            return Ok(visitors);
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+            var visitors = SeesWholeCondominium(caller)
+                ? await _visitorService.GetAllAsync()
+                : await _visitorService.GetByResidentAsync(caller.UserId!);
+            return Ok(Visible(caller, visitors));
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Visitor>> GetById(string id)
         {
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
             var visitor = await _visitorService.GetByIdAsync(id);
 
             if (visitor == null)
                 return NotFound();
 
-            return Ok(visitor);
+            return this.Deny(ResourceAccess.Decide(caller, visitor.ResidentId, visitor.CondominiumId, SeesWholeCondominium(caller)))
+                ?? Ok(visitor);
         }
 
         [HttpGet("resident/{residentId}")]
         public async Task<ActionResult<List<Visitor>>> GetByResident(string residentId)
         {
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+            if (!SeesWholeCondominium(caller) && !string.Equals(caller.UserId, residentId, StringComparison.Ordinal))
+                return this.Forbidden();
+
             var visitors = await _visitorService.GetByResidentAsync(residentId);
-            return Ok(visitors);
+            return Ok(Visible(caller, visitors));
         }
+
+        // Portaria recebe os visitantes: vê os do condomínio, como a administração.
+        private static bool SeesWholeCondominium(Caller caller) => caller.IsAdministrator || caller.IsDoorman;
+
+        // Edição e remoção: só administração e só de visitante do próprio condomínio (outro: 404).
+        private ActionResult? DenyManageVisitor(Visitor visitor)
+        {
+            var caller = this.Caller();
+            return this.DenyManage(caller, visitor.CondominiumId, caller.IsAdministrator);
+        }
+
+        // Entrada e saída: portaria e administração, só de visitante do próprio condomínio.
+        private ActionResult? DenyFrontDesk(Visitor visitor)
+        {
+            var caller = this.Caller();
+            return this.DenyManage(caller, visitor.CondominiumId, SeesWholeCondominium(caller));
+        }
+
+        private static List<Visitor> Visible(Caller caller, IEnumerable<Visitor> visitors) =>
+            visitors
+                .Where(visitor => ResourceAccess.CanSee(caller, visitor.ResidentId, visitor.CondominiumId, SeesWholeCondominium(caller)))
+                .ToList();
 
         [HttpPost("register")]
         public async Task<ActionResult> Register([FromBody] CreateVisitorDto dto)
         {
-            var residentId = Request.Headers["X-User-Id"].ToString();
-            if (string.IsNullOrEmpty(residentId)) return Unauthorized();
+            // Morador registra visitante só para si; portaria e administração, para morador do próprio condomínio
+            // (indicado em X-User-Id, como o painel e o app mandam, ou no corpo). O condomínio é sempre o do token.
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-            dto.ResidentId = residentId;
+            if (SeesWholeCondominium(caller))
+            {
+                var residentId = new[] { Request.Headers["X-User-Id"].ToString(), dto.ResidentId }
+                    .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+                var resident = residentId is null ? null : await _users.GetByIdAsync(residentId);
+                if (this.DenyManage(caller, resident?.CondominiumId, staff: true) is { } denied) return denied;
+                dto.ResidentId = residentId!;
+            }
+            else
+            {
+                dto.ResidentId = caller.UserId!;
+            }
+
+            dto.CondominiumId = caller.CondominiumId;
 
             var visitor = await _visitorService.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = visitor.Id }, visitor);
@@ -59,6 +113,16 @@ namespace GestaoPro.API.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<Visitor>> Update(string id, [FromBody] UpdateVisitorDto dto)
         {
+            var existing = await _visitorService.GetByIdAsync(id);
+            if (existing is null) return NotFound();
+            if (DenyManageVisitor(existing) is { } denied) return denied;
+            // Não move o visitante para outro condomínio nem para morador de outro condomínio.
+            var caller = this.Caller();
+            if (dto.CondominiumId is not null && this.DenyManage(caller, dto.CondominiumId, staff: true) is { } moved) return moved;
+            if (dto.ResidentId is not null &&
+                this.DenyManage(caller, (await _users.GetByIdAsync(dto.ResidentId))?.CondominiumId, staff: true) is { } otherResident)
+                return otherResident;
+
             var visitor = await _visitorService.UpdateAsync(id, dto);
             return visitor is null ? NotFound() : Ok(visitor);
         }
@@ -70,6 +134,7 @@ namespace GestaoPro.API.Controllers
 
             if (existingVisitor == null)
                 return NotFound();
+            if (DenyFrontDesk(existingVisitor) is { } denied) return denied;
 
             await _visitorService.CheckInAsync(id);
             return NoContent();
@@ -82,6 +147,7 @@ namespace GestaoPro.API.Controllers
 
             if (existingVisitor == null)
                 return NotFound();
+            if (DenyFrontDesk(existingVisitor) is { } denied) return denied;
 
             await _visitorService.CheckOutAsync(id);
             return NoContent();
@@ -95,6 +161,9 @@ namespace GestaoPro.API.Controllers
 
             if (!ObjectId.TryParse(id, out _))
                 return BadRequest(new { message = "Identificador de visitante inválido." });
+
+            var visitorToRemove = await _visitorService.GetByIdAsync(id);
+            if (visitorToRemove is not null && DenyManageVisitor(visitorToRemove) is { } denied) return denied;
 
             try
             {

@@ -5,7 +5,7 @@ using MongoDB.Bson;
 
 namespace GestaoPro.API.Services;
 
-public class PetAppService
+public class PetAppService : IPetService
 {
     private readonly PetRepository _petRepository;
     private readonly UserRepository _userRepository;

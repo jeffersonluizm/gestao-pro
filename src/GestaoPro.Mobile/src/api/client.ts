@@ -23,11 +23,11 @@ export interface LoginResponse {
   expiresAt: string;
 }
 
+// A API só diz se o cadastro pode seguir: sem nome nem motivo da recusa.
 export interface CheckCpfResponse {
-  found: boolean;
-  hasCredential: boolean;
+  canProceed: boolean;
   needsProfileData: boolean;
-  name: string | null;
+  message: string;
 }
 
 export interface SelfRegisterResponse {
@@ -345,15 +345,16 @@ export const login = (email: string, password: string) =>
     body: JSON.stringify({ registrationNumber: email, password }),
   }, false);
 
-export const checkCpf = (cpf: string, condominiumId: string) =>
+export const checkCpf = (cpf: string, condominiumId: string, condominiumCode: string) =>
   request<CheckCpfResponse>('/api/auth/check-cpf', {
     method: 'POST',
-    body: JSON.stringify({ cpf, condominiumId }),
+    body: JSON.stringify({ cpf, condominiumId, condominiumCode }),
   }, false);
 
 export const selfRegister = (data: {
   cpf: string;
   condominiumId: string;
+  condominiumCode: string;
   password: string;
   name?: string;
   email?: string;
@@ -391,6 +392,8 @@ export const createCondominium = (data: {
   zipCode: string;
   rules?: string;
   regulations?: string;
+  // Código do condomínio (senha padrão): obrigatório no cadastro, forte (a API recusa código óbvio).
+  defaultPassword: string;
 }) =>
   request<Condominium>('/api/Condominiums', {
     method: 'POST',
@@ -408,6 +411,8 @@ export const updateCondominium = (id: string, data: {
   zipCode: string;
   rules?: string;
   regulations?: string;
+  // Em branco mantém o código atual.
+  defaultPassword?: string;
 }) =>
   request<Condominium>(`/api/Condominiums/${encodeURIComponent(id)}`, {
     method: 'PUT',

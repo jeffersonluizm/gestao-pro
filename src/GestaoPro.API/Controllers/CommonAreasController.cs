@@ -1,6 +1,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GestaoPro.API.Controllers;
@@ -21,8 +22,11 @@ public class CommonAreasController : ControllerBase
     [ProducesResponseType(typeof(List<CommonArea>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var commonAreas = await _service.GetAllAsync();
-        return Ok(commonAreas);
+        return Ok(caller.InCondominium(commonAreas, area => area.CondominiumId));
     }
 
     [HttpGet("{id}")]
@@ -31,13 +35,19 @@ public class CommonAreasController : ControllerBase
     public async Task<IActionResult> GetById(string id)
     {
         var commonArea = await _service.GetByIdAsync(id);
-        return commonArea is null ? NotFound("Área comum não encontrada.") : Ok(commonArea);
+        if (commonArea is null) return NotFound("Área comum não encontrada.");
+        // De outro condomínio: a mesma resposta de inexistente.
+        return this.DenyOtherCondominium(this.Caller(), commonArea.CondominiumId) is null
+            ? Ok(commonArea)
+            : NotFound("Área comum não encontrada.");
     }
 
     [HttpGet("condominium/{condominiumId}")]
     [ProducesResponseType(typeof(List<CommonArea>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCondominium(string condominiumId)
     {
+        if (this.DenyOtherCondominium(this.Caller(), condominiumId) is { } denied) return denied;
+
         var commonAreas = await _service.GetByCondominiumAsync(condominiumId);
         return Ok(commonAreas);
     }
@@ -48,6 +58,8 @@ public class CommonAreasController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateCommonAreaDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+        var caller = this.Caller();
+        if (this.DenyManage(caller, dto.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
 
         var commonArea = await _service.CreateAsync(dto);
         return CreatedAtAction(nameof(GetById), new { id = commonArea.Id }, commonArea);
@@ -58,6 +70,8 @@ public class CommonAreasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateCommonAreaDto dto)
     {
+        if (await DenyManageAsync(id) is { } denied) return denied;
+
         var commonArea = await _service.UpdateAsync(id, dto);
         return commonArea is null ? NotFound("Área comum não encontrada.") : Ok(commonArea);
     }
@@ -67,7 +81,21 @@ public class CommonAreasController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id)
     {
+        if (await DenyManageAsync(id) is { } denied) return denied;
+
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound("Área comum não encontrada.");
+    }
+
+    // Escrita da administração só no próprio condomínio; área de outro condomínio responde 404.
+    private async Task<ActionResult?> DenyManageAsync(string id)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        return this.DenyManage(caller, existing.CondominiumId, staff: true);
     }
 }

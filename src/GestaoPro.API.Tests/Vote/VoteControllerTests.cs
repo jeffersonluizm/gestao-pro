@@ -7,6 +7,28 @@ namespace GestaoPro.API.Tests.Vote;
 
 public class VoteControllerTests
 {
+    private const string CondominioA = "665f1c2e9b1e8a00000000a1";
+    private const string CondominioB = "665f1c2e9b1e8a00000000b1";
+
+    // A assembleia é do condomínio: quem é de outro não vota, não vê resultado nem voto (404).
+    [Fact]
+    public async Task Morador_de_outro_condominio_nao_vota_nem_ve_resultados_da_assembleia()
+    {
+        _assemblyRepository.Setup(repository => repository.GetByIdAsync("assembly-1")).ReturnsAsync(MakeAssembly());
+        _voteService.Setup(service => service.GetByIdAsync("vote-1"))
+            .ReturnsAsync(new VoteModel { Id = "vote-1", AssemblyId = "assembly-1", UserId = "usuario-b", TopicIndex = 0, Vote = "sim" });
+        var controller = MakeController("usuario-b", "morador", CondominioB);
+
+        var vote = await controller.CastVote(new CreateVoteDto { AssemblyId = "assembly-1", TopicIndex = 0, Vote = "sim" });
+        var results = await controller.GetResults("assembly-1");
+        var single = await controller.GetById("vote-1");
+
+        Assert.IsType<NotFoundResult>(vote);
+        Assert.IsType<NotFoundResult>(results);
+        Assert.IsType<NotFoundResult>(single);
+        _voteService.Verify(service => service.CreateAsync(It.IsAny<CreateVoteDto>()), Times.Never);
+    }
+
     private readonly Mock<IVoteService> _voteService = new();
     private readonly Mock<IAssemblyRepository> _assemblyRepository = new();
 
@@ -60,7 +82,7 @@ public class VoteControllerTests
         Assert.Equal(0, rows[1]["totalVotes"]);
     }
 
-    private VoteController MakeController(string userId, string role)
+    private VoteController MakeController(string userId, string role, string condominiumId = CondominioA)
     {
         var controller = new VoteController(_voteService.Object, _assemblyRepository.Object);
         controller.ControllerContext.HttpContext = new DefaultHttpContext
@@ -68,7 +90,8 @@ public class VoteControllerTests
             User = new ClaimsPrincipal(new ClaimsIdentity(new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, userId),
-                new Claim(ClaimTypes.Role, role)
+                new Claim(ClaimTypes.Role, role),
+                new Claim(GestaoPro.API.Services.Access.Caller.CondominiumIdClaim, condominiumId)
             }, "Test"))
         };
         return controller;
@@ -77,6 +100,7 @@ public class VoteControllerTests
     private static AssemblyModel MakeAssembly() => new()
     {
         Id = "assembly-1",
+        CondominiumId = CondominioA,
         Title = "Assembleia",
         Description = "Teste",
         StartTime = DateTime.UtcNow.AddHours(-1),

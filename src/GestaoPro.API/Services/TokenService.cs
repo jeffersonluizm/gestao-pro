@@ -2,6 +2,7 @@
 using System.Security.Claims;
 using System.Text;
 using GestaoPro.API.Models;
+using GestaoPro.API.Services.Access;
 using GestaoPro.API.Settings;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
@@ -25,7 +26,7 @@ public class TokenService
         {
             new Claim(ClaimTypes.NameIdentifier, credential.UserId),
             new Claim(ClaimTypes.Role, credential.Role),
-            new Claim("condominiumId", credential.CondominiumId),
+            new Claim(Caller.CondominiumIdClaim, credential.CondominiumId),
             new Claim("registrationNumber", credential.RegistrationNumber),
             new Claim("mustChangePassword", credential.MustChangePassword.ToString())
         };

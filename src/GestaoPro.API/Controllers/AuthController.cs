@@ -1,6 +1,8 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
@@ -9,13 +11,24 @@ namespace GestaoPro.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthAppService _service;
+    private readonly IUserDirectory _users;
+    private readonly SelfServiceAuthService _selfService;
+    private readonly CondominiumAttemptLimiter _condominiumAttempts;
 
-    public AuthController(AuthAppService service)
+    public AuthController(
+        AuthAppService service,
+        IUserDirectory users,
+        SelfServiceAuthService selfService,
+        CondominiumAttemptLimiter condominiumAttempts)
     {
         _service = service;
+        _users = users;
+        _selfService = selfService;
+        _condominiumAttempts = condominiumAttempts;
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(AuthRateLimit.Login)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
@@ -41,6 +54,9 @@ public class AuthController : ControllerBase
     [HttpPost("credentials")]
     public async Task<IActionResult> CreateCredential([FromBody] CreateCredentialRequest request)
     {
+        if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+        if (this.DenyManage(this.Caller(), request.CondominiumId, staff: true) is { } otherCondominium) return otherCondominium;
+
         try
         {
             await _service.CreateCredentialAsync(request);
@@ -53,22 +69,26 @@ public class AuthController : ControllerBase
     }
 
     [HttpPatch("change-password")]
+    [EnableRateLimiting(AuthRateLimit.ChangePassword)]
     public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
     {
         try
         {
-            await _service.ChangePasswordAsync(request);
+            await _selfService.ChangePasswordOnFirstAccessAsync(request);
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (Exception)
         {
-            return BadRequest(ex.Message);
+            // Rota anônima: só a mensagem única, nunca o texto da exceção.
+            return BadRequest(new { message = SelfServiceAuthService.ChangePasswordRefusedMessage });
         }
     }
 
     [HttpPatch("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] AuthResetPasswordRequest request)
     {
+        if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+
         try
         {
             await _service.ResetPasswordAsync(request);
@@ -81,38 +101,64 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("check-cpf")]
+    [EnableRateLimiting(AuthRateLimit.Register)]
     public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
     {
+        if (DenyTooManyCondominiumAttempts(request.CondominiumId) is { } tooMany) return tooMany;
+
         try
         {
-            var result = await _service.CheckCpfAsync(request);
+            var result = await _selfService.CheckCpfAsync(request);
             return Ok(result);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = SelfServiceAuthService.CheckRefusedMessage });
         }
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(AuthRateLimit.Register)]
     public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
     {
+        if (DenyTooManyCondominiumAttempts(request.CondominiumId) is { } tooMany) return tooMany;
+
         try
         {
-            var result = await _service.SelfRegisterAsync(request);
+            var result = await _selfService.SelfRegisterAsync(request);
             return Ok(result);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception)
         {
-            return BadRequest(new { message = ex.Message });
+            // Inclui e-mail já usado e falhas do banco: a resposta não diferencia os motivos.
+            return BadRequest(new { message = SelfServiceAuthService.RegisterRefusedMessage });
         }
     }
 
     [HttpDelete("credentials/{userId}")]
     public async Task<IActionResult> Deactivate(string userId)
     {
+        if (await DenyManageUserAsync(userId) is { } denied) return denied;
+
         var result = await _service.DeactivateAsync(userId);
         return result ? NoContent() : NotFound();
+    }
+
+    // Balde por condomínio do check-cpf e do cadastro (além do balde por IP): 429 com Retry-After.
+    private IActionResult? DenyTooManyCondominiumAttempts(string condominiumId)
+    {
+        if (_condominiumAttempts.TryAcquire(condominiumId, out var retryAfter)) return null;
+
+        AuthRateLimit.SetRetryAfter(Response, retryAfter);
+        return StatusCode(StatusCodes.Status429TooManyRequests, new { message = AuthRateLimit.TooManyAttemptsMessage });
+    }
+
+    // Credenciais são escritas da administração (middleware): só de usuário do próprio condomínio (outro: 404).
+    private async Task<ActionResult?> DenyManageUserAsync(string userId)
+    {
+        var caller = this.Caller();
+        var user = await _users.GetByIdAsync(userId);
+        return this.DenyManage(caller, user?.CondominiumId, caller.IsAdministrator);
     }
 }
 

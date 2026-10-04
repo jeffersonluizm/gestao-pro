@@ -40,6 +40,8 @@ public record AuthResetPasswordRequest(
 public record SelfRegisterRequest(
     [Required] string Cpf,
     [Required] string CondominiumId,
+    // Senha padrão do condomínio, entregue pela administração: prova o vínculo com o condomínio.
+    [Required] string CondominiumCode,
     [Required] string Password,
     string? Name,
     string? Email,
@@ -50,13 +52,14 @@ public record SelfRegisterResponse(string RegistrationNumber, string Name);
 
 public record CheckCpfRequest(
     [Required] string Cpf,
-    [Required] string CondominiumId
+    [Required] string CondominiumId,
+    [Required] string CondominiumCode
 );
 
+// Só diz se o cadastro pode seguir: sem nome nem motivo da recusa (a mensagem é sempre a mesma).
 public record CheckCpfResponse(
-    bool Found,
-    bool HasCredential,
+    bool CanProceed,
     bool NeedsProfileData,
-    string? Name
+    string Message
 );
 

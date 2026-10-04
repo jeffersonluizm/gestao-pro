@@ -27,6 +27,12 @@ public class Delivery
     [BsonElement("unitId")]
     public string UnitId { get; set; } = string.Empty;
 
+    // Gravado pela API no cadastro (condomínio do token). Encomendas antigas não têm o campo:
+    // o controle de acesso usa o condomínio do cadastro do morador.
+    [BsonElement("condominiumId")]
+    [BsonIgnoreIfNull]
+    public string? CondominiumId { get; set; }
+
     [BsonElement("status")]
     public string Status { get; set; } = "pending";
 

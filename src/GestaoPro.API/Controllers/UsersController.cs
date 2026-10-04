@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using MongoDB.Bson;
 
 namespace GestaoPro.API.Controllers;
@@ -10,36 +11,93 @@ namespace GestaoPro.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserAppService _service;
+    private readonly IUserDirectory _directory;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(UserAppService service, ILogger<UsersController> logger)
+    public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger)
     {
         _service = service;
+        _directory = directory;
         _logger = logger;
     }
 
+    // Leituras: só usuários do condomínio do token. Administração recebe os dados completos;
+    // os demais recebem o resumo (sem CPF, e-mail, telefone), que basta para as telas mostrarem nomes.
     [HttpGet]
-    public async Task<IActionResult> GetAllActive() =>
-        Ok(await _service.GetAllActiveAsync());
+    public async Task<IActionResult> GetAllActive()
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        return ForCaller(caller, await _directory.GetAllActiveAsync());
+    }
 
     [HttpGet("inactive")]
-    public async Task<IActionResult> GetAllInactive() =>
-        Ok(await _service.GetAllInactiveAsync());
+    public async Task<IActionResult> GetAllInactive()
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        return ForCaller(caller, await _directory.GetAllInactiveAsync());
+    }
 
     [HttpGet("condominium/{condominiumId}")]
-    public async Task<IActionResult> GetByCondominium(string condominiumId) =>
-        Ok(await _service.GetByCondominiumAsync(condominiumId));
+    public async Task<IActionResult> GetByCondominium(string condominiumId)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!string.Equals(caller.CondominiumId, condominiumId, StringComparison.Ordinal)) return NotFound();
+
+        return ForCaller(caller, await _directory.GetByCondominiumAsync(condominiumId));
+    }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var user = await _service.GetByIdAsync(id);
-        return user is null ? NotFound() : Ok(user);
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        var user = await _directory.GetByIdAsync(id);
+        if (user is null) return NotFound();
+
+        return this.Deny(ResourceAccess.Decide(caller, user.Id, user.CondominiumId, caller.IsAdministrator))
+            ?? Ok(user);
+    }
+
+    // Escritas da administração só em usuário do próprio condomínio (outro: 404).
+    // Sem login só chega aqui a credencial do cadastro inicial, liberada pelo middleware.
+    private async Task<ActionResult?> DenyManageUserAsync(string id)
+    {
+        if (User.Identity?.IsAuthenticated != true) return null;
+
+        var caller = this.Caller();
+        var user = await _directory.GetByIdAsync(id);
+        if (user is null) return NotFound();
+        return this.DenyManage(caller, user.CondominiumId, caller.IsAdministrator);
+    }
+
+    private OkObjectResult ForCaller(Caller caller, IEnumerable<UserResponse> users)
+    {
+        var sameCondominium = users
+            .Where(user => string.Equals(user.CondominiumId, caller.CondominiumId, StringComparison.Ordinal))
+            .ToList();
+
+        return caller.IsAdministrator
+            ? Ok(sameCondominium)
+            : Ok(sameCondominium.Select(UserSummaryResponse.From).ToList());
     }
 
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
+        // Sem login só chega aqui o cadastro inicial (antes de existir administrador; ver ApiAccessMiddleware).
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var caller = this.Caller();
+            if (this.DenyManage(caller, request.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+        }
+
         try
         {
             var created = await _service.CreateAsync(request);
@@ -58,6 +116,8 @@ public class UsersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateUserRequest request)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var updated = await _service.UpdateAsync(id, request);
@@ -77,6 +137,7 @@ public class UsersController : ControllerBase
 
         if (!ObjectId.TryParse(id, out _))
             return BadRequest(new { message = "Identificador de usuário inválido." });
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
 
         try
         {
@@ -96,6 +157,11 @@ public class UsersController : ControllerBase
     [HttpPatch("{id}/change-password")]
     public async Task<IActionResult> ChangePassword(string id, [FromBody] ChangePasswordRequest request)
     {
+        // Qualquer papel troca a própria senha (com a senha atual); a de outro id, nunca.
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!string.Equals(caller.UserId, id, StringComparison.Ordinal)) return this.Forbidden();
+
         try
         {
             var result = await _service.ChangePasswordAsync(id, request);
@@ -110,6 +176,8 @@ public class UsersController : ControllerBase
     [HttpPatch("{id}/reset-password")]
     public async Task<IActionResult> ResetPassword(string id)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var result = await _service.ResetPasswordAsync(id);
@@ -124,6 +192,8 @@ public class UsersController : ControllerBase
     [HttpPatch("{id}/password")]
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] ResetPasswordRequest request)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var result = await _service.UpdatePasswordByAuthAsync(id, request.NewPassword);
@@ -138,6 +208,8 @@ public class UsersController : ControllerBase
     [HttpPost("{id}/credentials")]
     public async Task<IActionResult> CreateCredentialForExistingUser(string id, [FromBody] CreateUserCredentialRequest request)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var user = await _service.CreateCredentialForExistingUserAsync(id, request);

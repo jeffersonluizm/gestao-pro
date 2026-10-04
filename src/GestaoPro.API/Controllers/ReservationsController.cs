@@ -1,9 +1,9 @@
 ﻿using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace GestaoPro.API.Controllers;
 
@@ -14,25 +14,28 @@ namespace GestaoPro.API.Controllers;
 public class ReservationsController : ControllerBase
 {
     private readonly IReservationService _service;
+    private readonly ICommonAreaService _commonAreas;
+    private readonly IUserDirectory _users;
 
-    public ReservationsController(IReservationService service)
+    public ReservationsController(IReservationService service, ICommonAreaService commonAreas, IUserDirectory users)
     {
         _service = service;
+        _commonAreas = commonAreas;
+        _users = users;
     }
 
-    /// <summary>Lista todas as reservas</summary>
+    /// <summary>Lista as reservas que o usuário pode ver (morador: as próprias; administração: as do condomínio)</summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
-        if (!IsAdministrator() && CurrentUserId() is { Length: > 0 } currentUserId)
-        {
-            var userReservations = await _service.GetByUserAsync(currentUserId);
-            return Ok(userReservations);
-        }
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        var reservations = await _service.GetAllAsync();
-        return Ok(reservations);
+        var reservations = caller.IsAdministrator
+            ? await _service.GetAllAsync()
+            : await _service.GetByUserAsync(caller.UserId!);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Busca uma reserva pelo ID</summary>
@@ -41,38 +44,53 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(string id)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservation = await _service.GetByIdAsync(id);
-        return reservation is null ? NotFound() : Ok(reservation);
+        if (reservation is null) return NotFound();
+
+        return this.Deny(ResourceAccess.Decide(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator))
+            ?? Ok(reservation);
     }
 
-    /// <summary>Lista reservas por condomÃ­nio</summary>
+    /// <summary>Lista reservas por condomínio (só o próprio; morador vê as próprias)</summary>
     [HttpGet("condominium/{condominiumId}")]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCondominium(string condominiumId)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!string.Equals(caller.CondominiumId, condominiumId, StringComparison.Ordinal)) return NotFound();
+
         var reservations = await _service.GetByCondominiumAsync(condominiumId);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
-    /// <summary>Lista reservas por usuÃ¡rio</summary>
+    /// <summary>Lista reservas por usuário</summary>
     [HttpGet("user/{userId}")]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByUser(string userId)
     {
-        if (!IsAdministrator() && !string.Equals(CurrentUserId(), userId, StringComparison.Ordinal))
-            return Forbid();
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!caller.IsAdministrator && !string.Equals(caller.UserId, userId, StringComparison.Ordinal))
+            return this.Forbidden();
 
         var reservations = await _service.GetByUserAsync(userId);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
-    /// <summary>Lista reservas por Ã¡rea comum</summary>
+    /// <summary>Lista reservas por área comum</summary>
     [HttpGet("common-area/{commonAreaId}")]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCommonArea(string commonAreaId)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservations = await _service.GetByCommonAreaAsync(commonAreaId);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Filtra reservas por status (pendente, aprovada, rejeitada, cancelada)</summary>
@@ -80,8 +98,11 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByStatus(string status)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservations = await _service.GetByStatusAsync(status);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Lista reservas por data (formato: yyyy-MM-dd)</summary>
@@ -89,8 +110,11 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByDate(string date)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservations = await _service.GetByDateAsync(date);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Cria uma nova reserva</summary>
@@ -103,13 +127,25 @@ public class ReservationsController : ControllerBase
 
         try
         {
-            if (!IsAdministrator())
-            {
-                var currentUserId = CurrentUserId();
-                if (string.IsNullOrWhiteSpace(currentUserId))
-                    return Unauthorized(new { message = "Login obrigatório para criar reserva." });
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-                dto.UserId = currentUserId;
+            // A área comum define o condomínio da reserva: área de outro condomínio (ou inexistente) responde 404,
+            // sem chegar à checagem de conflito, que revelaria a ocupação e bloquearia a área do outro condomínio.
+            var commonArea = await _commonAreas.GetByIdAsync(dto.CommonAreaId);
+            if (this.DenyOtherCondominium(caller, commonArea?.CondominiumId) is { } otherArea) return otherArea;
+            dto.CondominiumId = commonArea!.CondominiumId;
+
+            if (caller.IsAdministrator)
+            {
+                // Admin/síndico reserva para morador do próprio condomínio.
+                var resident = await _users.GetByIdAsync(dto.UserId);
+                if (this.DenyManage(caller, resident?.CondominiumId, staff: true) is { } denied) return denied;
+            }
+            else
+            {
+                // Quem não administra reserva em nome próprio.
+                dto.UserId = caller.UserId!;
             }
 
             var reservation = await _service.CreateAsync(dto);
@@ -130,6 +166,12 @@ public class ReservationsController : ControllerBase
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
 
+        // Aprovar, rejeitar ou alterar: só a administração do condomínio da reserva (outro: 404).
+        var caller = this.Caller();
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (this.DenyManage(caller, existing.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+
         try
         {
             var reservation = await _service.UpdateAsync(id, dto);
@@ -147,16 +189,23 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id)
     {
+        // O morador remove as próprias reservas (app mobile); a administração, as do condomínio.
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        var reservation = await _service.GetByIdAsync(id);
+        if (reservation is null) return NotFound();
+        if (this.Deny(ResourceAccess.Decide(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator)) is { } denied)
+            return denied;
+
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
     }
 
-    private string? CurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-    private bool IsAdministrator()
-    {
-        var role = User.FindFirstValue(ClaimTypes.Role);
-        return role is "admin" or "sindico";
-    }
+    // Filtro das listas: morador fica com as próprias, administração com as do condomínio.
+    private static List<Reservation> Visible(Caller caller, IEnumerable<Reservation> reservations) =>
+        reservations
+            .Where(reservation => ResourceAccess.CanSee(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator))
+            .ToList();
 }
 

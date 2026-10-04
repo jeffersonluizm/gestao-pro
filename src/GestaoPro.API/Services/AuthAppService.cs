@@ -159,23 +159,6 @@ public class AuthAppService
         return true;
     }
 
-    public async Task<bool> ChangePasswordAsync(AuthChangePasswordRequest request)
-    {
-        var credential = await _repository.GetByUserIdAsync(request.UserId);
-        if (credential is null)
-            throw new InvalidOperationException("Credencial não encontrada.");
-
-        // Verifica se a senha atual está correta
-        if (!BCrypt.Net.BCrypt.Verify(request.CurrentPassword, credential.PasswordHash))
-            throw new InvalidOperationException("Senha atual incorreta.");
-
-        await _repository.UpdatePasswordAsync(
-            request.UserId,
-            BCrypt.Net.BCrypt.HashPassword(request.NewPassword),
-            false);
-        return true;
-    }
-
     public async Task<bool> ResetPasswordAsync(AuthResetPasswordRequest request)
     {
         var credential = await _repository.GetByUserIdAsync(request.UserId);
@@ -214,85 +197,6 @@ public class AuthAppService
         var credential = await _repository.GetByUserIdAsync(userId);
         if (credential is null) return; // sem credential ainda — será criada no próximo login
         await _repository.UpdatePasswordAsync(userId, newPasswordHash, credential.MustChangePassword);
-    }
-
-    public async Task<CheckCpfResponse> CheckCpfAsync(CheckCpfRequest request)
-    {
-        var cpf = new string(request.Cpf.Where(char.IsDigit).ToArray());
-        var user = await _userRepository.GetByCpfAsync(cpf);
-
-        if (user is null || !user.IsActive || user.CondominiumId != request.CondominiumId)
-            return new CheckCpfResponse(false, false, false, null);
-
-        var credential = await _repository.GetByUserIdAsync(user.Id!);
-        bool hasCredential = credential is not null && credential.IsActive;
-        bool isSkeletonUser = user.Email.EndsWith("@pending.gestaopro.local") ||
-                              string.IsNullOrWhiteSpace(user.Name) ||
-                              user.Name.EndsWith("(Teste)");
-
-        return new CheckCpfResponse(true, hasCredential, isSkeletonUser, user.Name);
-    }
-
-    public async Task<SelfRegisterResponse> SelfRegisterAsync(SelfRegisterRequest request)
-    {
-        var cpf = new string(request.Cpf.Where(char.IsDigit).ToArray());
-
-        var user = await _userRepository.GetByCpfAsync(cpf);
-        if (user is null || !user.IsActive)
-            throw new InvalidOperationException("CPF não encontrado. Verifique se seu CPF está cadastrado no condomínio selecionado.");
-
-        if (user.CondominiumId != request.CondominiumId)
-            throw new InvalidOperationException("CPF não pertence ao condomínio selecionado.");
-
-        var existing = await _repository.GetByUserIdAsync(user.Id!);
-        if (existing is not null && existing.IsActive)
-            throw new InvalidOperationException("Já existe um acesso para esse CPF. Use seu e-mail para fazer login.");
-
-        bool isSkeletonUser = user.Email.EndsWith("@pending.gestaopro.local") ||
-                              string.IsNullOrWhiteSpace(user.Name) ||
-                              user.Name.EndsWith("(Teste)");
-
-        string registrationNumber = user.RegistrationNumber;
-
-        if (isSkeletonUser || !string.IsNullOrWhiteSpace(request.Email))
-        {
-            if (!string.IsNullOrWhiteSpace(request.Name)) user.Name = request.Name.Trim();
-            if (!string.IsNullOrWhiteSpace(request.Email))
-            {
-                var email = request.Email.Trim().ToLowerInvariant();
-                user.Email = email;
-                user.RegistrationNumber = email;
-                registrationNumber = email;
-            }
-            if (!string.IsNullOrWhiteSpace(request.Phone))
-                user.Phone = new string(request.Phone.Where(char.IsDigit).ToArray());
-            try { await _userRepository.UpdateAsync(user.Id!, user); }
-            catch { throw new InvalidOperationException("E-mail já cadastrado no sistema."); }
-        }
-
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
-
-        if (existing is null)
-        {
-            await _repository.CreateAsync(new Credential
-            {
-                UserId = user.Id!,
-                RegistrationNumber = registrationNumber,
-                PasswordHash = passwordHash,
-                Role = user.Role.ToString(),
-                CondominiumId = user.CondominiumId,
-                MustChangePassword = false,
-                IsActive = true
-            });
-        }
-        else
-        {
-            await _repository.UpdatePasswordAsync(user.Id!, passwordHash, false);
-        }
-
-        await _userRepository.UpdatePasswordAsync(user.Id!, passwordHash);
-
-        return new SelfRegisterResponse(registrationNumber, user.Name);
     }
 
     public async Task<bool> DeactivateAsync(string userId)

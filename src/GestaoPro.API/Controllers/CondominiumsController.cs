@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
@@ -8,9 +9,9 @@ namespace GestaoPro.API.Controllers;
 [Route("api/[controller]")]
 public class CondominiumsController : ControllerBase
 {
-    private readonly CondominiumAppService _service;
+    private readonly ICondominiumService _service;
 
-    public CondominiumsController(CondominiumAppService service)
+    public CondominiumsController(ICondominiumService service)
     {
         _service = service;
     }
@@ -22,6 +23,9 @@ public class CondominiumsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        // A lista (GET /api/condominiums) segue pública para a tela de cadastro; o detalhe é só do próprio condomínio.
+        if (this.DenyOtherCondominium(this.Caller(), id) is { } denied) return denied;
+
         var condominium = await _service.GetByIdAsync(id);
         return condominium is null ? NotFound() : Ok(condominium);
     }
@@ -43,6 +47,8 @@ public class CondominiumsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateCondominiumRequest request)
     {
+        if (DenyOtherCondominium(id) is { } denied) return denied;
+
         try
         {
             var updated = await _service.UpdateAsync(id, request);
@@ -57,8 +63,18 @@ public class CondominiumsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        if (DenyOtherCondominium(id) is { } denied) return denied;
+
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();
+    }
+
+    // A administração altera e remove só o condomínio do próprio token. Criar um condomínio novo segue liberado
+    // (o cadastro inicial acontece antes de existir administrador; ver ApiAccessMiddleware).
+    private ActionResult? DenyOtherCondominium(string id)
+    {
+        var caller = this.Caller();
+        return this.DenyManage(caller, id, caller.IsAdministrator);
     }
 }
 

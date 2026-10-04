@@ -37,9 +37,7 @@ src/
 ├── GestaoPro.Web/              # Frontend Web - React + TypeScript + Vite
 │   └── src/
 │       ├── components/         # Componentes React
-│       ├── services/           # Chamadas à API (userApi, reservationApi)
-│       ├── types/              # Tipagens TypeScript
-│       └── App.tsx             # Componente raiz
+│       └── App.tsx             # Componente raiz (módulos, chamadas à API e telas)
 │
 └── GestaoPro.Mobile/           # Frontend Mobile - React Native + Expo
     └── src/
