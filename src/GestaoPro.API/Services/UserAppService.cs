@@ -7,7 +7,7 @@ using MongoDB.Driver;
 
 namespace GestaoPro.API.Services;
 
-public class UserAppService
+public class UserAppService : IUserDirectory
 {
     private readonly UserRepository _userRepository;
     private readonly UnitRepository _unitRepository;

@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using MongoDB.Bson;
 
 namespace GestaoPro.API.Controllers;
@@ -10,31 +11,69 @@ namespace GestaoPro.API.Controllers;
 public class UsersController : ControllerBase
 {
     private readonly UserAppService _service;
+    private readonly IUserDirectory _directory;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(UserAppService service, ILogger<UsersController> logger)
+    public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger)
     {
         _service = service;
+        _directory = directory;
         _logger = logger;
     }
 
+    // Leituras: só usuários do condomínio do token. Administração recebe os dados completos;
+    // os demais recebem o resumo (sem CPF, e-mail, telefone), que basta para as telas mostrarem nomes.
     [HttpGet]
-    public async Task<IActionResult> GetAllActive() =>
-        Ok(await _service.GetAllActiveAsync());
+    public async Task<IActionResult> GetAllActive()
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        return ForCaller(caller, await _directory.GetAllActiveAsync());
+    }
 
     [HttpGet("inactive")]
-    public async Task<IActionResult> GetAllInactive() =>
-        Ok(await _service.GetAllInactiveAsync());
+    public async Task<IActionResult> GetAllInactive()
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        return ForCaller(caller, await _directory.GetAllInactiveAsync());
+    }
 
     [HttpGet("condominium/{condominiumId}")]
-    public async Task<IActionResult> GetByCondominium(string condominiumId) =>
-        Ok(await _service.GetByCondominiumAsync(condominiumId));
+    public async Task<IActionResult> GetByCondominium(string condominiumId)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!string.Equals(caller.CondominiumId, condominiumId, StringComparison.Ordinal)) return NotFound();
+
+        return ForCaller(caller, await _directory.GetByCondominiumAsync(condominiumId));
+    }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
-        var user = await _service.GetByIdAsync(id);
-        return user is null ? NotFound() : Ok(user);
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        var user = await _directory.GetByIdAsync(id);
+        if (user is null) return NotFound();
+
+        return this.Deny(ResourceAccess.Decide(caller, user.Id, user.CondominiumId, caller.IsAdministrator))
+            ?? Ok(user);
+    }
+
+    private OkObjectResult ForCaller(Caller caller, IEnumerable<UserResponse> users)
+    {
+        var sameCondominium = users
+            .Where(user => string.Equals(user.CondominiumId, caller.CondominiumId, StringComparison.Ordinal))
+            .ToList();
+
+        return caller.IsAdministrator
+            ? Ok(sameCondominium)
+            : Ok(sameCondominium.Select(UserSummaryResponse.From).ToList());
     }
 
     [HttpPost]

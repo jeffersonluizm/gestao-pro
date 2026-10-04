@@ -107,6 +107,7 @@ builder.Services.AddScoped<PackageAppService>();
 builder.Services.AddScoped<CondominiumAppService>();
 builder.Services.AddScoped<UnitAppService>();
 builder.Services.AddScoped<UserAppService>();
+builder.Services.AddScoped<IUserDirectory>(provider => provider.GetRequiredService<UserAppService>());
 builder.Services.AddScoped<PetAppService>();
 builder.Services.AddScoped<AuthAppService>();
 builder.Services.AddScoped<TokenService>();
