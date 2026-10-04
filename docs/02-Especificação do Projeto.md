@@ -254,12 +254,55 @@ A priorização foi realizada considerando as necessidades identificadas no cont
 | RF-034 | Permitir que o morador consulte o histórico de pagamentos realizados | MÉDIA | Gustavo |
 | RF-035 | Permitir que o administrador consulte os pagamentos realizados por unidade ou período | MÉDIA | Gustavo |
 
+
+## Status dos requisitos funcionais (revisão de 2026-10-04)
+
+Situação no código atual (a tabela acima é a especificação original, mantida como histórico).
+
+| ID | Status | Observação |
+| --- | --- | --- |
+| RF-001 | Implementado | Painel e app (Usuários). |
+| RF-002 | Implementado | Condomínio com regras e regulamento. |
+| RF-003 | Implementado | Perfil administrador no cadastro de usuários. |
+| RF-004 | Implementado com mudança | O login passou a ser por **e-mail** e senha; a matrícula antiga (COND-...) continua aceita. |
+| RF-005 | Implementado |  |
+| RF-006 | Implementado | Quatro papéis na API: administrador, síndico, porteiro e morador. |
+| RF-007 | Implementado | Com conferência de conflito sob trava (ADR 0005). |
+| RF-008 | Implementado | Aprovação, edição e calendário no painel. |
+| RF-009 | Implementado | Calendário mensal no painel. |
+| RF-010 | Implementado | Painel e app (síndico). |
+| RF-011 | Parcial | Hub SignalR autenticado na API; sem notificação exibida nos clientes (o mural é atualizado ao abrir). |
+| RF-012 | Implementado | Mural no painel e no app. |
+| RF-013 | Implementado | Painel e app. |
+| RF-014 | Implementado |  |
+| RF-015 | Implementado |  |
+| RF-016 | Implementado |  |
+| RF-017 | Implementado |  |
+| RF-018 | Parcial | A reserva de vaga é feita pela administração em nome do morador. |
+| RF-019 | Implementado |  |
+| RF-020 | Implementado | Gestão e portaria. |
+| RF-021 | Implementado | O morador vê as próprias encomendas; a retirada é registrada pela portaria ou pelo próprio morador. |
+| RF-022 | Implementado |  |
+| RF-023 | Implementado | Portaria. |
+| RF-024 | Implementado |  |
+| RF-025 | Implementado | Um voto por pessoa e pauta (índice único). |
+| RF-026 | Parcial | Campo de ata na API; sem tela dedicada. |
+| RF-027 | Não implementado | O calendário existente é o de reservas. |
+| RF-028 | Não implementado |  |
+| RF-029 | Implementado |  |
+| RF-030 | Implementado |  |
+| RF-031 | Implementado | Cobrança com linha digitável gerada; sem emissão de boleto bancário real. |
+| RF-032 | Implementado | Painel e app (Financeiro). |
+| RF-033 | Parcial | O pagamento é registrado pela administração; o morador consulta. |
+| RF-034 | Implementado |  |
+| RF-035 | Parcial | Consulta por morador e por cobrança; sem filtro por período. |
+
 # Requisitos Não Funcionais
 
 | ID | Descrição do Requisito | Prioridade |
 | --- | --- | --- |
 | RNF-001 | O sistema deve ser responsivo, permitindo uso adequado em computadores, tablets e smartphones | ALTA |
-| RNF-002 | O sistema deve possuir autenticação segura baseada em matrícula e senha para acesso dos usuários | ALTA |
+| RNF-002 | O sistema deve possuir autenticação segura baseada em matrícula e senha para acesso dos usuários (implementado com e-mail e senha, JWT, BCrypt e limite de tentativas) | ALTA |
 | RNF-003 | O sistema deve processar requisições do usuário em até 3 segundos em condições normais de uso | MÉDIA |
 | RNF-004 | A interface do sistema deve seguir princípios de usabilidade e acessibilidade digital | MÉDIA |
 | RNF-005 | O sistema deve garantir armazenamento seguro das informações dos usuários | ALTA |
