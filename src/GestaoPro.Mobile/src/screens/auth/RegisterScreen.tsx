@@ -51,7 +51,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
     setLoading(true);
     try {
-      const res = await checkCpf(rawCpf, condominiumId, condominiumCode.trim());
+      const res = await checkCpf(rawCpf, condominiumId, condominiumCode);
       if (!res.canProceed) {
         Alert.alert('Não foi possível continuar', res.message);
         return;
@@ -78,7 +78,7 @@ export default function RegisterScreen({ navigation }: Props) {
       const res = await selfRegister({
         cpf: onlyDigits(cpf),
         condominiumId,
-        condominiumCode: condominiumCode.trim(),
+        condominiumCode,
         password,
         name: needsProfileData ? name.trim() : undefined,
         email: email.trim().toLowerCase(),

@@ -1395,7 +1395,7 @@ function RegisterPage({ onBack }: { onBack: () => void }) {
     try {
       const result = await requestJson<{ registrationNumber: string; name: string }>('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify({ cpf: onlyDigits(form.cpf), condominiumId: form.condominiumId, condominiumCode: form.condominiumCode.trim(), password: form.password }),
+        body: JSON.stringify({ cpf: onlyDigits(form.cpf), condominiumId: form.condominiumId, condominiumCode: form.condominiumCode, password: form.password }),
       })
       setRegistrationNumber(result.registrationNumber)
       setRegisteredName(result.name)

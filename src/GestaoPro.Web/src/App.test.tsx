@@ -169,7 +169,7 @@ describe('Cadastro', () => {
 
     await user.selectOptions(await screen.findByLabelText('Condomínio'), 'c-1')
     await user.type(screen.getByLabelText('CPF'), '11111111111')
-    await user.type(screen.getByLabelText('Código do condomínio'), 'codigo-123')
+    await user.type(screen.getByLabelText('Código do condomínio'), ' codigo-123 ')
     await user.type(screen.getByLabelText('Senha'), 'senha-nova')
     await user.type(screen.getByLabelText('Confirmar senha'), 'senha-nova')
     await user.click(screen.getByRole('button', { name: 'Cadastrar' }))
@@ -177,7 +177,8 @@ describe('Cadastro', () => {
     await waitFor(() => expect(calls).toContainEqual(expect.objectContaining({
       method: 'POST',
       path: '/api/auth/register',
-      body: { cpf: '11111111111', condominiumId: 'c-1', condominiumCode: 'codigo-123', password: 'senha-nova' },
+      // O código vai como digitado: quem tira os espaços das pontas é a API.
+      body: { cpf: '11111111111', condominiumId: 'c-1', condominiumCode: ' codigo-123 ', password: 'senha-nova' },
     })))
   })
 })
