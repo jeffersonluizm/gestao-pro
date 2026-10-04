@@ -26,6 +26,19 @@ Sistema distribuído de gestão condominial composto por uma API REST em C# ASP.
 - [Node.js 18+](https://nodejs.org/)
 - [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
 
+### Configuração da API
+
+A connection string do MongoDB e a chave JWT não ficam no repositório. Crie o arquivo `src/GestaoPro.API/appsettings.Local.json` (ele já é ignorado pelo Git e pelo Docker):
+
+```json
+{
+  "MongoDbSettings": { "ConnectionString": "mongodb+srv://<usuario>:<senha>@<cluster>/" },
+  "JwtSettings": { "SecretKey": "<chave aleatória com pelo menos 32 caracteres>" }
+}
+```
+
+Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__ConnectionString` e `JwtSettings__SecretKey` **antes** do deploy: sem elas a API recusa a partida com uma mensagem dizendo o que falta.
+
 ### Executando o projeto
 
 **Opção rápida (Windows):** execute o arquivo `iniciar.bat` na raiz do repositório. Ele inicia a API, o painel web e o app mobile simultaneamente.
