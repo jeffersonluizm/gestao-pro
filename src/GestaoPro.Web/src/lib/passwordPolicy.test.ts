@@ -3,7 +3,7 @@ import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from './passwordPolicy';
 
 // Mesma regra da API (PasswordPolicy): o app avisa antes de enviar, a API decide.
 describe('isStrongPassword', () => {
-  it.each(['', 'Ab1-xyz', '12345678', 'senha123', 'aaaaaaaa', 'abcdefgh', 'x'.repeat(129)])(
+  it.each(['', 'Ab1-xyz', '12345678', 'senha123', 'aaaaaaaa', 'abcdefgh', 'Admin@123', 'Senha@123', 'x'.repeat(129)])(
     'recusa senha curta, longa ou óbvia: %s',
     password => expect(isStrongPassword(password)).toBe(false),
   );

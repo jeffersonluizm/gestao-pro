@@ -32,6 +32,7 @@ public class ApiAccessMiddleware
             var isPublicRead =
                 !path.StartsWith("/api/") ||
                 path == "/api/condominiums/public" ||
+                path == "/api/demo" ||
                 path.StartsWith("/api/health/");
 
             if (!isPublicRead && context.User.Identity?.IsAuthenticated != true)

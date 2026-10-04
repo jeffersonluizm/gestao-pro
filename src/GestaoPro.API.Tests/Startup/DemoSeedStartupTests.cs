@@ -19,7 +19,7 @@ public class DemoSeedStartupTests : IDisposable
 
     public void Dispose() => Directory.Delete(_contentRoot, recursive: true);
 
-    private WebApplicationFactory<Program> CreateFactory(string environment)
+    private WebApplicationFactory<Program> CreateFactory(string environment, bool demo = false)
     {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
@@ -30,6 +30,7 @@ public class DemoSeedStartupTests : IDisposable
             builder.UseSetting("JwtSettings:SecretKey", "chave-de-teste-com-mais-de-32-caracteres-0123456789");
             builder.UseSetting("JwtSettings:Issuer", "GestaoPro.API");
             builder.UseSetting("JwtSettings:Audience", "GestaoPro.API");
+            builder.UseSetting("Demo:Enabled", demo.ToString());
             builder.ConfigureTestServices(services =>
             {
                 var voteIndexInitializer = services.Single(d =>
@@ -39,23 +40,28 @@ public class DemoSeedStartupTests : IDisposable
         });
     }
 
-    [Fact]
-    public async Task Em_producao_a_API_sobe_sem_semear_a_conta_demo()
+    // Sem a flag Demo:Enabled não existe conta de demonstração, nem em desenvolvimento.
+    [Theory]
+    [InlineData("Production")]
+    [InlineData("Development")]
+    public async Task Sem_a_flag_a_API_sobe_sem_semear_e_sem_o_endpoint_de_demo(string environment)
     {
-        await using var factory = CreateFactory("Production");
+        await using var factory = CreateFactory(environment);
 
         var client = factory.CreateClient();
-        var response = await client.GetAsync("/api/users");
+        var users = await client.GetAsync("/api/users");
+        var demo = await client.GetAsync("/api/demo");
 
-        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(HttpStatusCode.Unauthorized, users.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, demo.StatusCode);
     }
 
     // Os repositórios do seeder acessam o banco já no construtor: o timeout prova que o
     // DataSeeder foi acionado na partida (não verifica a conta criada, que exigiria um MongoDB).
     [Fact]
-    public async Task Em_desenvolvimento_a_API_aciona_o_seeder_na_partida()
+    public async Task Com_a_flag_a_API_aciona_o_seeder_de_demonstracao_mesmo_em_producao()
     {
-        await using var factory = CreateFactory("Development");
+        await using var factory = CreateFactory("Production", demo: true);
 
         var exception = Record.Exception(() => factory.CreateClient());
 

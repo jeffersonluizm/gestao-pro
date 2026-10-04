@@ -2,6 +2,7 @@ using GestaoPro.API.Controllers;
 using GestaoPro.API.Middleware;
 using GestaoPro.API.Repositories;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Demo;
 using GestaoPro.API.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -131,7 +132,9 @@ builder.Services.AddScoped<IBillService, BillService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<DeliveryService>();
 builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredService<DeliveryService>());
+builder.Services.AddSingleton(DemoCatalog.FromConfiguration(builder.Configuration));
 builder.Services.AddScoped<DataSeeder>();
+builder.Services.AddHostedService<DemoResetService>();
 builder.Services.AddHostedService<VoteIndexInitializer>();
 // Preenche o condomínio de visitantes e vagas antigos (em segundo plano; falha só gera log).
 builder.Services.AddSingleton<ILegacyCondominiumStore, MongoLegacyCondominiumStore>();
@@ -187,8 +190,9 @@ builder.Services.AddCors(options =>
 
 var app = builder.Build();
 
-// A conta admin de demonstração tem senha conhecida: só existe em desenvolvimento.
-if (app.Environment.IsDevelopment())
+// Modo demonstração (Demo:Enabled=true, independente do ambiente): cria o condomínio e as contas demo.
+// Sem a flag, nenhuma conta de demonstração existe.
+if (app.Services.GetRequiredService<DemoCatalog>().Enabled)
 {
     using var scope = app.Services.CreateScope();
     var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();

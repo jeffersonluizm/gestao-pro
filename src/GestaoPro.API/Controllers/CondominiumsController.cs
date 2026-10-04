@@ -2,6 +2,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -10,10 +11,12 @@ namespace GestaoPro.API.Controllers;
 public class CondominiumsController : ControllerBase
 {
     private readonly ICondominiumService _service;
+    private readonly DemoGuard _demo;
 
-    public CondominiumsController(ICondominiumService service)
+    public CondominiumsController(ICondominiumService service, DemoCatalog? demo = null)
     {
         _service = service;
+        _demo = new DemoGuard(demo);
     }
 
     // Com login: o condomínio do próprio token (lista de um item, para as telas de gestão).
@@ -60,6 +63,9 @@ public class CondominiumsController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateCondominiumRequest request)
     {
         if (DenyOtherCondominium(id) is { } denied) return denied;
+        // Condomínio da demonstração: regras e endereço podem mudar; nome e código, não.
+        if (_demo.IsProtectedCondominium(id) && (request.Name is not null || !string.IsNullOrWhiteSpace(request.DefaultPassword)))
+            return DemoGuard.Forbidden(DemoGuard.ProtectedCondominiumMessage);
 
         try
         {
@@ -76,6 +82,7 @@ public class CondominiumsController : ControllerBase
     public async Task<IActionResult> Delete(string id)
     {
         if (DenyOtherCondominium(id) is { } denied) return denied;
+        if (_demo.IsProtectedCondominium(id)) return DemoGuard.Forbidden(DemoGuard.ProtectedCondominiumMessage);
 
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();

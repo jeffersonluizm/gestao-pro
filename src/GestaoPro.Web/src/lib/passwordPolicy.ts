@@ -7,6 +7,7 @@ export const WEAK_PASSWORD_MESSAGE =
 const COMMON = new Set([
   '123456', '1234567', '12345678', '123456789', '1234567890', '87654321', 'password', 'senha123',
   'senha1234', 'qwerty12', 'qwerty123', 'qwertyui', 'abc12345', 'admin123', 'condominio', '12341234',
+  'mudar123', 'password1', 'admin1234', '123mudar', 'trocar123',
 ]);
 
 function isSequence(value: string) {
@@ -26,6 +27,8 @@ export function isStrongPassword(password: string) {
   const value = password.trim();
   if (value.length < 8) return false;
   if (COMMON.has(value.toLowerCase())) return false;
+  // "Admin@123": a senha comum com símbolos no meio continua comum.
+  if (COMMON.has(value.toLowerCase().replace(/[^\p{L}\p{N}]/gu, ''))) return false;
   if (new Set(value).size < 4) return false;
   return !isSequence(value);
 }

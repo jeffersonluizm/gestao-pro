@@ -2,6 +2,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 using MongoDB.Bson;
 
 namespace GestaoPro.API.Controllers;
@@ -14,11 +15,21 @@ public class UsersController : ControllerBase
     private readonly IUserDirectory _directory;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger)
+    private readonly DemoGuard _demo;
+
+    public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger, DemoCatalog? demo = null)
     {
         _service = service;
         _directory = directory;
         _logger = logger;
+        _demo = new DemoGuard(demo);
+    }
+
+    // Conta de demonstração compartilhada: senha, perfil e acesso não mudam (403).
+    private async Task<ActionResult?> DenyDemoAccountAsync(string id)
+    {
+        var user = await _directory.GetByIdAsync(id);
+        return _demo.IsProtectedEmail(user?.Email) ? DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage) : null;
     }
 
     // Leituras: só usuários do condomínio do token. Administração recebe os dados completos;
@@ -118,6 +129,8 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateUserRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if ((request.Role is not null || request.IsActive is not null || request.Email is not null || request.MustChangePassword is not null) &&
+            await DenyDemoAccountAsync(id) is { } demo) return demo;
 
         try
         {
@@ -139,6 +152,7 @@ public class UsersController : ControllerBase
         if (!ObjectId.TryParse(id, out _))
             return BadRequest(new { message = "Identificador de usuário inválido." });
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
 
         try
         {
@@ -162,6 +176,7 @@ public class UsersController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
         if (!string.Equals(caller.UserId, id, StringComparison.Ordinal)) return this.Forbidden();
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
         if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
@@ -179,6 +194,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> ResetPassword(string id)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
 
         try
         {
@@ -195,6 +211,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] ResetPasswordRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
         if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
@@ -212,6 +229,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> CreateCredentialForExistingUser(string id, [FromBody] CreateUserCredentialRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
         if (WeakPassword(request.Password) is { } weak) return weak;
 
         try

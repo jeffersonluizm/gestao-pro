@@ -15,6 +15,8 @@ public class PasswordPolicyTests
     [InlineData("senha123")]
     [InlineData("aaaaaaaa")]
     [InlineData("abcdefgh")]
+    [InlineData("Admin@123")]   // senha comum com símbolo no meio
+    [InlineData("Senha@123")]
     public void Senha_curta_ou_obvia_e_fraca(string password)
     {
         Assert.False(PasswordPolicy.IsStrong(password));

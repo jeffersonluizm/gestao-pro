@@ -1,222 +1,230 @@
 using GestaoPro.API.Models;
 using GestaoPro.API.Repositories;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Services;
 
+// Dados do modo demonstração (só com Demo:Enabled=true; ver DemoCatalog). Idempotente: a cada execução
+// recria o que falta e devolve as contas demo ao estado conhecido (senha da configuração, ativas, papel certo).
+// Nenhuma senha fica no código nem vai para o log: elas vêm do DemoCatalog e são publicadas em GET /api/demo.
 public class DataSeeder
 {
-    private const string SeedPassword = "Admin@123";
-    private const string SeedCpf = "00000000000";
-    private const string SeedEmail = "admin@gestaopro.local";
-    private const string SeedCnpj = "00.000.000/0001-00";
-    // Código do condomínio de demonstração (só em desenvolvimento; documentado no README).
-    public const string SeedCondominiumCode = "Demo-Condominio-2026";
-
-    private static readonly (string Cpf, string Name)[] MockResidents =
+    private static readonly (string Cpf, string Name)[] PreRegisteredResidents =
     [
-        ("11111111111", "João da Silva (Teste)"),
-        ("22222222222", "Maria Santos (Teste)"),
-        ("33333333333", "Pedro Oliveira (Teste)"),
+        ("11111111111", "João da Silva"),
+        ("22222222222", "Paula Andrade"),
+        ("33333333333", "Pedro Oliveira"),
     ];
 
-    private static readonly (string Name, string Description, int Capacity, string Open, string Close)[] MockCommonAreas =
+    private static readonly (string Name, string Description, int Capacity, string Open, string Close)[] CommonAreas =
     [
-        ("Salão de Festas",   "Espaço para eventos e confraternizações",  80, "08:00", "23:00"),
-        ("Academia",          "Equipamentos de musculação e cardio",       20, "06:00", "22:00"),
-        ("Piscina",           "Piscina adulto e infantil",                 30, "08:00", "20:00"),
-        ("Churrasqueira",     "Área gourmet com churrasqueira coberta",    15, "10:00", "22:00"),
-        ("Quadra Poliesportiva", "Quadra de futebol, vôlei e basquete",    20, "07:00", "21:00"),
+        ("Salão de festas", "Salão com cozinha e mesas para 80 pessoas.", 80, "10:00", "23:00"),
+        ("Churrasqueira", "Área coberta com duas churrasqueiras.", 30, "10:00", "22:00"),
+        ("Quadra poliesportiva", "Quadra com iluminação para vôlei, futebol e basquete.", 20, "08:00", "21:00"),
     ];
 
+    private static readonly (string Title, string Content, string Category)[] Announcements =
+    [
+        ("Bem-vindo à demonstração", "Este é um condomínio de exemplo. Os dados voltam ao estado inicial periodicamente.", "Geral"),
+        ("Manutenção do elevador social", "Na sexta-feira, das 9h às 12h, use o elevador de serviço.", "Manutenção"),
+        ("Assembleia geral ordinária", "Dia 20, às 19h, no salão de festas. Pauta: orçamento e portão da garagem.", "Assembleia"),
+    ];
+
+    private readonly DemoCatalog _catalog;
     private readonly UserRepository _users;
     private readonly CredentialRepository _credentials;
     private readonly CondominiumRepository _condominiums;
     private readonly ICommonAreaRepository _commonAreas;
+    private readonly UnitRepository _units;
+    private readonly IAnnouncementRepository _announcements;
+    private readonly IBillRepository _bills;
     private readonly ILogger<DataSeeder> _logger;
 
     public DataSeeder(
+        DemoCatalog catalog,
         UserRepository users,
         CredentialRepository credentials,
         CondominiumRepository condominiums,
         ICommonAreaRepository commonAreas,
+        UnitRepository units,
+        IAnnouncementRepository announcements,
+        IBillRepository bills,
         ILogger<DataSeeder> logger)
     {
+        _catalog = catalog;
         _users = users;
         _credentials = credentials;
         _condominiums = condominiums;
         _commonAreas = commonAreas;
+        _units = units;
+        _announcements = announcements;
+        _bills = bills;
         _logger = logger;
     }
 
     public async Task SeedAsync()
     {
-        // ── Condomínio ────────────────────────────────────────────────────────
-        var condominium = await _condominiums.GetByCnpjAsync(SeedCnpj)
-            ?? await _condominiums.CreateAsync(new Condominium
+        if (!_catalog.Enabled) return;
+
+        var condominium = await EnsureCondominiumAsync();
+        _catalog.CondominiumId = condominium.Id;
+
+        await EnsureCommonAreasAsync(condominium.Id!);
+        var unit = await EnsureUnitAsync(condominium.Id!, "101");
+        var accounts = new Dictionary<string, User>();
+        foreach (var account in _catalog.Accounts)
+            accounts[account.Role] = await EnsureAccountAsync(condominium.Id!, account, account.Role == "morador" ? unit.Id : null);
+
+        await EnsurePreRegisteredResidentsAsync(condominium.Id!);
+        await EnsureAnnouncementsAsync(condominium.Id!, accounts["sindico"].Id!);
+        await EnsureBillAsync(condominium.Id!, accounts["morador"].Id!);
+
+        _logger.LogInformation("Modo demonstração pronto: condomínio {Name} com {Count} contas (credenciais em GET /api/demo).",
+            DemoCatalog.CondominiumName, _catalog.Accounts.Count);
+    }
+
+    private async Task<Condominium> EnsureCondominiumAsync()
+    {
+        var codeHash = BCrypt.Net.BCrypt.HashPassword(_catalog.CondominiumCode);
+        var condominium = await _condominiums.GetByCnpjAsync(DemoCatalog.CondominiumCnpj);
+        if (condominium is null)
+        {
+            return await _condominiums.CreateAsync(new Condominium
             {
-                Name = "Condomínio GestaoPro",
-                Cnpj = SeedCnpj,
+                Name = DemoCatalog.CondominiumName,
+                Cnpj = DemoCatalog.CondominiumCnpj,
                 Address = new Address
                 {
-                    Street = "Rua Exemplo",
-                    Number = "1",
-                    Neighborhood = "Centro",
-                    City = "Belo Horizonte",
-                    State = "MG",
-                    ZipCode = "30000-000"
+                    Street = "Rua das Acácias", Number = "100", Neighborhood = "Centro",
+                    City = "Belo Horizonte", State = "MG", ZipCode = "30110-000",
                 },
-                DefaultPassword = BCrypt.Net.BCrypt.HashPassword(SeedCondominiumCode)
+                Rules = "Silêncio das 22h às 7h. Reservas pelo app ou pelo painel.",
+                DefaultPassword = codeHash,
             });
-
-        // Bancos de desenvolvimento antigos guardavam a senha do admin (ou 123456) como código: troca pelo de demonstração.
-        if (!IsSeedCondominiumCode(condominium.DefaultPassword))
-        {
-            condominium.DefaultPassword = BCrypt.Net.BCrypt.HashPassword(SeedCondominiumCode);
-            await _condominiums.UpdateAsync(condominium.Id!, condominium);
         }
 
-        // ── Áreas comuns ──────────────────────────────────────────────────────
-        await SeedCommonAreasAsync(condominium.Id!);
+        // O código pode ter mudado na configuração (ou ter sido sorteado de novo): volta ao da partida.
+        condominium.Name = DemoCatalog.CondominiumName;
+        condominium.DefaultPassword = codeHash;
+        await _condominiums.UpdateAsync(condominium.Id!, condominium);
+        return condominium;
+    }
 
-        // ── Admin já existe? ──────────────────────────────────────────────────
-        var existingUser = await _users.GetByCpfAsync(SeedCpf);
-        if (existingUser is not null)
+    private async Task EnsureCommonAreasAsync(string condominiumId)
+    {
+        var existing = await _commonAreas.GetByCondominiumAsync(condominiumId);
+        foreach (var (name, description, capacity, open, close) in CommonAreas)
         {
-            var existingCred = await _credentials.GetByUserIdAsync(existingUser.Id!);
-            if (existingCred is not null)
+            if (existing.Any(area => area.Name == name)) continue;
+            await _commonAreas.CreateAsync(new CommonArea
             {
-                // Sempre reseta a senha do admin de teste para garantir acesso consistente.
-                // Isso evita que a conta fique inacessível após alterações de senha.
-                var resetHash = BCrypt.Net.BCrypt.HashPassword(SeedPassword);
-                await _users.UpdatePasswordAsync(existingUser.Id!, resetHash);
-                await _credentials.UpdatePasswordAsync(existingUser.Id!, resetHash, false);
-                _logger.LogInformation("=== ADMIN DE TESTE ===");
-                _logger.LogInformation("E-mail: {Email} | Senha: {Pwd} (resetada)", SeedEmail, SeedPassword);
-                _logger.LogInformation("=====================");
-                await SeedMockResidentsAsync(condominium.Id!);
-                return;
-            }
+                CondominiumId = condominiumId, Name = name, Description = description, Capacity = capacity,
+                OpenTime = open, CloseTime = close, Rules = "Deixe o espaço limpo ao final do uso.", IsActive = true,
+            });
+        }
+    }
+
+    private async Task<Unit> EnsureUnitAsync(string condominiumId, string number) =>
+        await _units.GetByNumberAndBlockAsync(condominiumId, number, "A")
+        ?? await _units.CreateAsync(new Unit { CondominiumId = condominiumId, Number = number, Block = "A", Floor = 1, Type = UnitType.apt });
+
+    // Conta demo: senha da configuração, ativa, sem troca obrigatória, papel e condomínio certos.
+    private async Task<User> EnsureAccountAsync(string condominiumId, DemoAccount account, string? unitId)
+    {
+        var role = Enum.Parse<UserRole>(account.Role);
+        var hash = BCrypt.Net.BCrypt.HashPassword(account.Password);
+        var user = await _users.GetByEmailAsync(account.Email);
+        if (user is null)
+        {
+            user = await _users.CreateAsync(new User
+            {
+                CondominiumId = condominiumId, UnitId = unitId, Name = account.Name, Email = account.Email,
+                RegistrationNumber = account.Email, PasswordHash = hash, Phone = "3133330000",
+                Cpf = DemoCpf(account.Role), Role = role, MustChangePassword = false, IsActive = true,
+            });
+            if (unitId is not null) await _units.AddResidentAsync(unitId, user.Id!);
+        }
+        else
+        {
+            user.CondominiumId = condominiumId;
+            user.Name = account.Name;
+            user.Role = role;
+            user.IsActive = true;
+            user.MustChangePassword = false;
+            user.PasswordHash = hash;
+            await _users.UpdateAsync(user.Id!, user);
         }
 
-        // ── Cria admin ────────────────────────────────────────────────────────
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(SeedPassword);
-
-        var user = existingUser ?? await _users.CreateAsync(new User
-        {
-            CondominiumId = condominium.Id!,
-            Name = "Administrador GestaoPro",
-            Email = SeedEmail,
-            Phone = "00000000000",
-            Cpf = SeedCpf,
-            RegistrationNumber = SeedEmail,
-            PasswordHash = passwordHash,
-            Role = UserRole.admin,
-            MustChangePassword = false,
-            IsActive = true
-        });
-
-        await SeedMockResidentsAsync(condominium.Id!);
-
-        try
+        var credential = await _credentials.GetByUserIdAsync(user.Id!);
+        if (credential is null)
         {
             await _credentials.CreateAsync(new Credential
             {
-                UserId = user.Id!,
-                RegistrationNumber = SeedEmail,
-                PasswordHash = passwordHash,
-                Role = "admin",
-                CondominiumId = condominium.Id!,
-                MustChangePassword = false,
-                IsActive = true
+                UserId = user.Id!, RegistrationNumber = account.Email, PasswordHash = hash, Role = account.Role,
+                CondominiumId = condominiumId, MustChangePassword = false, IsActive = true,
             });
-
-            _logger.LogInformation("=== ADMIN DE TESTE CRIADO ===");
-            _logger.LogInformation("E-mail : {Email}", SeedEmail);
-            _logger.LogInformation("Senha  : {Pwd}", SeedPassword);
-            _logger.LogInformation("=============================");
         }
-        catch (Exception ex)
+        else
         {
-            _logger.LogWarning("Não foi possível criar credencial seed: {Msg}", ex.Message);
+            await _credentials.UpdatePasswordAsync(user.Id!, hash, false);
+            if (!credential.IsActive) await _credentials.ReactivateAsync(user.Id!);
         }
+        return user;
     }
 
-    private static bool IsSeedCondominiumCode(string? storedHash)
+    private static string DemoCpf(string role) => role switch
     {
-        if (string.IsNullOrWhiteSpace(storedHash)) return false;
-        try { return BCrypt.Net.BCrypt.Verify(SeedCondominiumCode, storedHash); }
-        catch { return false; } // valor antigo que não é hash BCrypt
-    }
+        "sindico" => "90000000001",
+        "morador" => "90000000002",
+        _ => "90000000003",
+    };
 
-    private async Task SeedCommonAreasAsync(string condominiumId)
+    // CPFs pré-cadastrados (sem acesso) para experimentar o "Ative o seu acesso" com o código do condomínio.
+    private async Task EnsurePreRegisteredResidentsAsync(string condominiumId)
     {
-        var existing = await _commonAreas.GetByCondominiumAsync(condominiumId);
-        if (existing.Count > 0) return;
-
-        foreach (var (name, description, capacity, open, close) in MockCommonAreas)
-        {
-            try
-            {
-                await _commonAreas.CreateAsync(new CommonArea
-                {
-                    CondominiumId = condominiumId,
-                    Name = name,
-                    Description = description,
-                    Capacity = capacity,
-                    OpenTime = open,
-                    CloseTime = close,
-                    Rules = "Respeite os horários e mantenha o espaço limpo.",
-                    IsActive = true
-                });
-                _logger.LogInformation("Área comum criada: {Name}", name);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Não foi possível criar área comum {Name}: {Msg}", name, ex.Message);
-            }
-        }
-    }
-
-    private async Task SeedMockResidentsAsync(string condominiumId)
-    {
-        foreach (var (cpf, name) in MockResidents)
+        foreach (var (cpf, name) in PreRegisteredResidents)
         {
             var existing = await _users.GetByCpfAsync(cpf);
             if (existing is not null)
             {
-                // Garante que o morador mock está sempre vinculado ao condomínio atual.
-                // Resolve o caso em que o banco foi parcialmente limpo e um novo
-                // condomínio foi criado com um ObjectId diferente.
                 if (existing.CondominiumId != condominiumId)
                 {
                     existing.CondominiumId = condominiumId;
                     await _users.UpdateAsync(existing.Id!, existing);
-                    _logger.LogInformation("Morador mock atualizado — CPF: {Cpf} | CondominiumId corrigido", cpf);
                 }
                 continue;
             }
-
-            try
+            await _users.CreateAsync(new User
             {
-                await _users.CreateAsync(new User
-                {
-                    CondominiumId = condominiumId,
-                    Name = name,
-                    Email = $"{cpf}@pending.gestaopro.local",
-                    Phone = "00000000000",
-                    Cpf = cpf,
-                    RegistrationNumber = $"PENDING-{cpf}",
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
-                    Role = UserRole.morador,
-                    MustChangePassword = true,
-                    IsActive = true
-                });
-                _logger.LogInformation("Morador mock criado — CPF: {Cpf} | Nome: {Name}", cpf, name);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning("Não foi possível criar morador mock {Cpf}: {Msg}", cpf, ex.Message);
-            }
+                CondominiumId = condominiumId, Name = name, Email = $"{cpf}@pending.gestaopro.local", Phone = "3133330000",
+                Cpf = cpf, RegistrationNumber = $"PENDING-{cpf}",
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
+                Role = UserRole.morador, MustChangePassword = true, IsActive = true,
+            });
         }
+    }
+
+    private async Task EnsureAnnouncementsAsync(string condominiumId, string authorId)
+    {
+        var existing = await _announcements.GetByCondominiumAsync(condominiumId);
+        foreach (var (title, content, category) in Announcements)
+        {
+            if (existing.Any(item => item.Title == title)) continue;
+            await _announcements.CreateAsync(new Announcement
+            {
+                CondominiumId = condominiumId, AuthorId = authorId, Title = title, Content = content, Category = category,
+            });
+        }
+    }
+
+    private async Task EnsureBillAsync(string condominiumId, string residentId)
+    {
+        if ((await _bills.GetByUserIdAsync(residentId)).Any()) return;
+        var due = DateTime.UtcNow.Date.AddDays(10);
+        await _bills.CreateAsync(new BillModel
+        {
+            CondominiumId = condominiumId, UserId = residentId, Description = $"Taxa condominial {due:MM/yyyy}",
+            Amount = 620m, DueDate = due, Status = "pending", Barcode = $"DEMO-{due:yyyyMMdd}",
+        });
     }
 }

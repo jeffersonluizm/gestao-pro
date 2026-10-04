@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -19,12 +20,23 @@ public class AuthController : ControllerBase
         AuthAppService service,
         IUserDirectory users,
         SelfServiceAuthService selfService,
-        CondominiumAttemptLimiter condominiumAttempts)
+        CondominiumAttemptLimiter condominiumAttempts,
+        DemoCatalog? demo = null)
     {
         _service = service;
         _users = users;
         _selfService = selfService;
         _condominiumAttempts = condominiumAttempts;
+        _demo = new DemoGuard(demo);
+    }
+
+    private readonly DemoGuard _demo;
+
+    // Conta de demonstração compartilhada: senha e acesso não mudam (403).
+    private async Task<IActionResult?> DenyDemoAccountAsync(string userId)
+    {
+        var user = await _users.GetByIdAsync(userId);
+        return _demo.IsProtectedEmail(user?.Email) ? DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage) : null;
     }
 
     [HttpPost("login")]
@@ -92,6 +104,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResetPassword([FromBody] AuthResetPasswordRequest request)
     {
         if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(request.UserId) is { } demo) return demo;
         if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
@@ -145,6 +158,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Deactivate(string userId)
     {
         if (await DenyManageUserAsync(userId) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(userId) is { } demo) return demo;
 
         var result = await _service.DeactivateAsync(userId);
         return result ? NoContent() : NotFound();

@@ -49,6 +49,15 @@ public class CredentialRepository : IAdministratorLookup
         await _credentials.UpdateOneAsync(c => c.UserId == userId, update);
     }
 
+    // Usado pelo modo demonstração para devolver o acesso de uma conta demo.
+    public async Task ReactivateAsync(string userId)
+    {
+        var update = Builders<Credential>.Update
+            .Set(c => c.IsActive, true)
+            .Set(c => c.UpdatedAt, DateTime.UtcNow);
+        await _credentials.UpdateOneAsync(c => c.UserId == userId, update);
+    }
+
     public async Task DeactivateAsync(string userId)
     {
         var update = Builders<Credential>.Update
