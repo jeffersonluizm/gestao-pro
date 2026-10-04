@@ -267,34 +267,11 @@ public class UserAppService : IUserDirectory
     private static string OnlyDigits(string value) =>
         new(value.Where(char.IsDigit).ToArray());
 
-    private static string? NormalizeOptionalId(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-            return null;
-
-        var trimmed = value.Trim();
-        return trimmed is "[]" or "null" or "undefined" ? null : trimmed;
-    }
-
-    private async Task<string?> ResolveUnitIdAsync(string condominiumId, string? unitIdOrLabel, string? unitLabel)
-    {
-        var value = NormalizeOptionalId(unitIdOrLabel);
-        if (value is not null)
-        {
-            if (ObjectId.TryParse(value, out _))
-                return value;
-
-            var unitByValue = await _unitRepository.FindByLabelAsync(condominiumId, value);
-            return unitByValue?.Id;
-        }
-
-        if (!string.IsNullOrWhiteSpace(unitLabel))
-        {
-            var unitByLabel = await _unitRepository.FindByLabelAsync(condominiumId, unitLabel);
-            return unitByLabel?.Id;
-        }
-
-        return null;
-    }
+    // Só aceita unidade do próprio condomínio (ver UnitIdResolver).
+    private Task<string?> ResolveUnitIdAsync(string condominiumId, string? unitIdOrLabel, string? unitLabel) =>
+        UnitIdResolver.ResolveAsync(
+            condominiumId, unitIdOrLabel, unitLabel,
+            _unitRepository.GetByIdAsync,
+            _unitRepository.FindByLabelAsync);
 }
 
