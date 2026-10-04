@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
@@ -9,10 +10,12 @@ namespace GestaoPro.API.Controllers;
 public class AuthController : ControllerBase
 {
     private readonly AuthAppService _service;
+    private readonly IUserDirectory _users;
 
-    public AuthController(AuthAppService service)
+    public AuthController(AuthAppService service, IUserDirectory users)
     {
         _service = service;
+        _users = users;
     }
 
     [HttpPost("login")]
@@ -41,6 +44,9 @@ public class AuthController : ControllerBase
     [HttpPost("credentials")]
     public async Task<IActionResult> CreateCredential([FromBody] CreateCredentialRequest request)
     {
+        if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+        if (this.DenyManage(this.Caller(), request.CondominiumId, staff: true) is { } otherCondominium) return otherCondominium;
+
         try
         {
             await _service.CreateCredentialAsync(request);
@@ -69,6 +75,8 @@ public class AuthController : ControllerBase
     [HttpPatch("reset-password")]
     public async Task<IActionResult> ResetPassword([FromBody] AuthResetPasswordRequest request)
     {
+        if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+
         try
         {
             await _service.ResetPasswordAsync(request);
@@ -111,8 +119,18 @@ public class AuthController : ControllerBase
     [HttpDelete("credentials/{userId}")]
     public async Task<IActionResult> Deactivate(string userId)
     {
+        if (await DenyManageUserAsync(userId) is { } denied) return denied;
+
         var result = await _service.DeactivateAsync(userId);
         return result ? NoContent() : NotFound();
+    }
+
+    // Credenciais são escritas da administração (middleware): só de usuário do próprio condomínio (outro: 404).
+    private async Task<ActionResult?> DenyManageUserAsync(string userId)
+    {
+        var caller = this.Caller();
+        var user = await _users.GetByIdAsync(userId);
+        return this.DenyManage(caller, user?.CondominiumId, caller.IsAdministrator);
     }
 }
 
