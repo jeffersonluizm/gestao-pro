@@ -9,6 +9,8 @@ public class DataSeeder
     private const string SeedCpf = "00000000000";
     private const string SeedEmail = "admin@gestaopro.local";
     private const string SeedCnpj = "00.000.000/0001-00";
+    // Código do condomínio de demonstração (só em desenvolvimento; documentado no README).
+    public const string SeedCondominiumCode = "Demo-Condominio-2026";
 
     private static readonly (string Cpf, string Name)[] MockResidents =
     [
@@ -63,8 +65,15 @@ public class DataSeeder
                     State = "MG",
                     ZipCode = "30000-000"
                 },
-                DefaultPassword = BCrypt.Net.BCrypt.HashPassword(SeedPassword)
+                DefaultPassword = BCrypt.Net.BCrypt.HashPassword(SeedCondominiumCode)
             });
+
+        // Bancos de desenvolvimento antigos guardavam a senha do admin (ou 123456) como código: troca pelo de demonstração.
+        if (!IsSeedCondominiumCode(condominium.DefaultPassword))
+        {
+            condominium.DefaultPassword = BCrypt.Net.BCrypt.HashPassword(SeedCondominiumCode);
+            await _condominiums.UpdateAsync(condominium.Id!, condominium);
+        }
 
         // ── Áreas comuns ──────────────────────────────────────────────────────
         await SeedCommonAreasAsync(condominium.Id!);
@@ -130,6 +139,13 @@ public class DataSeeder
         {
             _logger.LogWarning("Não foi possível criar credencial seed: {Msg}", ex.Message);
         }
+    }
+
+    private static bool IsSeedCondominiumCode(string? storedHash)
+    {
+        if (string.IsNullOrWhiteSpace(storedHash)) return false;
+        try { return BCrypt.Net.BCrypt.Verify(SeedCondominiumCode, storedHash); }
+        catch { return false; } // valor antigo que não é hash BCrypt
     }
 
     private async Task SeedCommonAreasAsync(string condominiumId)
