@@ -20,6 +20,10 @@ public class BillsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateBillDto dto)
     {
+        // Admin/síndico emite cobrança só no próprio condomínio.
+        var caller = this.Caller();
+        if (this.DenyManage(caller, dto.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+
         var result = await _billService.CreateBillAsync(dto);
         return CreatedAtAction(nameof(GetById), new { id = result.Id }, result);
     }
@@ -54,6 +58,13 @@ public class BillsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateBillDto dto)
     {
+        var caller = this.Caller();
+        var existing = await _billService.GetBillByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (this.DenyManage(caller, existing.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+        // Não move a cobrança para outro condomínio.
+        if (dto.CondominiumId is not null && this.DenyManage(caller, dto.CondominiumId, staff: true) is { } moved) return moved;
+
         var bill = await _billService.UpdateBillAsync(id, dto);
         return bill is null ? NotFound() : Ok(bill);
     }
