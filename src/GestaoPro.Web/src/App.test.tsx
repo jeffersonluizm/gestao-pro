@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { cleanup, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import App, { formatCurrency, moduleForSession, modules } from './App'
+import App, { formatCurrency, formInitialValue, moduleForSession, modules } from './App'
 
 // A API é a fronteira do painel: o fetch é simulado com respostas no formato dos controllers
 // (BillsController, PaymentsController, ParkingController) e registra cada chamada.
@@ -126,6 +126,28 @@ describe('navegação', () => {
     expect(within(nav).queryByRole('button', { name: 'Cobranças' })).toBeNull()
     expect(within(nav).queryByRole('button', { name: 'Pagamentos' })).toBeNull()
     expect(within(nav).getByRole('button', { name: 'Estacionamento' })).toBeTruthy()
+  })
+})
+
+describe('Condomínios', () => {
+  // O código do condomínio (senha padrão) é obrigatório no cadastro e opcional na edição (em branco mantém).
+  it('pede o código do condomínio, obrigatório só no cadastro', () => {
+    const condominiums = modules.find(module => module.id === 'condominiums')!
+    const create = condominiums.fields!.find(field => field.name === 'defaultPassword')!
+    const edit = condominiums.editFields!.find(field => field.name === 'defaultPassword')!
+
+    expect(create.type).toBe('password')
+    expect(create.required).toBe(true)
+    expect(create.placeholder).toMatch(/8 caracteres/)
+    expect(edit.required).toBeFalsy()
+  })
+
+  // A API devolve o código mascarado (********): a edição não pode reenviar a máscara como código novo.
+  it('não preenche o código na edição com o valor mascarado', () => {
+    const condominiums = modules.find(module => module.id === 'condominiums')!
+    const edit = condominiums.editFields!.find(field => field.name === 'defaultPassword')!
+
+    expect(formInitialValue(edit, { defaultPassword: '********' })).toBe('')
   })
 })
 

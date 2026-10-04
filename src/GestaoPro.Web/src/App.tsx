@@ -393,6 +393,29 @@ const parkingFields: FieldDef[] = [
   { name: 'isShared', label: 'Compartilhada', type: 'checkbox' },
 ]
 
+const condominiumFields: FieldDef[] = [
+  { name: 'name', label: 'Nome', required: true },
+  { name: 'cnpj', label: 'CNPJ', placeholder: '00.000.000/0000-00', required: true },
+  { name: 'street', label: 'Rua', required: true },
+  { name: 'number', label: 'Número', required: true },
+  { name: 'neighborhood', label: 'Bairro', required: true },
+  { name: 'city', label: 'Cidade', required: true },
+  { name: 'state', label: 'UF', required: true },
+  { name: 'zipCode', label: 'CEP', placeholder: '00000-000', required: true },
+  { name: 'rules', label: 'Regras', type: 'textarea' },
+  { name: 'regulations', label: 'Regulamento', type: 'textarea' },
+]
+
+// Código do condomínio (senha padrão): a administração entrega aos moradores para o cadastro no app e no painel.
+// A API recusa código curto ou óbvio (123456, 12345678, letras repetidas).
+const condominiumCodeField: FieldDef = {
+  name: 'defaultPassword',
+  label: 'Código do condomínio',
+  type: 'password',
+  required: true,
+  placeholder: 'Mínimo 8 caracteres, sem sequências como 12345678',
+}
+
 export const modules: ModuleDef[] = [
   {
     id: 'dashboard',
@@ -422,16 +445,12 @@ export const modules: ModuleDef[] = [
     adminOnly: true,
     columns: ['name', 'cnpj', 'city', 'state', 'residentCount'],
     fields: [
-      { name: 'name', label: 'Nome', required: true },
-      { name: 'cnpj', label: 'CNPJ', placeholder: '00.000.000/0000-00', required: true },
-      { name: 'street', label: 'Rua', required: true },
-      { name: 'number', label: 'Número', required: true },
-      { name: 'neighborhood', label: 'Bairro', required: true },
-      { name: 'city', label: 'Cidade', required: true },
-      { name: 'state', label: 'UF', required: true },
-      { name: 'zipCode', label: 'CEP', placeholder: '00000-000', required: true },
-      { name: 'rules', label: 'Regras', type: 'textarea' },
-      { name: 'regulations', label: 'Regulamento', type: 'textarea' },
+      ...condominiumFields,
+      condominiumCodeField,
+    ],
+    editFields: [
+      ...condominiumFields,
+      { ...condominiumCodeField, required: false, placeholder: 'Em branco mantém o código atual' },
     ],
   },
   {
@@ -982,7 +1001,9 @@ function buildPayload(fields: FieldDef[], data: Record<string, unknown>) {
   return payload
 }
 
-function formInitialValue(field: FieldDef, initialData?: Record<string, unknown>) {
+export function formInitialValue(field: FieldDef, initialData?: Record<string, unknown>) {
+  // Senhas e códigos nunca vêm preenchidos com o que a API devolve (ela devolve mascarado).
+  if (field.type === 'password') return fieldInitialValue(field)
   const rawValue = initialData?.[field.name]
   const fallbackValue = field.name === 'startDate' ? initialData?.['startTime'] : field.name === 'endDate' ? initialData?.['endTime'] : undefined
   const value = rawValue ?? fallbackValue
