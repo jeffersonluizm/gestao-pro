@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useState, useRef } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
   Modal, TextInput, ScrollView, ActivityIndicator, RefreshControl,
@@ -78,7 +78,7 @@ export default function OccurrencesScreen() {
     try {
       const data = await getMyOccurrences(session!.userId);
       setOccurrences(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao carregar ocorrências:', e);
       setListError(getFriendlyErrorMessage(e, 'Não foi possível carregar as ocorrências.'));
     } finally {
@@ -87,8 +87,10 @@ export default function OccurrencesScreen() {
     }
   }
 
-  useFocusEffect(useCallback(() => { load(); }, []));
-  useEffect(() => { load(); }, []);
+  // Recarrega ao voltar para a aba, sempre com a versão atual de load (sessão em dia).
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   function resetForm() {
     setTitle('');
@@ -131,7 +133,7 @@ export default function OccurrencesScreen() {
           onPress: finishCreate,
         },
       ]);
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao criar ocorrência:', e);
       setFormError(getFriendlyErrorMessage(e, 'Não foi possível salvar a ocorrência.'));
     } finally {

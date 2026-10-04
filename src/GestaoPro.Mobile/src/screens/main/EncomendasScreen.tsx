@@ -97,7 +97,7 @@ export default function EncomendasScreen() {
       setUsers(usersData);
       setUnits(unitsData);
       setEncomendas(data.sort((a, b) => new Date(b.arrivedAt).getTime() - new Date(a.arrivedAt).getTime()));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar encomendas:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar as encomendas.'));
     } finally {
@@ -143,7 +143,7 @@ export default function EncomendasScreen() {
     if (!form.trackingCode.trim()) { setFormError('Informe o código de rastreamento.'); return; }
     if (!form.residentId) { setFormError('Selecione o morador.'); return; }
 
-    const isEditing = Boolean(editingId);
+    const isEditing = Boolean(editingId);
     setSaving(true);
     try {
       const payload = {
@@ -182,7 +182,7 @@ export default function EncomendasScreen() {
           onPress: finishSave,
         },
       ]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao salvar encomenda:', error);
       setFormError(getFriendlyErrorMessage(error, 'Não foi possível salvar a encomenda.'));
     } finally {

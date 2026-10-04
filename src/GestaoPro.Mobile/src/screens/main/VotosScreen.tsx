@@ -139,7 +139,7 @@ export default function VotosScreen() {
 
       const data = await getVotesByAssembly(nextAssemblyId);
       setVotes(data.sort((a, b) => new Date(b.createdAt ?? '').getTime() - new Date(a.createdAt ?? '').getTime()));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar votos:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os votos.'));
     } finally {
@@ -232,7 +232,7 @@ export default function VotosScreen() {
           onPress: finishVote,
         },
       ]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao registrar voto:', error);
       const msg = getFriendlyErrorMessage(error, 'Não foi possível registrar o voto.');
       // Traduz mensagens do backend para português amigável

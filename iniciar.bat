@@ -1,77 +1,107 @@
 @echo off
-title GestaoPro - Iniciador
+setlocal EnableExtensions EnableDelayedExpansion
+title Gestao Pro - iniciar
 cd /d "%~dp0"
-
 set "ROOT=%~dp0"
+
+rem ==========================================================================
+rem  Gestao Pro: sobe o banco (Docker), a API e o painel web na maquina local,
+rem  com o modo demonstracao ligado. Pode rodar quantas vezes quiser.
+rem  Uso: iniciar.bat          (API + painel web)
+rem       iniciar.bat app      (tambem abre o app Expo)
+rem ==========================================================================
+
 set "API_PORT=5088"
 set "WEB_PORT=3000"
-set "EXPO_PORT=8081"
-set "API_URL=http://0.0.0.0:%API_PORT%"
-set "API_LOCAL=http://localhost:%API_PORT%"
+set "API_URL=http://localhost:%API_PORT%"
 set "WEB_URL=http://localhost:%WEB_PORT%"
 
-rem Endereco da API para o celular (EXPO_PUBLIC_API_URL), nesta ordem:
-rem 1) variavel EXPO_PUBLIC_API_URL ja definida; 2) EXPO_PUBLIC_API_URL em src\GestaoPro.Mobile\.env;
-rem 3) IPv4 desta maquina na interface com gateway (rede local).
-set "API_LAN="
-set "API_LAN_ORIGEM="
-set "LAN_IP="
-set "MOBILE_ENV=%ROOT%src\GestaoPro.Mobile\.env"
-if defined EXPO_PUBLIC_API_URL set "API_LAN=%EXPO_PUBLIC_API_URL%"
-if defined API_LAN set "API_LAN_ORIGEM=variavel EXPO_PUBLIC_API_URL"
-rem Le so a linha EXPO_PUBLIC_API_URL=... do .env (ignora comentarios com # e aspas em volta do valor).
-if not defined API_LAN if exist "%MOBILE_ENV%" for /f "usebackq eol=# tokens=1,* delims== " %%A in ("%MOBILE_ENV%") do if /i "%%A"=="EXPO_PUBLIC_API_URL" set "API_LAN=%%~B"
-if defined API_LAN if not defined API_LAN_ORIGEM set "API_LAN_ORIGEM=arquivo src\GestaoPro.Mobile\.env"
-if not defined API_LAN_ORIGEM for /f "usebackq delims=" %%I in (`powershell -NoProfile -Command "try { (Get-NetIPConfiguration).Where({ $_.IPv4DefaultGateway -and $_.NetAdapter.Status -eq 'Up' })[0].IPv4Address[0].IPAddress } catch { }"`) do set "LAN_IP=%%I"
-if defined LAN_IP set "API_LAN=http://%LAN_IP%:%API_PORT%"
-if defined LAN_IP set "API_LAN_ORIGEM=IP detectado nesta maquina"
-if defined LAN_IP set "EXPO_PUBLIC_API_URL=%API_LAN%"
-if not defined API_LAN_ORIGEM set "API_LAN_ORIGEM=nao detectado; crie src\GestaoPro.Mobile\.env (veja .env.example)"
-
-echo ============================================
-echo        GestaoPro - Iniciando tudo...
-echo ============================================
 echo.
-echo Abrindo os 3 servidores em janelas separadas.
+echo  ===  Gestao Pro  ===
 echo.
 
-netstat -ano | findstr /R /C:":%API_PORT% .*LISTENING" > nul
-if errorlevel 1 (
-    start "GestaoPro - API" cmd /k "title GestaoPro API && cd /d ""%ROOT%src\GestaoPro.API"" && dotnet run --urls ""%API_URL%"""
-) else (
-    echo API ja esta rodando na porta %API_PORT%.
+rem --- 1. Pre-requisitos -----------------------------------------------------
+where dotnet >nul 2>&1 || (call :falta ".NET 10 SDK" "https://dotnet.microsoft.com/download/dotnet/10.0" & goto :fim)
+for /f "tokens=1 delims=." %%v in ('dotnet --version') do set "DOTNET_MAJOR=%%v"
+if !DOTNET_MAJOR! LSS 10 (call :falta ".NET 10 SDK (encontrado .NET !DOTNET_MAJOR!)" "https://dotnet.microsoft.com/download/dotnet/10.0" & goto :fim)
+where node >nul 2>&1 || (call :falta "Node.js 18 ou mais novo" "https://nodejs.org/" & goto :fim)
+where docker >nul 2>&1 || (call :falta "Docker Desktop (para o banco local)" "https://www.docker.com/products/docker-desktop/" & goto :fim)
+docker info >nul 2>&1 || (echo  [x] O Docker esta instalado, mas nao esta rodando. Abra o Docker Desktop e rode de novo. & goto :fim)
+echo  [ok] .NET !DOTNET_MAJOR!, Node e Docker encontrados.
+
+rem --- 2. Configuracao local (.env) com segredos fortes -----------------------
+if not exist ".env" (
+  copy /y ".env.example" ".env" >nul
+  echo  [ok] .env criado a partir do .env.example.
+)
+powershell -NoProfile -Command ^
+  "$f='.env'; $t=Get-Content $f -Raw;" ^
+  "function S($p){ $a='abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; $p + '-' + (-join (1..14 | %% { $a[(Get-Random -Maximum $a.Length)] })) + '-2026' }" ^
+  "$t=$t -replace 'JwtSettings__SecretKey=gerar', ('JwtSettings__SecretKey=' + (S 'Jwt') + (S 'Chave'));" ^
+  "$t=$t -replace 'Demo__Senha=gerar', ('Demo__Senha=' + (S 'Demo'));" ^
+  "$t=$t -replace 'Demo__CodigoCondominio=gerar', ('Demo__CodigoCondominio=' + (S 'Codigo'));" ^
+  "Set-Content -Path $f -Value $t -NoNewline -Encoding ascii"
+for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do if not "%%A"=="" set "%%A=%%B"
+echo  [ok] Configuracao local carregada (segredos so no .env, fora do Git).
+
+rem --- 3. Banco local --------------------------------------------------------
+echo  [..] Subindo o MongoDB local (docker compose)...
+docker compose up -d --wait mongo >nul 2>&1 || (echo  [x] Nao foi possivel subir o MongoDB. Veja "docker compose logs mongo". & goto :fim)
+echo  [ok] MongoDB local pronto na porta 27117.
+
+rem --- 4. Dependencias do painel ---------------------------------------------
+if not exist "src\GestaoPro.Web\node_modules" (
+  echo  [..] Instalando dependencias do painel (primeira vez)...
+  pushd "src\GestaoPro.Web" & call npm install --no-audit --no-fund >nul 2>&1 & popd
 )
 
-netstat -ano | findstr /R /C:":%WEB_PORT% .*LISTENING" > nul
+rem --- 5. API e painel (janelas separadas, so se ainda nao estiverem no ar) -----
+netstat -ano | findstr /R /C:":%API_PORT% .*LISTENING" >nul
 if errorlevel 1 (
-    start "GestaoPro - Painel Admin" cmd /k "title GestaoPro Painel Admin && cd /d ""%ROOT%src\GestaoPro.Web"" && npm run dev -- --host 0.0.0.0 --port %WEB_PORT%"
-) else (
-    echo Painel Admin ja esta rodando na porta %WEB_PORT%.
+  start "Gestao Pro - API" cmd /k "cd /d ""%ROOT%src\GestaoPro.API"" && set ASPNETCORE_ENVIRONMENT=Development&& dotnet run --urls %API_URL%"
+) else (echo  [ok] A API ja esta rodando na porta %API_PORT%.)
+
+netstat -ano | findstr /R /C:":%WEB_PORT% .*LISTENING" >nul
+if errorlevel 1 (
+  start "Gestao Pro - Painel" cmd /k "cd /d ""%ROOT%src\GestaoPro.Web"" && npm run dev -- --port %WEB_PORT%"
+) else (echo  [ok] O painel ja esta rodando na porta %WEB_PORT%.)
+
+if /i "%~1"=="app" (
+  if not exist "src\GestaoPro.Mobile\node_modules" (pushd "src\GestaoPro.Mobile" & call npm install --no-audit --no-fund >nul 2>&1 & popd)
+  start "Gestao Pro - App" cmd /k "cd /d ""%ROOT%src\GestaoPro.Mobile"" && set EXPO_PUBLIC_API_URL=%API_URL%&& npx expo start --web"
 )
 
-netstat -ano | findstr /R /C:":%EXPO_PORT% .*LISTENING" > nul
+rem --- 6. Espera a API responder (health) ------------------------------------
+echo  [..] Esperando a API responder (a primeira compilacao leva cerca de 1 minuto)...
+set /a TENTATIVAS=0
+:espera
+set /a TENTATIVAS+=1
+powershell -NoProfile -Command "try { (Invoke-WebRequest -UseBasicParsing %API_URL%/api/health/mongodb -TimeoutSec 3).StatusCode } catch { 0 }" | findstr "200" >nul
 if errorlevel 1 (
-    start "GestaoPro - App Mobile" cmd /k "title GestaoPro App Mobile && cd /d ""%ROOT%src\GestaoPro.Mobile"" && npx expo start --port %EXPO_PORT%"
-) else (
-    echo App Mobile ja esta rodando na porta %EXPO_PORT%.
+  if !TENTATIVAS! GEQ 90 (echo  [x] A API nao respondeu em 3 minutos. Veja a janela "Gestao Pro - API". & goto :fim)
+  timeout /t 2 /nobreak >nul
+  goto :espera
 )
+echo  [ok] API no ar.
 
-echo Aguardando os servidores iniciarem (20 segundos)...
-timeout /t 20 /nobreak > nul
-
-echo.
-echo Abrindo o painel admin no navegador...
-start %WEB_URL%
+start "" %WEB_URL%
 
 echo.
-echo ============================================
-echo   GestaoPro esta rodando!
-echo.
-echo   API local   : %API_LOCAL%
-echo   API celular : %API_LAN% (%API_LAN_ORIGEM%)
-echo   Swagger     : %API_LOCAL%/swagger
-echo   Painel Admin: %WEB_URL%
-echo   App Mobile  : escaneie o QR code no terminal Expo
-echo ============================================
+echo  ==========================================================
+echo   Gestao Pro rodando
+echo     Painel   : %WEB_URL%   (clique em "Entrar como ...")
+echo     API      : %API_URL%   (documentacao em %API_URL%/swagger)
+echo     Senha das contas demo     : %Demo__Senha%
+echo     Codigo do condominio demo : %Demo__CodigoCondominio%
+echo   Para o app: iniciar.bat app
+echo   Para parar: feche as janelas e rode "docker compose stop".
+echo  ==========================================================
+
+:fim
 echo.
 pause
+exit /b
+
+:falta
+echo  [x] Falta %~1. Instale em %~2 e rode o iniciar.bat de novo.
+exit /b

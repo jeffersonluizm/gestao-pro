@@ -57,7 +57,7 @@ export default function HomeScreen() {
     try {
       const data = await getAnnouncements();
       setAnnouncements(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao carregar avisos:', e);
       setError(getFriendlyErrorMessage(e, 'Não foi possível carregar os avisos.'));
     } finally {

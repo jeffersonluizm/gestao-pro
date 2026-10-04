@@ -65,7 +65,7 @@ export default function CondominiosScreen() {
     setListError('');
     try {
       setCondominiums(await getCondominiums());
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar condomínios:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os condomínios.'));
     } finally {

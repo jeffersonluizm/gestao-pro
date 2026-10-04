@@ -1,0 +1,38 @@
+# Render (camada gratuita): API da DEMONSTRAÇÃO a partir do Dockerfile da raiz.
+# Passo a passo e variáveis em docs/deploy.md. Valores "sync: false" são preenchidos no painel do Render
+# (nunca no Git); "generateValue" o Render sorteia na criação.
+services:
+  - type: web
+    name: gestaopro-api-demo
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /api/health/mongodb
+    autoDeploy: true
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      # MongoDB Atlas gratuito com um banco SÓ de demonstração (nunca dados reais).
+      - key: MongoDbSettings__ConnectionString
+        sync: false
+      - key: MongoDbSettings__DatabaseName
+        value: GestaoProDemo
+      - key: JwtSettings__SecretKey
+        generateValue: true
+      # O Render fica na frente da API: o IP do visitante vem no X-Forwarded-For (limite de tentativas por IP).
+      - key: Proxy__ConfiarNoProxy
+        value: "true"
+      # Origens hospedadas do painel e do app web (URLs da Vercel), uma por variável.
+      - key: Cors__AllowedOrigins__0
+        sync: false
+      - key: Cors__AllowedOrigins__1
+        sync: false
+      # Modo demonstração ligado SÓ neste serviço de demonstração.
+      - key: Demo__Enabled
+        value: "true"
+      - key: Demo__Senha
+        sync: false
+      - key: Demo__CodigoCondominio
+        sync: false
+      - key: Demo__IntervaloResetHoras
+        value: "6"

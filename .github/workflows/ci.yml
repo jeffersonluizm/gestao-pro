@@ -1,0 +1,58 @@
+# Integração contínua: build, lint e testes da API, do painel e do app a cada push e pull request.
+name: CI
+
+on:
+  push:
+    branches: [main, "feat/**", "fix/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  api:
+    name: API (.NET 10)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - name: Testes (unidade e integração, sem banco real)
+        run: dotnet test src/GestaoPro.API.Tests/GestaoPro.API.Tests.csproj --nologo
+
+  web:
+    name: Painel web
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/GestaoPro.Web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/GestaoPro.Web/package-lock.json
+      - run: npm ci
+      - run: npm run lint -- --max-warnings 0
+      - run: npm test
+      - run: npm run build
+
+  mobile:
+    name: App (Expo)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: src/GestaoPro.Mobile
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: src/GestaoPro.Mobile/package-lock.json
+      - run: npm ci
+      - run: npm run lint -- --max-warnings 0
+      - run: npm run typecheck
+      - run: npm test

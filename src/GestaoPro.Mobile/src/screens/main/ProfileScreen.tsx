@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
   View, StyleSheet, TouchableOpacity, Alert,
   ActivityIndicator, ScrollView, Platform, Modal, TextInput,
@@ -54,7 +54,7 @@ export default function ProfileScreen() {
       setPwdModal(false);
       setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
       Alert.alert('Sucesso', 'Senha alterada com sucesso.');
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao alterar senha:', e);
       setPwdError(getFriendlyErrorMessage(e, 'Não foi possível alterar a senha.'));
     } finally {
@@ -76,7 +76,7 @@ export default function ProfileScreen() {
         setTimeout(() => reject(new Error('timeout')), 5000)
       );
       const data = await Promise.race([getUserById(session!.userId), timeoutPromise]);
-      if (data) setUser(data as any);
+      if (data) setUser(data);
     } catch {
       // Usa os dados da sessão como fallback
     } finally {
@@ -84,7 +84,10 @@ export default function ProfileScreen() {
     }
   }
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  // Recarrega ao voltar para a aba, sempre com a versão atual de load (sessão em dia).
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   function handleLogout() {
     if (Platform.OS === 'web') {
@@ -241,7 +244,7 @@ export default function ProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: any; label: string; value: string }) {
+function InfoRow({ icon, label, value }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value: string }) {
   return (
     <View style={infoStyles.row}>
       <View style={infoStyles.iconWrap}>

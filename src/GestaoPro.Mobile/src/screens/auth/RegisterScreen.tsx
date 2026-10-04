@@ -64,7 +64,7 @@ export default function RegisterScreen({ navigation }: Props) {
       }
       setNeedsProfileData(res.needsProfileData);
       setStep('form');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro ao verificar CPF:', err);
       Alert.alert('Erro', getFriendlyErrorMessage(err, 'Não foi possível verificar o CPF.'));
     } finally {
@@ -92,7 +92,7 @@ export default function RegisterScreen({ navigation }: Props) {
       });
       setRegisteredEmail(res.registrationNumber);
       setStep('success');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro ao criar conta:', err);
       Alert.alert('Erro', getFriendlyErrorMessage(err, 'Não foi possível criar a conta.'));
     } finally {

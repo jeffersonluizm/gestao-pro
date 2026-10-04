@@ -114,7 +114,7 @@ export default function UsuariosScreen() {
       const [userData, condominiumData] = await Promise.all([getUsers(), getCondominiums()]);
       setUsers(userData);
       setCondominiums(condominiumData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar usuários:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os usuários.'));
     } finally {
@@ -206,7 +206,6 @@ export default function UsuariosScreen() {
     };
 
     try {
-      const isEditing = Boolean(editingId);
       if (!editingId) {
         await createUser(payload);
 

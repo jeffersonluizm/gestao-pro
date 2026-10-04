@@ -137,7 +137,7 @@ export default function PetsScreen() {
       }
 
       setPets(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar pets:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os pets.'));
     } finally {
@@ -192,7 +192,7 @@ export default function PetsScreen() {
       return;
     }
 
-    const isEditing = Boolean(editingId);
+    const isEditing = Boolean(editingId);
     setSaving(true);
     try {
       if (editingId) {
@@ -238,7 +238,7 @@ export default function PetsScreen() {
           onPress: finishSave,
         },
       ]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao salvar pet:', error);
       setFormError(getFriendlyErrorMessage(error, 'Não foi possível salvar o pet.'));
     } finally {

@@ -1,6 +1,7 @@
 import { clearStoredSession } from '../auth/session'
 
-export const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://gestaopro-api-99vx.onrender.com' : '')
+// Endereço da API: em desenvolvimento o proxy do Vite (mesma origem); hospedado, VITE_API_BASE_URL (ver docs/deploy.md).
+export const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/+$/, '')
 
 export function endpoint(path: string) {
   return `${API_BASE}${path}`

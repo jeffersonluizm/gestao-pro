@@ -76,7 +76,7 @@ export default function UnidadesScreen() {
     setListError('');
     try {
       setCondominiums(await getCondominiums());
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar condomínios:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os condomínios.'));
     } finally {
@@ -94,7 +94,7 @@ export default function UnidadesScreen() {
     setListError('');
     try {
       setUnits(await getUnitsByCondominium(condominiumId));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar unidades:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar as unidades.'));
     } finally {
@@ -162,7 +162,6 @@ export default function UnidadesScreen() {
     };
 
     try {
-      const isEditing = Boolean(editingId);
       if (!editingId) {
         await createUnit(payload);
 
@@ -211,7 +210,7 @@ export default function UnidadesScreen() {
       ]);
       savingRef.current = false;
       setSaving(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao salvar unidade:', error);
       const message = getFriendlyErrorMessage(error, 'Não foi possível salvar a unidade.');
       setFormError(message.toLowerCase().includes('exist') || message.toLowerCase().includes('duplic')

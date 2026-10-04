@@ -1,0 +1,18 @@
+# Banco local para rodar o projeto na máquina (o iniciar.bat sobe este serviço).
+# Dados num volume nomeado: "docker compose down -v" apaga tudo e o modo demonstração recria na próxima partida.
+services:
+  mongo:
+    image: mongo:7
+    container_name: gestaopro-mongo
+    ports:
+      - "27117:27017"
+    volumes:
+      - gestaopro-mongo-dados:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  gestaopro-mongo-dados:

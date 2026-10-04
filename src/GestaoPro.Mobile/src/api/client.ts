@@ -263,7 +263,7 @@ function validationErrorMessage(text: string) {
       })
       .filter(Boolean);
     return [...new Set(messages)].join('\n');
-  } catch {}
+  } catch { /* resposta sem JSON válido: segue para a mensagem padrão */ }
   return '';
 }
 
@@ -290,7 +290,7 @@ export function getFriendlyErrorMessage(error: unknown, fallback = 'Não foi pos
     try {
       const message = friendlyApiError(JSON.stringify(data), status);
       if (message !== 'Não foi possível concluir a operação. Tente novamente.') return message;
-    } catch {}
+    } catch { /* resposta sem JSON válido: segue para a mensagem padrão */ }
   }
   return fallback;
 }
@@ -850,7 +850,7 @@ export interface VoteResponse {
   voteEndDate?: string;
   status?: string;
   createdAt?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export const getAssemblies = (history = false) =>

@@ -64,7 +64,7 @@ export default function LoginScreen({ navigation }: Props) {
         condominiumId: res.condominiumId,
         registrationNumber: res.registrationNumber,
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro ao fazer login:', err);
       Alert.alert('Erro', getFriendlyErrorMessage(err, 'Falha ao fazer login.'));
     } finally {
@@ -85,7 +85,7 @@ export default function LoginScreen({ navigation }: Props) {
       Alert.alert('Sucesso', 'Senha alterada. Faça login novamente.', [
         { text: 'OK', onPress: handleLogin },
       ]);
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro ao alterar senha:', err);
       Alert.alert('Erro', getFriendlyErrorMessage(err, 'Não foi possível alterar a senha.'));
     } finally {

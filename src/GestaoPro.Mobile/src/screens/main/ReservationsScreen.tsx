@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useState } from 'react';
+﻿import React, { useCallback, useState, useRef } from 'react';
 import {
   View, FlatList, StyleSheet, TouchableOpacity,
   Modal, TextInput, ScrollView, ActivityIndicator, RefreshControl,
@@ -53,7 +53,7 @@ export default function ReservationsScreen() {
       ]);
       setReservations(res.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()));
       setAreas(ar);
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao carregar reservas:', e);
       setError(getFriendlyErrorMessage(e, 'Não foi possível carregar as reservas.'));
     } finally {
@@ -62,11 +62,10 @@ export default function ReservationsScreen() {
     }
   }
 
-  // useFocusEffect para mobile (troca de aba)
-  useFocusEffect(useCallback(() => { load(); }, []));
-
-  // useEffect como fallback para web (primeiro carregamento)
-  useEffect(() => { load(); }, []);
+  // Recarrega ao voltar para a aba, sempre com a versão atual de load (sessão em dia).
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   function areaName(id: string) {
     return areas.find(a => a.id === id)?.name ?? id;
@@ -109,7 +108,7 @@ export default function ReservationsScreen() {
           onPress: finishCreate,
         },
       ]);
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao criar reserva:', e);
       setFormError(getFriendlyErrorMessage(e, 'Não foi possível salvar a reserva.'));
     } finally {

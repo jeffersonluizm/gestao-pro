@@ -75,7 +75,7 @@ export default function AreasComunsScreen() {
       const [areaData, condominiumData] = await Promise.all([getCommonAreas(), getCondominiums()]);
       setAreas(areaData);
       setCondominiums(condominiumData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar áreas comuns:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar as áreas comuns.'));
     } finally {
@@ -151,7 +151,6 @@ export default function AreasComunsScreen() {
     };
 
     try {
-      const isEditing = Boolean(editingId);
       if (!editingId) {
         await createCommonArea(payload);
 

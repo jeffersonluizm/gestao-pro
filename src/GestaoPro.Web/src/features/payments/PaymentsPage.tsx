@@ -62,8 +62,10 @@ export function PaymentsPage({ module, canManage, session, lookups }: { module: 
     await loadPayments(nextBillId)
   }
 
+  // O morador entra direto nas próprias cobranças; a seleção só depende de quem está logado.
   useEffect(() => {
     if (!canManage && session.userId) selectUser(session.userId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [canManage, session.userId])
 
   async function create(payload: Record<string, unknown>) {

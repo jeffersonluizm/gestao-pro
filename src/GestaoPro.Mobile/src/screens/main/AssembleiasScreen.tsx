@@ -122,7 +122,7 @@ export default function AssembleiasScreen() {
         : await getAssemblies(showHistory);
 
       setAssemblies(data.sort((a, b) => new Date(b.startTime).getTime() - new Date(a.startTime).getTime()));
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar assembleias:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar as assembleias.'));
     } finally {
@@ -172,8 +172,7 @@ export default function AssembleiasScreen() {
 
     savingRef.current = true;
     setSaving(true);
-    try {
-      const isEditing = Boolean(editingId);
+    try {
       const payload = {
         title: form.title.trim(),
         description: form.description.trim(),

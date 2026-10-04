@@ -73,7 +73,6 @@ export default function VisitantesScreen() {
   const deletingRef = useRef(false);
 
   const condominiumNames = useMemo(() => new Map(condominiums.map(item => [item.id, item.name])), [condominiums]);
-  const userNames = useMemo(() => new Map(users.map(item => [item.id, item.name])), [users]);
   const unitNames = useMemo(() => new Map(units.map(item => [item.id, unitLabel(item)])), [units]);
 
   const loadVisitors = useCallback(async (silent = false) => {
@@ -89,7 +88,7 @@ export default function VisitantesScreen() {
       ]);
       setCondominiums(condominiumData);
       setUsers(userData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar visitantes:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os visitantes.'));
     } finally {
@@ -166,8 +165,7 @@ export default function VisitantesScreen() {
       reason: form.reason.trim(),
       status: canManage ? form.status : undefined,
     };
-    try {
-      const isEditing = Boolean(editingId);
+    try {
       if (!editingId) {
         await createVisitor(payload);
 
@@ -351,7 +349,7 @@ function Choice({ label, selected, onPress }: { label: string; selected: boolean
   return <TouchableOpacity accessibilityRole="button" style={[styles.choice, selected && styles.choiceActive]} onPress={onPress}><AppText style={[styles.choiceText, selected && styles.choiceTextActive]}>{label}</AppText></TouchableOpacity>;
 }
 function Action({ icon, color, label, onPress, disabled = false }: { icon: string; color: string; label: string; onPress: () => void; disabled?: boolean }) {
-  return <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, disabled && styles.disabled]} onPress={onPress} disabled={disabled}><Ionicons name={icon as any} size={17} color={color} /><AppText style={{ color, fontWeight: '600' }}>{label}</AppText></TouchableOpacity>;
+  return <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, disabled && styles.disabled]} onPress={onPress} disabled={disabled}><Ionicons name={icon as never} size={17} color={color} /><AppText style={{ color, fontWeight: '600' }}>{label}</AppText></TouchableOpacity>;
 }
 
 const styles = StyleSheet.create({
