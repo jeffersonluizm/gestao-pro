@@ -37,6 +37,8 @@ export function ResourcePage({
   const toast = useToast()
   const confirm = useConfirm()
   const [editingRow, setEditingRow] = useState<Row | null>(null)
+  // Senha temporária gerada pela API: mostrada uma vez, fixa na tela, até a administração fechar.
+  const [temporary, setTemporary] = useState<{ name: string; password: string } | null>(null)
   const [showAssemblyHistory, setShowAssemblyHistory] = useState(false)
   const [reservationMonth, setReservationMonth] = useState(() => {
     const now = new Date()
@@ -99,17 +101,19 @@ export function ResourcePage({
     }
   }
 
-  // Gestão: senha volta a ser o código do condomínio e a pessoa troca no próximo acesso.
+  // Gestão: a API gera uma senha temporária; a pessoa entra com ela e cria uma nova no próximo acesso.
   async function resetPassword(row: Row) {
+    const name = String(row.name ?? 'este usuário')
     const ok = await confirm({
       title: 'Redefinir senha',
-      message: `A senha de ${String(row.name ?? 'este usuário')} volta a ser o código do condomínio. No próximo acesso, a pessoa entra com esse código e cria uma senha nova.`,
+      message: `O sistema vai gerar uma senha temporária para ${name}. A senha atual deixa de funcionar e, no próximo acesso, a pessoa cria uma nova.`,
       confirmLabel: 'Redefinir senha',
     })
     if (!ok) return
     try {
-      await requestJson(`/api/Users/${normalizeId(row)}/reset-password`, { method: 'PATCH' })
-      toast.success('Senha redefinida. Avise a pessoa para entrar com o código do condomínio.')
+      const result = await requestJson<{ temporaryPassword?: string }>(`/api/Users/${normalizeId(row)}/reset-password`, { method: 'PATCH' })
+      if (result?.temporaryPassword) setTemporary({ name, password: result.temporaryPassword })
+      toast.success('Senha redefinida.')
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Não foi possível redefinir a senha.')
     }
@@ -160,6 +164,15 @@ export function ResourcePage({
             <button type="button" aria-pressed={showAssemblyHistory} className={showAssemblyHistory ? '' : 'secondary-button'} onClick={() => setShowAssemblyHistory(true)}>
               Histórico
             </button>
+          </div>
+        )}
+        {temporary && (
+          <div className="alert alert-info" role="status" aria-label={`Senha temporária de ${temporary.name}`}>
+            <p>
+              Senha temporária de <strong>{temporary.name}</strong>: <code>{temporary.password}</code>.
+              Entregue à pessoa; ela entra com essa senha e cria uma nova no próximo acesso. Ela não aparece de novo.
+            </p>
+            <button type="button" className="secondary-button" style={{ marginTop: 8 }} onClick={() => setTemporary(null)}>Fechar</button>
           </div>
         )}
         {crud.error && <ErrorState message={crud.error} onRetry={() => load()} />}

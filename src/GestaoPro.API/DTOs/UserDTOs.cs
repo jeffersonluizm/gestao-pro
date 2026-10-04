@@ -49,6 +49,9 @@ public class UserResponse
     public UserRole Role { get; set; }
     public bool IsActive { get; set; }
     public bool MustChangePassword { get; set; }
+    // Só na resposta do cadastro sem senha: a senha temporária, mostrada uma única vez.
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public string? TemporaryPassword { get; set; }
     public DateTime CreatedAt { get; set; }
     public DateTime? BirthDate { get; set; }
 

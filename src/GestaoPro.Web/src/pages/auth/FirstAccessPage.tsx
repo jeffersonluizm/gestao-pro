@@ -27,7 +27,7 @@ export function FirstAccessPage() {
       <div className="auth-card">
         <header>
           <h1>Primeiro acesso</h1>
-          <p>Para criar sua senha, entre primeiro com o e-mail e o código do condomínio que a administração informou.</p>
+          <p>Para criar sua senha, entre primeiro com o e-mail e a senha temporária que a administração entregou.</p>
         </header>
         <Link className="btn" to="/entrar">Ir para Entrar</Link>
       </div>
@@ -64,7 +64,7 @@ export function FirstAccessPage() {
       <header>
         <p className="eyebrow">Segurança</p>
         <h1>Primeiro acesso</h1>
-        <p>Crie a sua senha pessoal. Ela substitui o código do condomínio usado para entrar agora.</p>
+        <p>Crie a sua senha pessoal. Ela substitui a senha temporária usada para entrar agora.</p>
       </header>
       <form className="form-stack" onSubmit={submit} noValidate>
         <div className="field">

@@ -197,7 +197,7 @@ export default function UsuariosScreen() {
       unitId: form.unitId || undefined,
       name: form.name.trim(),
       email: form.email.trim(),
-      // Sem senha, a API usa o código do condomínio como senha inicial (troca obrigatória no primeiro acesso).
+      // Sem senha, a API gera uma senha temporária (devolvida uma vez; troca obrigatória no primeiro acesso).
       password: form.password || undefined,
       phone: form.phone.trim(),
       cpf: form.cpf.trim(),
@@ -207,7 +207,10 @@ export default function UsuariosScreen() {
 
     try {
       if (!editingId) {
-        await createUser(payload);
+        const created = await createUser(payload);
+        const createdMessage = created?.temporaryPassword
+          ? `Usuário criado. Senha temporária (anote, não aparece de novo): ${created.temporaryPassword}`
+          : 'Usuário criado com sucesso.';
 
         const finishCreate = async () => {
           await loadUsers(true);
@@ -217,12 +220,12 @@ export default function UsuariosScreen() {
         };
 
         if (Platform.OS === 'web') {
-          window.alert('Usuário criado com sucesso.');
+          window.alert(createdMessage);
           await finishCreate();
           return;
         }
 
-        Alert.alert('Sucesso', 'Usuário criado com sucesso.', [
+        Alert.alert('Sucesso', createdMessage, [
           {
             text: 'OK',
             onPress: finishCreate,
@@ -378,7 +381,7 @@ export default function UsuariosScreen() {
 
             <Field label="Nome *" value={form.name} onChangeText={name => setForm({ ...form, name })} />
             <Field label="E-mail *" keyboardType="email-address" autoCapitalize="none" value={form.email} onChangeText={email => setForm({ ...form, email })} />
-            <Field label="Senha inicial (opcional; em branco usa o código do condomínio)" secureTextEntry value={form.password} onChangeText={password => setForm({ ...form, password })} />
+            <Field label="Senha inicial (opcional; em branco o sistema gera uma temporária)" secureTextEntry value={form.password} onChangeText={password => setForm({ ...form, password })} />
             <Field label="Telefone *" placeholder="31 9999-2702" keyboardType="phone-pad" maxLength={12} value={form.phone} onChangeText={phone => setForm({ ...form, phone: maskPhoneBR(phone) })} />
             <Field label="CPF *" placeholder="000.000.000-00" keyboardType="numeric" maxLength={14} value={form.cpf} onChangeText={cpf => setForm({ ...form, cpf: maskCpf(cpf) })} />
 

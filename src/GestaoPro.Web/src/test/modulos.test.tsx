@@ -137,16 +137,18 @@ describe('encomendas', () => {
 describe('usuários', () => {
   it('gestão redefine a senha de um morador com confirmação', async () => {
     loginAs('admin')
-    stubFetch((method, path) => (method === 'PATCH' && path === '/api/Users/u-maria/reset-password' ? { status: 204 } : undefined))
+    stubFetch((method, path) => (method === 'PATCH' && path === '/api/Users/u-maria/reset-password' ? { temporaryPassword: 'Temp-Abc23-Xyz45' } : undefined))
     const { user } = renderApp('/painel/usuarios')
 
     const linha = (await screen.findByRole('cell', { name: 'Maria' })).closest('tr')!
     await user.click(within(linha).getByRole('button', { name: 'Redefinir senha' }))
     const dialog = await screen.findByRole('alertdialog')
-    expect(within(dialog).getByText(/código do condomínio/)).toBeTruthy()
+    expect(within(dialog).getByText(/senha temporária/)).toBeTruthy()
     await user.click(within(dialog).getByRole('button', { name: 'Redefinir senha' }))
 
     await waitFor(() => expect(calls).toContainEqual(expect.objectContaining({ method: 'PATCH', path: '/api/Users/u-maria/reset-password' })))
-    expect(await screen.findByText(/Senha redefinida/)).toBeTruthy()
+    // A senha temporária aparece uma vez, fixa na tela, para a administração entregar à pessoa.
+    const aviso = await screen.findByRole('status', { name: /Senha temporária/ })
+    expect(within(aviso).getByText('Temp-Abc23-Xyz45')).toBeTruthy()
   })
 })

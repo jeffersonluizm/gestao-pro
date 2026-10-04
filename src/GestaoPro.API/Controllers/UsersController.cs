@@ -198,8 +198,10 @@ public class UsersController : ControllerBase
 
         try
         {
-            var result = await _service.ResetPasswordAsync(id);
-            return result ? NoContent() : NotFound();
+            var temporaryPassword = await _service.ResetPasswordAsync(id);
+            return temporaryPassword is null
+                ? NotFound()
+                : Ok(new { temporaryPassword, message = "Senha redefinida. Entregue a senha temporária à pessoa; ela cria uma nova no próximo acesso." });
         }
         catch (InvalidOperationException ex)
         {

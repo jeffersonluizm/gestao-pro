@@ -13,7 +13,7 @@ const decisoes = [
 ]
 
 const limitacoes = [
-  'Não há envio de e-mail: a recuperação de senha passa pela administração, que volta a conta para o código do condomínio.',
+  'Não há envio de e-mail: a recuperação de senha passa pela administração, que gera uma senha temporária trocada no primeiro acesso.',
   'O token JWT continua válido até expirar mesmo depois de desativar a conta (não há lista de revogação).',
   'O token fica no localStorage do navegador; um cookie httpOnly reduziria o risco de XSS.',
   'Pagamentos são registro manual: não há integração com banco ou gateway.',

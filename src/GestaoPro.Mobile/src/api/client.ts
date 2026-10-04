@@ -125,6 +125,8 @@ export interface User {
   registrationNumber: string;
   birthDate?: string;
   isActive: boolean;
+  // Só na resposta do cadastro sem senha.
+  temporaryPassword?: string;
 }
 
 export interface Unit {

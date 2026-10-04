@@ -38,8 +38,8 @@ export function useResourceCrud(module: ModuleDef, session: AppSession, endpoint
       headers: module.createHeaders?.(body),
       body: JSON.stringify(body),
     })
-    toast.success(module.id === 'users' && created?.registrationNumber
-      ? `Usuário criado com sucesso. Login com o e-mail: ${String(created.registrationNumber)}`
+    toast.success(module.id === 'users' && created?.temporaryPassword
+      ? `Usuário criado. Senha temporária (anote, não aparece de novo): ${String(created.temporaryPassword)}`
       : createSuccessMessages[module.id] ?? 'Registro criado com sucesso.')
     return created
   }, [module, session, toast])

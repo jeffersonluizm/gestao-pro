@@ -12,11 +12,11 @@ export function RecoverPasswordPage() {
       </header>
       <ol className="prose" style={{ paddingLeft: 20 }}>
         <li>Peça à administração do condomínio (síndico ou administradora) para <strong>redefinir a sua senha</strong> no painel, em Usuários.</li>
-        <li>A sua senha volta a ser o <strong>código do condomínio</strong>, o mesmo usado no cadastro.</li>
-        <li>Entre com o seu e-mail e esse código: o sistema pede uma <strong>senha nova</strong> antes de liberar o acesso.</li>
+        <li>O sistema gera uma <strong>senha temporária</strong>, que a administração entrega a você.</li>
+        <li>Entre com o seu e-mail e a senha temporária: o sistema pede uma <strong>senha nova</strong> antes de liberar o acesso.</li>
       </ol>
       <div className="alert alert-info">
-        Por segurança, ninguém da administração vê a sua senha: ela só consegue voltar a conta para o código do condomínio.
+        Por segurança, ninguém da administração vê a sua senha: ela só consegue gerar uma senha temporária, que você troca no primeiro acesso.
       </div>
       <div className="form-actions" style={{ justifyContent: 'flex-start' }}>
         <Link className="btn" to="/entrar">Voltar para Entrar</Link>

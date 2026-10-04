@@ -66,7 +66,7 @@ Hipóteses escritas antes de medir em [docs/carga/2026-10-04-hipoteses.md](docs/
 
 ## Limitações conhecidas
 
-- Não há envio de e-mail: a recuperação de senha passa pela administração, que volta a conta para o código do condomínio.
+- Não há envio de e-mail: a recuperação de senha passa pela administração, que gera uma senha temporária (trocada no primeiro acesso).
 - O token JWT fica no `localStorage` do painel e vale até expirar, mesmo depois de desativar a conta ([ADR 0003](docs/adr/0003-token-no-navegador.md)).
 - Pagamentos são registro manual; não há boleto bancário nem gateway.
 - Notificações em tempo real: o hub SignalR existe na API, mas os clientes ainda não exibem notificações.

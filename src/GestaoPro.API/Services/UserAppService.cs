@@ -88,10 +88,9 @@ public class UserAppService : IUserDirectory
         }
 
         var registrationNumber = $"COND-{DateTime.UtcNow.Year}-{Random.Shared.Next(1000, 9999)}";
-        // Sem senha informada, a senha inicial é o código do condomínio (já em hash); troca obrigatória no primeiro acesso.
-        var passwordHash = string.IsNullOrWhiteSpace(request.Password)
-            ? condominiumDefaultPasswordHash
-            : BCrypt.Net.BCrypt.HashPassword(request.Password);
+        // Sem senha informada, gera uma senha temporária (mostrada uma vez para quem administra); troca no primeiro acesso.
+        var temporaryPassword = string.IsNullOrWhiteSpace(request.Password) ? TemporaryPassword.Generate() : null;
+        var passwordHash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword ?? request.Password);
 
         var user = new User
         {
@@ -124,7 +123,9 @@ public class UserAppService : IUserDirectory
                 request.Role.ToString(),
                 request.CondominiumId);
 
-            return MapToResponse(created);
+            var response = MapToResponse(created);
+            response.TemporaryPassword = temporaryPassword;
+            return response;
         }
         catch (MongoWriteException ex) when (ex.WriteError.Category == ServerErrorCategory.DuplicateKey)
         {
@@ -205,19 +206,19 @@ public class UserAppService : IUserDirectory
         return true;
     }
 
-    public async Task<bool> ResetPasswordAsync(string id)
+    // Redefinição pela administração: senha temporária aleatória (devolvida uma vez), troca obrigatória no próximo acesso.
+    // Nunca o código do condomínio: ele é conhecido por todos os moradores.
+    public async Task<string?> ResetPasswordAsync(string id)
     {
         var user = await _userRepository.GetByIdAsync(id);
-        if (user is null) return false;
+        if (user is null) return null;
 
-        var defaultPasswordHash = await _condominiumAppService.GetDefaultPasswordHashAsync(user.CondominiumId);
-        if (defaultPasswordHash is null)
-            throw new InvalidOperationException("Condomínio não encontrado.");
+        var temporaryPassword = TemporaryPassword.Generate();
+        var hash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword);
+        await _userRepository.UpdatePasswordAsync(id, hash);
+        await _authAppService.ResetPasswordHashAsync(id, hash);
 
-        await _userRepository.UpdatePasswordAsync(id, defaultPasswordHash);
-        await _authAppService.ResetPasswordHashAsync(id, defaultPasswordHash);
-
-        return true;
+        return temporaryPassword;
     }
 
     public async Task<bool> UpdatePasswordByAuthAsync(string id, string newPassword)
@@ -227,6 +228,8 @@ public class UserAppService : IUserDirectory
 
         var newHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
         await _userRepository.UpdatePasswordAsync(id, newHash);
+        // O login confere a credencial: sem isto a senha antiga continuava valendo.
+        await _authAppService.SyncCredentialPasswordAsync(id, newHash);
         return true;
     }
 
