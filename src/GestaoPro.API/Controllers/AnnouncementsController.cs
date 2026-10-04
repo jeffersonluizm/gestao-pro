@@ -1,6 +1,7 @@
 ﻿using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -71,6 +72,8 @@ public class AnnouncementsController : ControllerBase
     public async Task<IActionResult> Create([FromBody] CreateAnnouncementDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+        var caller = this.Caller();
+        if (this.DenyManage(caller, dto.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
 
         dto.AuthorId = User.FindFirstValue(ClaimTypes.NameIdentifier) ?? dto.AuthorId;
         if (string.IsNullOrWhiteSpace(dto.AuthorId))
@@ -95,6 +98,7 @@ public class AnnouncementsController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateAnnouncementDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+        if (await DenyManageAsync(id) is { } denied) return denied;
 
         var announcement = await _service.UpdateAsync(id, dto);
         return announcement is null ? NotFound() : Ok(announcement);
@@ -106,8 +110,22 @@ public class AnnouncementsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id)
     {
+        if (await DenyManageAsync(id) is { } denied) return denied;
+
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
+    }
+
+    // Escrita da administração só no próprio condomínio; aviso de outro condomínio responde 404.
+    private async Task<ActionResult?> DenyManageAsync(string id)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        return this.DenyManage(caller, existing.CondominiumId, staff: true);
     }
 }
 

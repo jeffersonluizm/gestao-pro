@@ -1,5 +1,6 @@
 ﻿using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
 
@@ -46,6 +47,9 @@ public class AssemblyController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateAssemblyDto dto)
     {
+        var caller = this.Caller();
+        if (this.DenyManage(caller, dto.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+
         _logger.LogInformation(
             "Criando assembleia {Title}. StartDate: {StartDate:o}; EndDate: {EndDate:o}; ScheduledDate: {ScheduledDate:o}",
             dto.Title,
@@ -67,6 +71,8 @@ public class AssemblyController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateAssemblyDto dto)
     {
+        if (await DenyManageAsync(id) is { } denied) return denied;
+
         try
         {
             var updatedAssembly = await _service.UpdateAsync(id, dto);
@@ -83,6 +89,8 @@ public class AssemblyController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        if (await DenyManageAsync(id) is { } denied) return denied;
+
         try
         {
             var deletedBy = User.FindFirstValue(ClaimTypes.NameIdentifier);
@@ -94,6 +102,18 @@ public class AssemblyController : ControllerBase
             _logger.LogError(ex, "Erro ao remover assembleia {AssemblyId}", id);
             return BadRequest(new { message = "Não foi possível remover a assembleia informada." });
         }
+    }
+
+    // Escrita da administração só no próprio condomínio; assembleia de outro condomínio responde 404.
+    private async Task<ActionResult?> DenyManageAsync(string id)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        return this.DenyManage(caller, existing.CondominiumId, staff: true);
     }
 }
 

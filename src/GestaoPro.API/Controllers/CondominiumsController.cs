@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
@@ -43,6 +44,8 @@ public class CondominiumsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateCondominiumRequest request)
     {
+        if (DenyOtherCondominium(id) is { } denied) return denied;
+
         try
         {
             var updated = await _service.UpdateAsync(id, request);
@@ -57,8 +60,18 @@ public class CondominiumsController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
+        if (DenyOtherCondominium(id) is { } denied) return denied;
+
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();
+    }
+
+    // A administração altera e remove só o condomínio do próprio token. Criar um condomínio novo segue liberado
+    // (o cadastro inicial acontece antes de existir administrador; ver ApiAccessMiddleware).
+    private ActionResult? DenyOtherCondominium(string id)
+    {
+        var caller = this.Caller();
+        return this.DenyManage(caller, id, caller.IsAdministrator);
     }
 }
 
