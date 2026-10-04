@@ -43,11 +43,25 @@ Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__Co
 
 O morador ativa a própria conta pela tela "Cadastrar-se" (painel web ou app) informando o condomínio, o CPF e o **código do condomínio**. O código é a senha padrão do condomínio, definida no cadastro do condomínio e entregue pela administração aos moradores (é também a senha inicial das contas criadas pela administração). Regras:
 
-- só contas de morador são ativadas assim; síndico, administrador e porteiro recebem o acesso da administração;
+- o código é obrigatório ao cadastrar um condomínio, com ao menos 8 caracteres e sem sequências, repetições ou senhas comuns (123456, 12345678, abcdefgh...); na edição, em branco mantém o atual. Espaços nas pontas são ignorados;
+- condomínios antigos que ainda têm um código fraco (como 123456) não aceitam autoatendimento até a administração definir um código novo;
+- só contas de morador são ativadas assim; síndico, administrador e porteiro recebem o acesso da administração. Quem já tem credencial (ativa ou desativada) também precisa falar com a administração;
 - a verificação do CPF não mostra nome nem diz o motivo de uma recusa: a mensagem é sempre a mesma;
 - a troca de senha sem login vale só no primeiro acesso (conta marcada para trocar a senha).
 
-As rotas de login, verificação de CPF, cadastro e troca de senha do primeiro acesso aceitam até 10 tentativas por minuto por IP; acima disso a API responde 429. O limite é configurável em `RateLimiting:Auth:PermitLimit` e `RateLimiting:Auth:WindowSeconds`. Atenção: atrás de proxy (Render) a API ainda não lê o IP real do cliente (`X-Forwarded-For`), então todos os acessos contam como um único IP e o limite vale para todos juntos; ajuste o limite ou configure o repasse do IP antes de usar em produção.
+Em desenvolvimento, o condomínio de demonstração criado pela API usa o código `Demo-Condominio-2026`.
+
+Limites de tentativa (acima deles a API responde 429 com o cabeçalho `Retry-After`):
+
+| Rotas | Limite padrão |
+|---|---|
+| `POST /api/auth/login` | 10 por minuto por IP |
+| `POST /api/auth/check-cpf` e `POST /api/auth/register` | 10 por minuto por IP e 30 por minuto por condomínio |
+| `PATCH /api/auth/change-password` | 10 por minuto por IP |
+
+Os valores ficam em `RateLimiting:Auth:PermitLimit`, `RateLimiting:Auth:PerCondominiumPermitLimit` e `RateLimiting:Auth:WindowSeconds` (segundos).
+
+**Proxy (Render):** atrás do proxy, o IP do cliente chega no cabeçalho `X-Forwarded-For`. A API só confia nesse cabeçalho com `Proxy:ConfiarNoProxy=true` (variável de ambiente `Proxy__ConfiarNoProxy=true`); o padrão é `false`, porque sem um proxy na frente qualquer cliente poderia forjar o cabeçalho. No Render, ligue a opção. Para confirmar, suba temporariamente um log do `X-Forwarded-For` e do `RemoteIpAddress` em uma requisição, confira que o IP mostrado é o do seu computador (e não o do proxy) e remova o log em seguida. Com a opção desligada atrás do proxy, todos os acessos contam como um único IP.
 
 #### Dados antigos sem condomínio
 
