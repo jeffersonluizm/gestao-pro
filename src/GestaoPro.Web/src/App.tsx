@@ -1029,12 +1029,17 @@ function resolveSelectValue(field: FieldDef, value: string) {
   return byContainedText?.value ?? ''
 }
 
+function isFrontDesk(session: AppSession) {
+  return session.role === 'porteiro'
+}
+
 // Quem não administra só consulta os próprios registros nos módulos que têm rota por usuário.
 export function moduleForSession(module: ModuleDef, session: AppSession, canManage: boolean): ModuleDef {
   if (canManage || !session.userId) return module
   const userId = encodeURIComponent(session.userId)
   if (module.id === 'reservations') return { ...module, listEndpoint: `/api/reservations/user/${userId}` }
-  if (module.id === 'visitors') return { ...module, listEndpoint: `/api/Visitor/resident/${userId}` }
+  // A portaria recebe os visitantes do condomínio: lista completa (a API filtra pelo condomínio do token).
+  if (module.id === 'visitors' && !isFrontDesk(session)) return { ...module, listEndpoint: `/api/Visitor/resident/${userId}` }
   if (module.id === 'bills') return { ...module, listEndpoint: `/api/Bills/user/${userId}` }
   return module
 }
@@ -1632,7 +1637,7 @@ function ResourcePage({
           onDelete={canManage && (module.listEndpoint || module.createEndpoint) && !module.noDelete ? remove : undefined}
           deleteLabel={module.id === 'users' ? 'Desativar' : undefined}
         />
-        {canManage && module.id === 'visitors' && <VisitorActions onDone={load} lookups={lookups} />}
+        {(canManage || isFrontDesk(session)) && module.id === 'visitors' && <VisitorActions onDone={load} lookups={lookups} />}
         {canManage && module.id === 'deliveries' && <DeliveryActions onDone={load} lookups={lookups} />}
       </section>
     </div>

@@ -47,7 +47,7 @@ function stubFetch() {
 
 function loginAs(kind: 'admin' | 'morador' | 'porteiro') {
   localStorage.setItem('gestaopro_token', 'token-de-teste')
-  localStorage.setItem('gestaopro_user_id', kind === 'admin' ? 'u-admin' : 'u-maria')
+  localStorage.setItem('gestaopro_user_id', kind === 'admin' ? 'u-admin' : kind === 'porteiro' ? 'u-porteiro' : 'u-maria')
   localStorage.setItem('gestaopro_user_name', kind === 'admin' ? 'Admin' : 'Maria')
   localStorage.setItem('gestaopro_role', kind)
   localStorage.setItem('gestaopro_access_type', kind === 'admin' ? 'admin' : 'usuario')
@@ -99,6 +99,13 @@ describe('moduleForSession', () => {
   it('deixa o administrador escolher o morador', () => {
     expect(moduleForSession(billsModule, session, true).listEndpoint).toBeUndefined()
   })
+
+  // A portaria recebe os visitantes do condomínio (a API filtra pelo condomínio do token).
+  it('porteiro lista os visitantes do condomínio e morador só os próprios', () => {
+    const visitorsModule = modules.find(module => module.id === 'visitors')!
+    expect(moduleForSession(visitorsModule, { ...session, role: 'porteiro' }, false).listEndpoint).toBe('/api/Visitor')
+    expect(moduleForSession(visitorsModule, session, false).listEndpoint).toBe('/api/Visitor/resident/u-maria')
+  })
 })
 
 describe('navegação', () => {
@@ -119,6 +126,25 @@ describe('navegação', () => {
     expect(within(nav).queryByRole('button', { name: 'Cobranças' })).toBeNull()
     expect(within(nav).queryByRole('button', { name: 'Pagamentos' })).toBeNull()
     expect(within(nav).getByRole('button', { name: 'Estacionamento' })).toBeTruthy()
+  })
+})
+
+describe('Visitantes', () => {
+  it('porteiro registra entrada e saída de visitante', async () => {
+    loginAs('porteiro')
+    await openModule('Visitantes')
+
+    await waitFor(() => expect(calls).toContainEqual(expect.objectContaining({ method: 'GET', path: '/api/Visitor' })))
+    expect(screen.getByRole('button', { name: 'Entrada' })).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Saída' })).toBeTruthy()
+  })
+
+  it('morador não vê os botões de entrada e saída', async () => {
+    loginAs('morador')
+    await openModule('Visitantes')
+
+    await waitFor(() => expect(calls).toContainEqual(expect.objectContaining({ method: 'GET', path: '/api/Visitor/resident/u-maria' })))
+    expect(screen.queryByRole('button', { name: 'Entrada' })).toBeNull()
   })
 })
 

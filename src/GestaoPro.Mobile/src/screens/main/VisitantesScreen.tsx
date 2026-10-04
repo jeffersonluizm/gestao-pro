@@ -21,6 +21,11 @@ function canManageVisitors(role?: string) {
   return ['admin', 'sindico'].includes((role ?? '').toLowerCase());
 }
 
+// Portaria: lista os visitantes do condomínio e registra entrada e saída (sem editar nem remover).
+function isFrontDesk(role?: string) {
+  return canManageVisitors(role) || (role ?? '').toLowerCase() === 'porteiro';
+}
+
 function emptyForm(condominiumId = '', residentId = '') {
   return {
     condominiumId, fullName: '', document: '', phone: '', residentId,
@@ -47,6 +52,7 @@ function visitorId(visitor: Visitor) {
 export default function VisitantesScreen() {
   const { session } = useAuth();
   const canManage = canManageVisitors(session?.role);
+  const frontDesk = isFrontDesk(session?.role);
   const [visitors, setVisitors] = useState<Visitor[]>([]);
   const [condominiums, setCondominiums] = useState<Condominium[]>([]);
   const [users, setUsers] = useState<User[]>([]);
@@ -72,11 +78,11 @@ export default function VisitantesScreen() {
     if (!silent) setLoading(true);
     setListError('');
     try {
-      const data = canManage ? await getVisitors() : await getVisitorsByResident(session.userId);
+      const data = frontDesk ? await getVisitors() : await getVisitorsByResident(session.userId);
       setVisitors(data);
       const [condominiumData, userData] = await Promise.all([
         getCondominiums(),
-        canManage ? getUsers() : Promise.resolve([]),
+        frontDesk ? getUsers() : Promise.resolve([]),
       ]);
       setCondominiums(condominiumData);
       setUsers(userData);
@@ -87,7 +93,7 @@ export default function VisitantesScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [canManage, session?.userId]);
+  }, [frontDesk, session?.userId]);
 
   const loadUnits = useCallback(async (condominiumId: string) => {
     if (!condominiumId) { setUnits([]); return; }
@@ -293,11 +299,11 @@ export default function VisitantesScreen() {
               <Text style={styles.cardText}>Unidade: {unitNames.get(item.unitId) ?? item.unitId}</Text>
               <Text style={styles.cardText}>Entrada: {formatDateTime(item.checkInAt)}</Text>
               <Text style={styles.cardText}>Saída: {formatDateTime(item.checkOutAt)}</Text>
-              {canManage ? <View style={styles.actions}>
-                <Action icon="create-outline" color="#2563eb" label="Editar" onPress={() => openEdit(item)} />
+              {frontDesk ? <View style={styles.actions}>
+                {canManage ? <Action icon="create-outline" color="#2563eb" label="Editar" onPress={() => openEdit(item)} /> : null}
                 <Action icon="log-in-outline" color="#15803d" label="Entrada" onPress={() => runAction(item, 'check-in')} />
                 <Action icon="log-out-outline" color="#b45309" label="Saída" onPress={() => runAction(item, 'check-out')} />
-                <Action icon="trash-outline" color="#dc2626" label={deletingId === visitorId(item) ? 'Removendo...' : 'Remover'} onPress={() => handleDelete(item)} disabled={Boolean(deletingId)} />
+                {canManage ? <Action icon="trash-outline" color="#dc2626" label={deletingId === visitorId(item) ? 'Removendo...' : 'Remover'} onPress={() => handleDelete(item)} disabled={Boolean(deletingId)} /> : null}
               </View> : null}
             </View>
           )}
