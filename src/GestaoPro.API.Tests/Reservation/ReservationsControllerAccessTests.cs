@@ -18,7 +18,7 @@ public class ReservationsControllerAccessTests
 
     public ReservationsControllerAccessTests()
     {
-        _controller = new ReservationsController(_service.Object);
+        _controller = new ReservationsController(_service.Object, new Mock<ICommonAreaService>().Object, new Mock<IUserDirectory>().Object);
         var all = new List<ReservationModel> { DoJoao, DaMaria, DeOutroCondominio };
         _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>()))

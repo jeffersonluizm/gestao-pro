@@ -14,10 +14,14 @@ namespace GestaoPro.API.Controllers;
 public class ReservationsController : ControllerBase
 {
     private readonly IReservationService _service;
+    private readonly ICommonAreaService _commonAreas;
+    private readonly IUserDirectory _users;
 
-    public ReservationsController(IReservationService service)
+    public ReservationsController(IReservationService service, ICommonAreaService commonAreas, IUserDirectory users)
     {
         _service = service;
+        _commonAreas = commonAreas;
+        _users = users;
     }
 
     /// <summary>Lista as reservas que o usuário pode ver (morador: as próprias; administração: as do condomínio)</summary>
@@ -126,16 +130,22 @@ public class ReservationsController : ControllerBase
             var caller = this.Caller();
             if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
+            // A área comum define o condomínio da reserva: área de outro condomínio (ou inexistente) responde 404,
+            // sem chegar à checagem de conflito, que revelaria a ocupação e bloquearia a área do outro condomínio.
+            var commonArea = await _commonAreas.GetByIdAsync(dto.CommonAreaId);
+            if (this.DenyOtherCondominium(caller, commonArea?.CondominiumId) is { } otherArea) return otherArea;
+            dto.CondominiumId = commonArea!.CondominiumId;
+
             if (caller.IsAdministrator)
             {
-                // Admin/síndico reserva para morador, só no próprio condomínio.
-                if (this.DenyManage(caller, dto.CondominiumId, staff: true) is { } denied) return denied;
+                // Admin/síndico reserva para morador do próprio condomínio.
+                var resident = await _users.GetByIdAsync(dto.UserId);
+                if (this.DenyManage(caller, resident?.CondominiumId, staff: true) is { } denied) return denied;
             }
             else
             {
-                // Quem não administra reserva em nome próprio e no próprio condomínio.
+                // Quem não administra reserva em nome próprio.
                 dto.UserId = caller.UserId!;
-                dto.CondominiumId = caller.CondominiumId!;
             }
 
             var reservation = await _service.CreateAsync(dto);

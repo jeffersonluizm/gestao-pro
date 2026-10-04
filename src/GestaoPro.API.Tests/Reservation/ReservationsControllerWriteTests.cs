@@ -8,11 +8,17 @@ namespace GestaoPro.API.Tests.ReservationTests;
 public class ReservationsControllerWriteTests
 {
     private readonly Mock<IReservationService> _service = new();
+    private readonly Mock<ICommonAreaService> _areas = new();
+    private readonly Mock<IUserDirectory> _users = new();
     private readonly ReservationsController _controller;
 
     public ReservationsControllerWriteTests()
     {
-        _controller = new ReservationsController(_service.Object);
+        _controller = new ReservationsController(_service.Object, _areas.Object, _users.Object);
+        _areas.Setup(a => a.GetByIdAsync("area-1")).ReturnsAsync(new CommonArea { Id = "area-1", CondominiumId = CondominioA });
+        _areas.Setup(a => a.GetByIdAsync("area-b")).ReturnsAsync(new CommonArea { Id = "area-b", CondominiumId = CondominioB });
+        _users.Setup(u => u.GetByIdAsync("maria")).ReturnsAsync(new UserResponse { Id = "maria", CondominiumId = CondominioA });
+        _users.Setup(u => u.GetByIdAsync("carlos")).ReturnsAsync(new UserResponse { Id = "carlos", CondominiumId = CondominioB });
         var all = new List<ReservationModel>
         {
             new() { Id = "reserva-joao", UserId = "joao", CondominiumId = CondominioA },
@@ -78,5 +84,37 @@ public class ReservationsControllerWriteTests
         Assert.Equal(404, StatusOf(update));
         _service.Verify(s => s.CreateAsync(It.IsAny<CreateReservationDto>()), Times.Never);
         _service.Verify(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<UpdateReservationDto>()), Times.Never);
+    }
+
+    // A área comum define o condomínio da reserva: área de outro condomínio não existe para quem reserva.
+    // Sem isso, o conflito de horário (400) revelava a ocupação e a reserva bloqueava a área do outro condomínio.
+    [Fact]
+    public async Task Morador_nao_reserva_area_comum_de_outro_condominio()
+    {
+        var result = await _controller.As("joao", "morador").Create(
+            new CreateReservationDto { CommonAreaId = "area-b", Date = "2026-10-10", StartTime = "10:00", EndTime = "12:00" });
+
+        Assert.Equal(404, StatusOf(result));
+        _service.Verify(s => s.CreateAsync(It.IsAny<CreateReservationDto>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task Admin_reserva_area_do_condominio_para_morador_do_condominio_e_grava_o_condominio_da_area()
+    {
+        _service.Setup(s => s.CreateAsync(It.IsAny<CreateReservationDto>()))
+            .ReturnsAsync(new ReservationModel { Id = "nova", UserId = "maria", CondominiumId = CondominioA });
+        var dto = new CreateReservationDto { CommonAreaId = "area-1", UserId = "maria", CondominiumId = "", Date = "2026-10-10", StartTime = "10:00", EndTime = "12:00" };
+
+        var own = await _controller.As("admin-a", "admin").Create(dto);
+        var otherArea = await _controller.As("admin-a", "admin").Create(
+            new CreateReservationDto { CommonAreaId = "area-b", UserId = "maria", CondominiumId = CondominioA, Date = "2026-10-10", StartTime = "10:00", EndTime = "12:00" });
+        var otherResident = await _controller.As("admin-a", "admin").Create(
+            new CreateReservationDto { CommonAreaId = "area-1", UserId = "carlos", CondominiumId = CondominioA, Date = "2026-10-10", StartTime = "10:00", EndTime = "12:00" });
+
+        Assert.Equal(201, StatusOf(own));
+        Assert.Equal(CondominioA, dto.CondominiumId);
+        Assert.Equal(404, StatusOf(otherArea));
+        Assert.Equal(404, StatusOf(otherResident));
+        _service.Verify(s => s.CreateAsync(It.IsAny<CreateReservationDto>()), Times.Once);
     }
 }
