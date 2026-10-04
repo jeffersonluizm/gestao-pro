@@ -22,15 +22,29 @@ public static class LocalSettings
             FileProvider = new PhysicalFileProvider(contentRoot),
         };
 
-        var firstOverride = builder.Sources
-            .Select((item, index) => (item, index))
-            .FirstOrDefault(entry =>
-                entry.item is EnvironmentVariablesConfigurationSource or CommandLineConfigurationSource);
+        // Logo depois do último JSON (appsettings.json, appsettings.{Ambiente}.json, user secrets) e antes das
+        // variáveis de ambiente sem prefixo e da linha de comando. No host real a primeira fonte de variáveis é a de
+        // prefixo ASPNETCORE_, que fica ANTES dos appsettings: por isso a referência é o último JSON.
+        var lastJson = -1;
+        for (var i = 0; i < builder.Sources.Count; i++)
+            if (builder.Sources[i] is JsonConfigurationSource) lastJson = i;
 
-        if (firstOverride.item is null)
-            builder.Sources.Add(source);
+        var firstOverrideAfterJson = -1;
+        for (var i = lastJson + 1; i < builder.Sources.Count; i++)
+        {
+            if (builder.Sources[i] is EnvironmentVariablesConfigurationSource or CommandLineConfigurationSource)
+            {
+                firstOverrideAfterJson = i;
+                break;
+            }
+        }
+
+        if (firstOverrideAfterJson >= 0)
+            builder.Sources.Insert(firstOverrideAfterJson, source);
+        else if (lastJson >= 0)
+            builder.Sources.Insert(lastJson + 1, source);
         else
-            builder.Sources.Insert(firstOverride.index, source);
+            builder.Sources.Add(source);
 
         return builder;
     }

@@ -60,6 +60,31 @@ public class LocalSettingsPrecedenceTests : IDisposable
         Assert.Equal("do-arquivo-local", configuration["SoNoJson"]);
     }
 
+    // Ordem real do host (WebApplication.CreateBuilder): a primeira fonte de variáveis de ambiente é a de prefixo
+    // ASPNETCORE_, antes dos appsettings; o arquivo local precisa entrar depois dos JSON e antes das variáveis sem prefixo.
+    [Fact]
+    public void No_host_real_variavel_de_ambiente_vence_e_arquivo_local_vence_o_appsettings()
+    {
+        var chave = $"GPTESTEHOST{Guid.NewGuid():N}";
+        File.WriteAllText(Path.Combine(_contentRoot, "appsettings.json"), $$"""{ "{{chave}}": "do-appsettings", "{{chave}}B": "do-appsettings" }""");
+        File.WriteAllText(Path.Combine(_contentRoot, "appsettings.Local.json"), $$"""{ "{{chave}}": "do-arquivo-local", "{{chave}}B": "do-arquivo-local" }""");
+        Environment.SetEnvironmentVariable(chave, "do-ambiente");
+        try
+        {
+            var builder = Microsoft.AspNetCore.Builder.WebApplication.CreateBuilder(
+                new Microsoft.AspNetCore.Builder.WebApplicationOptions { ContentRootPath = _contentRoot, EnvironmentName = "Production" });
+
+            builder.Configuration.AddLocalSettingsFile(_contentRoot);
+
+            Assert.Equal("do-ambiente", builder.Configuration[chave]);
+            Assert.Equal("do-arquivo-local", builder.Configuration[chave + "B"]);
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable(chave, null);
+        }
+    }
+
     [Fact]
     public void Sem_arquivo_local_a_configuracao_segue_normal()
     {
