@@ -1,6 +1,7 @@
 ﻿using GestaoPro.API.Models;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
 
@@ -22,27 +23,49 @@ namespace GestaoPro.API.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Visitor>>> Get()
         {
-            var visitors = await _visitorService.GetAllAsync();
-            return Ok(visitors);
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+            var visitors = SeesWholeCondominium(caller)
+                ? await _visitorService.GetAllAsync()
+                : await _visitorService.GetByResidentAsync(caller.UserId!);
+            return Ok(Visible(caller, visitors));
         }
 
         [HttpGet("{id}")]
         public async Task<ActionResult<Visitor>> GetById(string id)
         {
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
             var visitor = await _visitorService.GetByIdAsync(id);
 
             if (visitor == null)
                 return NotFound();
 
-            return Ok(visitor);
+            return this.Deny(ResourceAccess.Decide(caller, visitor.ResidentId, visitor.CondominiumId, SeesWholeCondominium(caller)))
+                ?? Ok(visitor);
         }
 
         [HttpGet("resident/{residentId}")]
         public async Task<ActionResult<List<Visitor>>> GetByResident(string residentId)
         {
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+            if (!SeesWholeCondominium(caller) && !string.Equals(caller.UserId, residentId, StringComparison.Ordinal))
+                return this.Forbidden();
+
             var visitors = await _visitorService.GetByResidentAsync(residentId);
-            return Ok(visitors);
+            return Ok(Visible(caller, visitors));
         }
+
+        // Portaria recebe os visitantes: vê os do condomínio, como a administração.
+        private static bool SeesWholeCondominium(Caller caller) => caller.IsAdministrator || caller.IsDoorman;
+
+        private static List<Visitor> Visible(Caller caller, IEnumerable<Visitor> visitors) =>
+            visitors
+                .Where(visitor => ResourceAccess.CanSee(caller, visitor.ResidentId, visitor.CondominiumId, SeesWholeCondominium(caller)))
+                .ToList();
 
         [HttpPost("register")]
         public async Task<ActionResult> Register([FromBody] CreateVisitorDto dto)
