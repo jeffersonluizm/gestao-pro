@@ -6,12 +6,6 @@ using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
-// Política de limite das rotas anônimas de autenticação (configurada em Program.cs).
-public static class AuthRateLimit
-{
-    public const string Policy = "auth";
-}
-
 [ApiController]
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
@@ -19,16 +13,22 @@ public class AuthController : ControllerBase
     private readonly AuthAppService _service;
     private readonly IUserDirectory _users;
     private readonly SelfServiceAuthService _selfService;
+    private readonly CondominiumAttemptLimiter _condominiumAttempts;
 
-    public AuthController(AuthAppService service, IUserDirectory users, SelfServiceAuthService selfService)
+    public AuthController(
+        AuthAppService service,
+        IUserDirectory users,
+        SelfServiceAuthService selfService,
+        CondominiumAttemptLimiter condominiumAttempts)
     {
         _service = service;
         _users = users;
         _selfService = selfService;
+        _condominiumAttempts = condominiumAttempts;
     }
 
     [HttpPost("login")]
-    [EnableRateLimiting(AuthRateLimit.Policy)]
+    [EnableRateLimiting(AuthRateLimit.Login)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
@@ -69,7 +69,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPatch("change-password")]
-    [EnableRateLimiting(AuthRateLimit.Policy)]
+    [EnableRateLimiting(AuthRateLimit.ChangePassword)]
     public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
     {
         try
@@ -101,9 +101,11 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("check-cpf")]
-    [EnableRateLimiting(AuthRateLimit.Policy)]
+    [EnableRateLimiting(AuthRateLimit.Register)]
     public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
     {
+        if (DenyTooManyCondominiumAttempts(request.CondominiumId) is { } tooMany) return tooMany;
+
         try
         {
             var result = await _selfService.CheckCpfAsync(request);
@@ -116,9 +118,11 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
-    [EnableRateLimiting(AuthRateLimit.Policy)]
+    [EnableRateLimiting(AuthRateLimit.Register)]
     public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
     {
+        if (DenyTooManyCondominiumAttempts(request.CondominiumId) is { } tooMany) return tooMany;
+
         try
         {
             var result = await _selfService.SelfRegisterAsync(request);
@@ -138,6 +142,15 @@ public class AuthController : ControllerBase
 
         var result = await _service.DeactivateAsync(userId);
         return result ? NoContent() : NotFound();
+    }
+
+    // Balde por condomínio do check-cpf e do cadastro (além do balde por IP): 429 com Retry-After.
+    private IActionResult? DenyTooManyCondominiumAttempts(string condominiumId)
+    {
+        if (_condominiumAttempts.TryAcquire(condominiumId, out var retryAfter)) return null;
+
+        AuthRateLimit.SetRetryAfter(Response, retryAfter);
+        return StatusCode(StatusCodes.Status429TooManyRequests, new { message = AuthRateLimit.TooManyAttemptsMessage });
     }
 
     // Credenciais são escritas da administração (middleware): só de usuário do próprio condomínio (outro: 404).

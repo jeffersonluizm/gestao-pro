@@ -4,13 +4,12 @@ using GestaoPro.API.Repositories;
 using GestaoPro.API.Services;
 using GestaoPro.API.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using System.Text;
-using System.Threading.RateLimiting;
-using Microsoft.AspNetCore.RateLimiting;
 using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -144,25 +143,22 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
 
-// Rotas anônimas de autenticação (login, check-cpf, register, change-password): poucas tentativas por IP
-// em janela fixa, contra força bruta e varredura de CPF. Acima do limite: 429.
-var authPermitLimit = builder.Configuration.GetValue("RateLimiting:Auth:PermitLimit", 10);
-var authWindowSeconds = builder.Configuration.GetValue("RateLimiting:Auth:WindowSeconds", 60);
-builder.Services.AddRateLimiter(options =>
+// Limites das rotas anônimas de autenticação (por IP e por condomínio; ver AuthRateLimit).
+builder.Services.AddAuthRateLimits(builder.Configuration);
+
+// Atrás de proxy (Render), o IP do cliente vem no X-Forwarded-For. Só é lido com Proxy:ConfiarNoProxy=true:
+// sem proxy na frente, qualquer cliente poderia forjar o cabeçalho e escapar dos limites por IP.
+var trustProxy = builder.Configuration.GetValue("Proxy:ConfiarNoProxy", false);
+if (trustProxy)
 {
-    options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-    options.AddPolicy(AuthRateLimit.Policy, context => RateLimitPartition.GetFixedWindowLimiter(
-        context.Connection.RemoteIpAddress?.ToString() ?? "sem-ip",
-        _ => new FixedWindowRateLimiterOptions
-        {
-            PermitLimit = authPermitLimit,
-            Window = TimeSpan.FromSeconds(authWindowSeconds),
-            QueueLimit = 0
-        }));
-    options.OnRejected = async (context, cancellationToken) =>
-        await context.HttpContext.Response.WriteAsJsonAsync(
-            new { message = "Muitas tentativas. Aguarde um minuto e tente de novo." }, cancellationToken);
-});
+    builder.Services.Configure<ForwardedHeadersOptions>(options =>
+    {
+        options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+        options.ForwardLimit = 1;
+        options.KnownIPNetworks.Clear();
+        options.KnownProxies.Clear();
+    });
+}
 
 builder.Services.AddCors(options =>
 {
@@ -187,6 +183,7 @@ if (app.Environment.IsDevelopment())
     await seeder.SeedAsync();
 }
 
+if (trustProxy) app.UseForwardedHeaders();
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();

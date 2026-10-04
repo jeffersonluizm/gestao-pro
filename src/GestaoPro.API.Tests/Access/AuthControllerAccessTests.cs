@@ -14,7 +14,7 @@ public class AuthControllerAccessTests
     }
 
     // O AuthAppService não é exercitado aqui (depende do MongoDB): as recusas acontecem antes dele.
-    private AuthController Controller() => new AuthController(null!, _users.Object, null!).As("admin-a", "admin");
+    private AuthController Controller() => new AuthController(null!, _users.Object, null!, new CondominiumAttemptLimiter(100, TimeSpan.FromMinutes(1))).As("admin-a", "admin");
 
     [Fact]
     public async Task Admin_nao_mexe_na_credencial_de_usuario_de_outro_condominio()
@@ -40,7 +40,8 @@ public class AuthControllerAccessTests
         accounts.Setup(a => a.GetCredentialAsync(It.IsAny<string>()))
             .ThrowsAsync(new Exception("detalhe interno do banco"));
         var controller = new AuthController(null!, _users.Object,
-            new SelfServiceAuthService(accounts.Object, new BcryptPasswordVerifier()));
+            new SelfServiceAuthService(accounts.Object, new BcryptPasswordVerifier()),
+            new CondominiumAttemptLimiter(100, TimeSpan.FromMinutes(1)));
 
         var check = await controller.CheckCpf(new CheckCpfRequest("11111111111", CondominioA, "Jardim-Azul-2026"));
         var register = await controller.SelfRegister(new SelfRegisterRequest("11111111111", CondominioA, "Jardim-Azul-2026", "senha", null, null, null));
