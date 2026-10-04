@@ -65,6 +65,18 @@ public class UsersController : ControllerBase
             ?? Ok(user);
     }
 
+    // Escritas da administração só em usuário do próprio condomínio (outro: 404).
+    // Sem login só chega aqui a credencial do cadastro inicial, liberada pelo middleware.
+    private async Task<ActionResult?> DenyManageUserAsync(string id)
+    {
+        if (User.Identity?.IsAuthenticated != true) return null;
+
+        var caller = this.Caller();
+        var user = await _directory.GetByIdAsync(id);
+        if (user is null) return NotFound();
+        return this.DenyManage(caller, user.CondominiumId, caller.IsAdministrator);
+    }
+
     private OkObjectResult ForCaller(Caller caller, IEnumerable<UserResponse> users)
     {
         var sameCondominium = users
@@ -79,6 +91,13 @@ public class UsersController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
+        // Sem login só chega aqui o cadastro inicial (antes de existir administrador; ver ApiAccessMiddleware).
+        if (User.Identity?.IsAuthenticated == true)
+        {
+            var caller = this.Caller();
+            if (this.DenyManage(caller, request.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+        }
+
         try
         {
             var created = await _service.CreateAsync(request);
@@ -97,6 +116,8 @@ public class UsersController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdateUserRequest request)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var updated = await _service.UpdateAsync(id, request);
@@ -116,6 +137,7 @@ public class UsersController : ControllerBase
 
         if (!ObjectId.TryParse(id, out _))
             return BadRequest(new { message = "Identificador de usuário inválido." });
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
 
         try
         {
@@ -154,6 +176,8 @@ public class UsersController : ControllerBase
     [HttpPatch("{id}/reset-password")]
     public async Task<IActionResult> ResetPassword(string id)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var result = await _service.ResetPasswordAsync(id);
@@ -168,6 +192,8 @@ public class UsersController : ControllerBase
     [HttpPatch("{id}/password")]
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] ResetPasswordRequest request)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var result = await _service.UpdatePasswordByAuthAsync(id, request.NewPassword);
@@ -182,6 +208,8 @@ public class UsersController : ControllerBase
     [HttpPost("{id}/credentials")]
     public async Task<IActionResult> CreateCredentialForExistingUser(string id, [FromBody] CreateUserCredentialRequest request)
     {
+        if (await DenyManageUserAsync(id) is { } denied) return denied;
+
         try
         {
             var user = await _service.CreateCredentialForExistingUserAsync(id, request);
