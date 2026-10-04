@@ -16,7 +16,10 @@ public class ApiAccessMiddleware
     {
         var path = context.Request.Path.Value?.ToLowerInvariant() ?? string.Empty;
 
-        if (HttpMethods.IsOptions(context.Request.Method))
+        // O hub SignalR exige login no próprio endpoint (RequireAuthorization em Program.cs)
+        // e precisa aceitar qualquer papel: o negotiate é um POST e cairia na regra de escrita abaixo.
+        if (HttpMethods.IsOptions(context.Request.Method) ||
+            path == "/notificacaohub" || path.StartsWith("/notificacaohub/"))
         {
             await _next(context);
             return;

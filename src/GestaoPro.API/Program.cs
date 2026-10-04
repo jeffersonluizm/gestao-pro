@@ -58,6 +58,21 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             ValidAudience = jwtSettings.Audience,
             IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
         };
+        // WebSocket do navegador não envia cabeçalho: o cliente SignalR manda o token em access_token.
+        // Aceito só no caminho do hub, para não expor tokens em URLs do resto da API.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
+            {
+                var accessToken = context.Request.Query["access_token"];
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    context.HttpContext.Request.Path.StartsWithSegments("/notificacaoHub"))
+                {
+                    context.Token = accessToken;
+                }
+                return Task.CompletedTask;
+            }
+        };
     });
 
 builder.Services.AddSingleton<IAnnouncementRepository, AnnouncementRepository>();
@@ -141,6 +156,6 @@ app.UseAuthentication();
 app.UseMiddleware<ApiAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<NotificacaoHub>("/notificacaoHub");
+app.MapHub<NotificacaoHub>("/notificacaoHub").RequireAuthorization();
 
 app.Run();
