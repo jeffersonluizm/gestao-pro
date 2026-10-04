@@ -10,19 +10,21 @@ namespace GestaoPro.API.Tests.Startup;
 // Sobe a API de verdade apontando para um MongoDB inalcançável: qualquer acesso ao banco
 // na partida estoura o timeout. Content root temporário para não carregar appsettings.Local.json.
 // O VoteIndexInitializer (índice de votos, legítimo em produção) é removido por não ser o alvo do teste.
-public class DemoSeedStartupTests
+public class DemoSeedStartupTests : IDisposable
 {
     private const string UnreachableMongo =
         "mongodb://127.0.0.1:1/?serverSelectionTimeoutMS=500&connectTimeoutMS=500";
 
-    private static WebApplicationFactory<Program> CreateFactory(string environment)
-    {
-        var contentRoot = Directory.CreateTempSubdirectory("gestaopro-teste-").FullName;
+    private readonly string _contentRoot = Directory.CreateTempSubdirectory("gestaopro-teste-").FullName;
 
+    public void Dispose() => Directory.Delete(_contentRoot, recursive: true);
+
+    private WebApplicationFactory<Program> CreateFactory(string environment)
+    {
         return new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             builder.UseEnvironment(environment);
-            builder.UseContentRoot(contentRoot);
+            builder.UseContentRoot(_contentRoot);
             builder.UseSetting("MongoDbSettings:ConnectionString", UnreachableMongo);
             builder.UseSetting("MongoDbSettings:DatabaseName", "gestaopro-teste");
             builder.UseSetting("JwtSettings:SecretKey", "chave-de-teste-com-mais-de-32-caracteres-0123456789");
@@ -48,8 +50,10 @@ public class DemoSeedStartupTests
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
+    // Os repositórios do seeder acessam o banco já no construtor: o timeout prova que o
+    // DataSeeder foi acionado na partida (não verifica a conta criada, que exigiria um MongoDB).
     [Fact]
-    public async Task Em_desenvolvimento_a_API_semeia_a_conta_demo_na_partida()
+    public async Task Em_desenvolvimento_a_API_aciona_o_seeder_na_partida()
     {
         await using var factory = CreateFactory("Development");
 
