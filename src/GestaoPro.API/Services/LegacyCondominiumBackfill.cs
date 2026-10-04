@@ -35,9 +35,9 @@ public class MongoLegacyCondominiumStore : ILegacyCondominiumStore
         _parkings = database.GetCollection<BsonDocument>(settings.Value.ParkingCollection);
     }
 
-    // condominiumId ausente, nulo ou vazio ($in com null também casa campo ausente).
+    // condominiumId ausente, nulo, vazio ou só com espaços ($in com null também casa campo ausente).
     public static BsonDocument MissingCondominium() =>
-        new("condominiumId", new BsonDocument("$in", new BsonArray { BsonNull.Value, "" }));
+        new("condominiumId", new BsonDocument("$in", new BsonArray { BsonNull.Value, new BsonRegularExpression(@"^\s*$") }));
 
     public static BsonDocument WithoutCondominium(BsonValue id) =>
         new BsonDocument("_id", id).AddRange(MissingCondominium());

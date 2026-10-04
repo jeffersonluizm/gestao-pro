@@ -149,7 +149,13 @@ public class LegacyCondominiumBackfillTests
         var filter = MongoLegacyCondominiumStore.WithoutCondominium(VisitanteIdLegado);
 
         Assert.Equal(VisitanteIdLegado, filter["_id"]);
-        Assert.Equal(new BsonArray { BsonNull.Value, "" }, filter["condominiumId"]["$in"]);
+        var accepted = filter["condominiumId"]["$in"].AsBsonArray;
+        Assert.Contains(BsonNull.Value, accepted);
+        // Vazio ou só com espaços conta como sem condomínio.
+        var blank = Assert.Single(accepted.OfType<BsonRegularExpression>());
+        Assert.Matches(blank.Pattern, "");
+        Assert.Matches(blank.Pattern, "   ");
+        Assert.DoesNotMatch(blank.Pattern, "665f1c2e9b1e8a00000000a1");
     }
 
     [Fact]
