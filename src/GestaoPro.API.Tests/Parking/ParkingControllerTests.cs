@@ -1,4 +1,6 @@
 using GestaoPro.API.Controllers;
+using GestaoPro.API.Tests.Access;
+using static GestaoPro.API.Tests.Access.TestSession;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GestaoPro.API.Tests.ParkingTests;
@@ -13,14 +15,17 @@ public class ParkingControllerTests
 
     public ParkingControllerTests()
     {
-        _controller = new ParkingController(new ParkingAppService(_repoMock.Object));
+        _controller = new ParkingController(new ParkingAppService(_repoMock.Object)).As("admin-a", "admin");
         _repoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ParkingModel>
         {
-            new() { Id = "vaga-1", Number = "A-01", Type = "carro" },
-            new() { Id = "vaga-2", Number = "A-02", Type = "carro" },
+            new() { Id = "vaga-1", Number = "A-01", Type = "carro", CondominiumId = CondominioA },
+            new() { Id = "vaga-2", Number = "A-02", Type = "carro", CondominiumId = CondominioA },
+            new() { Id = "vaga-b", Number = "B-09", Type = "carro", CondominiumId = CondominioB },
         });
         _repoMock.Setup(r => r.GetByIdAsync("vaga-2"))
-            .ReturnsAsync(new ParkingModel { Id = "vaga-2", Number = "A-02", Type = "carro" });
+            .ReturnsAsync(new ParkingModel { Id = "vaga-2", Number = "A-02", Type = "carro", CondominiumId = CondominioA });
+        _repoMock.Setup(r => r.GetByIdAsync("vaga-b"))
+            .ReturnsAsync(new ParkingModel { Id = "vaga-b", Number = "B-09", Type = "carro", CondominiumId = CondominioB });
     }
 
     [Fact]
@@ -52,6 +57,45 @@ public class ParkingControllerTests
         var result = await _controller.Create(new CreateParkingDto { Number = "B-01", Type = "carro" });
 
         Assert.IsType<CreatedAtActionResult>(result);
+    }
+
+    // Vaga é do condomínio: admin/síndico só cadastra e altera no próprio (outro: 404).
+    // O painel não manda condominiumId no cadastro: vale o condomínio do token.
+    [Fact]
+    public async Task Cadastro_sem_condominio_grava_o_do_token_e_com_outro_condominio_e_404()
+    {
+        _repoMock.Setup(r => r.CreateAsync(It.IsAny<ParkingModel>()))
+            .ReturnsAsync((ParkingModel parking) => { parking.Id = "vaga-3"; return parking; });
+
+        var own = await _controller.Create(new CreateParkingDto { Number = "C-01", Type = "carro" });
+        var other = await _controller.Create(new CreateParkingDto { Number = "C-02", Type = "carro", CondominiumId = CondominioB });
+
+        Assert.IsType<CreatedAtActionResult>(own);
+        Assert.Equal(404, StatusOf(other));
+        _repoMock.Verify(r => r.CreateAsync(It.Is<ParkingModel>(p => p.Number == "C-01" && p.CondominiumId == CondominioA)), Times.Once);
+        _repoMock.Verify(r => r.CreateAsync(It.Is<ParkingModel>(p => p.Number == "C-02")), Times.Never);
+    }
+
+    [Fact]
+    public async Task Vaga_de_outro_condominio_nao_e_alterada_reservada_nem_removida()
+    {
+        _controller.Request.Headers["X-User-Id"] = "joao";
+
+        var update = await _controller.Update("vaga-b", new UpdateParkingDto { Type = "moto" });
+        var moveAway = await _controller.Update("vaga-2", new UpdateParkingDto { CondominiumId = CondominioB });
+        var status = await _controller.UpdateStatus("vaga-b", "occupied");
+        var reserve = await _controller.Reserve("vaga-b");
+        var delete = await _controller.Delete("vaga-b");
+
+        Assert.Equal(404, StatusOf(update.Result!));
+        Assert.Equal(404, StatusOf(moveAway.Result!));
+        Assert.Equal(404, StatusOf(status));
+        Assert.Equal(404, StatusOf(reserve));
+        Assert.Equal(404, StatusOf(delete));
+        _repoMock.Verify(r => r.UpdateAsync(It.IsAny<string>(), It.IsAny<ParkingModel>()), Times.Never);
+        _repoMock.Verify(r => r.UpdateStatusAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _repoMock.Verify(r => r.ReserveAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+        _repoMock.Verify(r => r.DeleteAsync(It.IsAny<string>()), Times.Never);
     }
 
     private static string? MessageOf(ObjectResult result) =>
