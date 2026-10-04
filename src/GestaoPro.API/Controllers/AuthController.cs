@@ -1,9 +1,16 @@
 ﻿using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
+
+// Política de limite das rotas anônimas de autenticação (configurada em Program.cs).
+public static class AuthRateLimit
+{
+    public const string Policy = "auth";
+}
 
 [ApiController]
 [Route("api/[controller]")]
@@ -21,6 +28,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("login")]
+    [EnableRateLimiting(AuthRateLimit.Policy)]
     public async Task<IActionResult> Login([FromBody] LoginRequest request)
     {
         try
@@ -61,6 +69,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPatch("change-password")]
+    [EnableRateLimiting(AuthRateLimit.Policy)]
     public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
     {
         try
@@ -91,6 +100,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("check-cpf")]
+    [EnableRateLimiting(AuthRateLimit.Policy)]
     public async Task<IActionResult> CheckCpf([FromBody] CheckCpfRequest request)
     {
         try
@@ -105,6 +115,7 @@ public class AuthController : ControllerBase
     }
 
     [HttpPost("register")]
+    [EnableRateLimiting(AuthRateLimit.Policy)]
     public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
     {
         try
