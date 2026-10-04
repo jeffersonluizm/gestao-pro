@@ -39,7 +39,7 @@ public class AuthRateLimitTests : IDisposable
                 services.AddSingleton<IAdministratorLookup, FixedAdministratorLookup>();
                 // Os serviços reais acessam o banco ao serem criados; o alvo aqui é só o limite.
                 services.AddScoped(_ => new AuthAppService(null!, null!, null!));
-                services.AddScoped(_ => new SelfServiceAuthService(new Mock<ISelfServiceAccounts>().Object));
+                services.AddScoped(_ => new SelfServiceAuthService(new Mock<ISelfServiceAccounts>().Object, new BcryptPasswordVerifier()));
                 services.AddScoped(_ => new Mock<IUserDirectory>().Object);
             });
         });

@@ -117,6 +117,7 @@ builder.Services.AddScoped<PetAppService>();
 builder.Services.AddScoped<IPetService>(provider => provider.GetRequiredService<PetAppService>());
 builder.Services.AddScoped<AuthAppService>();
 builder.Services.AddScoped<ISelfServiceAccounts, MongoSelfServiceAccounts>();
+builder.Services.AddSingleton<IPasswordVerifier, BcryptPasswordVerifier>();
 builder.Services.AddScoped<SelfServiceAuthService>();
 builder.Services.AddScoped<TokenService>();
 builder.Services.AddScoped<OccurrenceAppService>();

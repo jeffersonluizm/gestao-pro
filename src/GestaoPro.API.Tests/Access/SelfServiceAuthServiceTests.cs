@@ -3,15 +3,18 @@ using static GestaoPro.API.Tests.Access.TestSession;
 namespace GestaoPro.API.Tests.Access;
 
 // Rotas anônimas de autoatendimento (check-cpf, register, change-password do primeiro acesso).
+// - o código do condomínio é conferido ANTES de olhar o CPF, e o BCrypt roda sempre uma vez (hash fixo quando
+//   o condomínio não existe): o tempo de resposta não separa "CPF existe" de "não existe";
 // - check-cpf não devolve nome nem diz por que não pode seguir (mensagem única);
-// - cadastro só ativa conta de morador e exige o código do condomínio (a senha padrão do condomínio);
+// - cadastro só ativa conta de morador sem nenhuma credencial (ativa ou desativada) e com código forte;
 // - troca de senha anônima só no primeiro acesso (credencial com mustChangePassword).
 public class SelfServiceAuthServiceTests
 {
-    private const string Codigo = "codigo-do-condominio";
+    private const string Codigo = "Jardim-Azul-2026";
     private const string Cpf = "11111111111";
 
     private readonly Mock<ISelfServiceAccounts> _accounts = new();
+    private readonly Mock<IPasswordVerifier> _verifier = new();
     private readonly SelfServiceAuthService _service;
     private readonly User _morador = new()
     {
@@ -21,10 +24,15 @@ public class SelfServiceAuthServiceTests
 
     public SelfServiceAuthServiceTests()
     {
-        _service = new SelfServiceAuthService(_accounts.Object);
+        _service = new SelfServiceAuthService(_accounts.Object, _verifier.Object);
+        _verifier.Setup(v => v.Verify(It.IsAny<string>(), It.IsAny<string>()))
+            .Returns((string text, string hash) => BCrypt.Net.BCrypt.Verify(text, hash));
         _accounts.Setup(a => a.GetUserByCpfAsync(Cpf)).ReturnsAsync(_morador);
         _accounts.Setup(a => a.GetCondominiumCodeHashAsync(CondominioA)).ReturnsAsync(BCrypt.Net.BCrypt.HashPassword(Codigo));
     }
+
+    private void CodeOf(string condominiumId, string code) =>
+        _accounts.Setup(a => a.GetCondominiumCodeHashAsync(condominiumId)).ReturnsAsync(BCrypt.Net.BCrypt.HashPassword(code));
 
     // ── check-cpf ──
 
@@ -37,35 +45,47 @@ public class SelfServiceAuthServiceTests
     }
 
     [Fact]
-    public async Task Morador_sem_acesso_com_codigo_certo_pode_seguir()
+    public async Task Morador_sem_acesso_com_codigo_certo_pode_seguir_e_o_codigo_vale_sem_espacos_nas_pontas()
     {
-        var result = await _service.CheckCpfAsync(new CheckCpfRequest("111.111.111-11", CondominioA, Codigo));
+        var result = await _service.CheckCpfAsync(new CheckCpfRequest("111.111.111-11", CondominioA, $"  {Codigo} "));
 
         Assert.True(result.CanProceed);
         Assert.True(result.NeedsProfileData);
+        _verifier.Verify(v => v.Verify(Codigo, It.IsAny<string>()), Times.Once);
+    }
+
+    public static TheoryData<string, string, string> RecusasDoCheckCpf => new()
+    {
+        { "codigo-errado", Cpf, CondominioA },        // código errado
+        { Codigo, Cpf, "condominio-inexistente" },    // condomínio sem código (hash fixo)
+        { Codigo, "99999999999", CondominioA },       // CPF desconhecido
+        { Codigo, "22222222222", CondominioA },       // síndico
+        { Codigo, "33333333333", CondominioA },       // já tem acesso ativo
+        { Codigo, "44444444444", CondominioA },       // credencial desativada
+        { Codigo, "55555555555", CondominioA },       // morador de outro condomínio
+        { "123456", "55555555555", CondominioB },     // condomínio ainda com o código fraco antigo
+    };
+
+    [Theory]
+    [MemberData(nameof(RecusasDoCheckCpf))]
+    public async Task Toda_recusa_do_check_cpf_roda_o_bcrypt_uma_vez_e_tem_a_mesma_resposta(string code, string cpf, string condominiumId)
+    {
+        SetupRefusalScenarios();
+
+        var result = await _service.CheckCpfAsync(new CheckCpfRequest(cpf, condominiumId, code));
+
+        Assert.False(result.CanProceed);
+        Assert.False(result.NeedsProfileData);
+        Assert.Equal(SelfServiceAuthService.CheckRefusedMessage, result.Message);
+        _verifier.Verify(v => v.Verify(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
     }
 
     [Fact]
-    public async Task Todos_os_motivos_de_recusa_do_check_cpf_tem_a_mesma_resposta()
+    public async Task Codigo_errado_nem_chega_a_procurar_o_cpf()
     {
-        var sindico = new User { Id = "s", Cpf = "22222222222", CondominiumId = CondominioA, Role = UserRole.sindico, IsActive = true };
-        var comAcesso = new User { Id = "c", Cpf = "33333333333", CondominiumId = CondominioA, Role = UserRole.morador, IsActive = true };
-        _accounts.Setup(a => a.GetUserByCpfAsync("22222222222")).ReturnsAsync(sindico);
-        _accounts.Setup(a => a.GetUserByCpfAsync("33333333333")).ReturnsAsync(comAcesso);
-        _accounts.Setup(a => a.GetCredentialAsync("c")).ReturnsAsync(new Credential { UserId = "c", IsActive = true });
+        await _service.CheckCpfAsync(new CheckCpfRequest(Cpf, CondominioA, "codigo-errado"));
 
-        var results = new[]
-        {
-            await _service.CheckCpfAsync(new CheckCpfRequest(Cpf, CondominioA, "codigo-errado")),
-            await _service.CheckCpfAsync(new CheckCpfRequest(Cpf, CondominioB, Codigo)),
-            await _service.CheckCpfAsync(new CheckCpfRequest("99999999999", CondominioA, Codigo)),
-            await _service.CheckCpfAsync(new CheckCpfRequest("22222222222", CondominioA, Codigo)),
-            await _service.CheckCpfAsync(new CheckCpfRequest("33333333333", CondominioA, Codigo)),
-        };
-
-        Assert.All(results, result => Assert.False(result.CanProceed));
-        Assert.All(results, result => Assert.False(result.NeedsProfileData));
-        Assert.Single(results.Select(result => result.Message).Distinct());
+        _accounts.Verify(a => a.GetUserByCpfAsync(It.IsAny<string>()), Times.Never);
     }
 
     // ── register ──
@@ -85,6 +105,24 @@ public class SelfServiceAuthServiceTests
         Assert.Equal(CondominioA, created.CondominiumId);
     }
 
+    [Theory]
+    [MemberData(nameof(RecusasDoCheckCpf))]
+    public async Task Toda_recusa_do_cadastro_roda_o_bcrypt_uma_vez_nao_altera_nada_e_tem_a_mesma_mensagem(
+        string code, string cpf, string condominiumId)
+    {
+        SetupRefusalScenarios();
+
+        var error = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.SelfRegisterAsync(
+            new SelfRegisterRequest(cpf, condominiumId, code, "senha-nova", "Nome", "x@teste.com", null)));
+
+        Assert.Equal(SelfServiceAuthService.RegisterRefusedMessage, error.Message);
+        _verifier.Verify(v => v.Verify(It.IsAny<string>(), It.IsAny<string>()), Times.Once);
+        _accounts.Verify(a => a.CreateCredentialAsync(It.IsAny<Credential>()), Times.Never);
+        _accounts.Verify(a => a.UpdateCredentialPasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+        _accounts.Verify(a => a.UpdateUserAsync(It.IsAny<User>()), Times.Never);
+        _accounts.Verify(a => a.UpdateUserPasswordAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
     [Fact]
     public async Task Cadastro_anonimo_nao_ativa_sindico_admin_nem_porteiro()
     {
@@ -98,21 +136,6 @@ public class SelfServiceAuthServiceTests
             Assert.Equal(SelfServiceAuthService.RegisterRefusedMessage, error.Message);
         }
         _accounts.Verify(a => a.CreateCredentialAsync(It.IsAny<Credential>()), Times.Never);
-        _accounts.Verify(a => a.UpdateUserPasswordAsync(It.IsAny<string>(), It.IsAny<string>()), Times.Never);
-    }
-
-    [Fact]
-    public async Task Cadastro_sem_o_codigo_do_condominio_ou_com_cpf_desconhecido_e_recusado_com_a_mesma_mensagem()
-    {
-        var wrongCode = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.SelfRegisterAsync(
-            new SelfRegisterRequest(Cpf, CondominioA, "codigo-errado", "senha-nova", null, "joao@teste.com", null)));
-        var unknownCpf = await Assert.ThrowsAsync<InvalidOperationException>(() => _service.SelfRegisterAsync(
-            new SelfRegisterRequest("99999999999", CondominioA, Codigo, "senha-nova", null, "x@teste.com", null)));
-
-        Assert.Equal(SelfServiceAuthService.RegisterRefusedMessage, wrongCode.Message);
-        Assert.Equal(SelfServiceAuthService.RegisterRefusedMessage, unknownCpf.Message);
-        _accounts.Verify(a => a.CreateCredentialAsync(It.IsAny<Credential>()), Times.Never);
-        _accounts.Verify(a => a.UpdateUserAsync(It.IsAny<User>()), Times.Never);
     }
 
     // ── change-password (primeiro acesso, anônimo) ──
@@ -151,5 +174,22 @@ public class SelfServiceAuthServiceTests
 
         Assert.Single(new[] { notFirstAccess.Message, wrongPassword.Message, unknown.Message }.Distinct());
         _accounts.Verify(a => a.UpdateCredentialPasswordAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<bool>()), Times.Never);
+    }
+
+    private void SetupRefusalScenarios()
+    {
+        _accounts.Setup(a => a.GetCondominiumCodeHashAsync("condominio-inexistente")).ReturnsAsync((string?)null);
+        CodeOf(CondominioB, "123456");
+        _accounts.Setup(a => a.GetUserByCpfAsync("22222222222")).ReturnsAsync(
+            new User { Id = "s", Cpf = "22222222222", CondominiumId = CondominioA, Role = UserRole.sindico, IsActive = true });
+        _accounts.Setup(a => a.GetUserByCpfAsync("33333333333")).ReturnsAsync(
+            new User { Id = "c", Cpf = "33333333333", CondominiumId = CondominioA, Role = UserRole.morador, IsActive = true });
+        _accounts.Setup(a => a.GetCredentialAsync("c")).ReturnsAsync(new Credential { UserId = "c", IsActive = true });
+        _accounts.Setup(a => a.GetUserByCpfAsync("44444444444")).ReturnsAsync(
+            new User { Id = "d", Cpf = "44444444444", CondominiumId = CondominioA, Role = UserRole.morador, IsActive = true });
+        _accounts.Setup(a => a.GetCredentialAsync("d")).ReturnsAsync(new Credential { UserId = "d", IsActive = false });
+        _accounts.Setup(a => a.GetUserByCpfAsync("55555555555")).ReturnsAsync(
+            new User { Id = "e", Cpf = "55555555555", CondominiumId = CondominioB, Role = UserRole.morador, IsActive = true });
+        _accounts.Setup(a => a.GetUserByCpfAsync(Cpf)).ReturnsAsync(_morador);
     }
 }

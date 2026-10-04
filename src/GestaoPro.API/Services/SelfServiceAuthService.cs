@@ -17,6 +17,21 @@ public interface ISelfServiceAccounts
     Task<string?> GetCondominiumCodeHashAsync(string condominiumId);
 }
 
+// Verificação de senha/código (BCrypt), separada para os testes contarem quantas vezes roda.
+public interface IPasswordVerifier
+{
+    bool Verify(string text, string hash);
+}
+
+public class BcryptPasswordVerifier : IPasswordVerifier
+{
+    public bool Verify(string text, string hash)
+    {
+        try { return BCrypt.Net.BCrypt.Verify(text, hash); }
+        catch { return false; } // valor guardado que não é hash BCrypt
+    }
+}
+
 public class MongoSelfServiceAccounts : ISelfServiceAccounts
 {
     private readonly UserRepository _users;
@@ -52,7 +67,10 @@ public class MongoSelfServiceAccounts : ISelfServiceAccounts
 // - O cadastro exige o código do condomínio (a senha padrão do condomínio, que a administração entrega
 //   aos moradores e é a senha inicial das contas criadas por ela): prova o vínculo com o condomínio.
 // - As recusas têm sempre a mesma mensagem e não devolvem nome nem dado pessoal, para a rota não servir
-//   de consulta de CPF.
+//   de consulta de CPF. O código é conferido antes de olhar o CPF e o BCrypt roda sempre uma vez (hash fixo
+//   quando o condomínio não tem código), para o tempo de resposta não revelar se o CPF existe.
+// - O código é comparado sem espaços nas pontas (CondominiumCodePolicy.Normalize); os clientes mandam como digitado.
+// - Qualquer credencial já existente (ativa ou desativada) impede o cadastro: reativar é com a administração.
 public class SelfServiceAuthService
 {
     public const string CheckRefusedMessage =
@@ -61,11 +79,16 @@ public class SelfServiceAuthService
     public const string ChangePasswordRefusedMessage =
         "Não foi possível trocar a senha. Confira a senha atual ou procure a administração.";
 
-    private readonly ISelfServiceAccounts _accounts;
+    // Hash de um valor aleatório, com o custo padrão: usado quando o condomínio não tem código, para gastar o mesmo tempo.
+    private static readonly string UnknownCondominiumHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString("N"));
 
-    public SelfServiceAuthService(ISelfServiceAccounts accounts)
+    private readonly ISelfServiceAccounts _accounts;
+    private readonly IPasswordVerifier _verifier;
+
+    public SelfServiceAuthService(ISelfServiceAccounts accounts, IPasswordVerifier verifier)
     {
         _accounts = accounts;
+        _verifier = verifier;
     }
 
     public async Task<CheckCpfResponse> CheckCpfAsync(CheckCpfRequest request)
@@ -81,7 +104,6 @@ public class SelfServiceAuthService
         var user = await FindEligibleResidentAsync(request.Cpf, request.CondominiumId, request.CondominiumCode)
             ?? throw new InvalidOperationException(RegisterRefusedMessage);
 
-        var existing = await _accounts.GetCredentialAsync(user.Id!);
         var registrationNumber = user.RegistrationNumber;
 
         if (IsSkeletonUser(user) || !string.IsNullOrWhiteSpace(request.Email))
@@ -102,23 +124,16 @@ public class SelfServiceAuthService
 
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
 
-        if (existing is null)
+        await _accounts.CreateCredentialAsync(new Credential
         {
-            await _accounts.CreateCredentialAsync(new Credential
-            {
-                UserId = user.Id!,
-                RegistrationNumber = registrationNumber,
-                PasswordHash = passwordHash,
-                Role = UserRole.morador.ToString(),
-                CondominiumId = user.CondominiumId,
-                MustChangePassword = false,
-                IsActive = true
-            });
-        }
-        else
-        {
-            await _accounts.UpdateCredentialPasswordAsync(user.Id!, passwordHash, false);
-        }
+            UserId = user.Id!,
+            RegistrationNumber = registrationNumber,
+            PasswordHash = passwordHash,
+            Role = UserRole.morador.ToString(),
+            CondominiumId = user.CondominiumId,
+            MustChangePassword = false,
+            IsActive = true
+        });
 
         await _accounts.UpdateUserPasswordAsync(user.Id!, passwordHash);
 
@@ -130,7 +145,7 @@ public class SelfServiceAuthService
     {
         var credential = await _accounts.GetCredentialAsync(request.UserId);
         if (credential is null || !credential.IsActive || !credential.MustChangePassword ||
-            !BCrypt.Net.BCrypt.Verify(request.CurrentPassword, credential.PasswordHash))
+            !_verifier.Verify(request.CurrentPassword, credential.PasswordHash))
         {
             throw new InvalidOperationException(ChangePasswordRefusedMessage);
         }
@@ -141,11 +156,21 @@ public class SelfServiceAuthService
             false);
     }
 
-    // Morador ativo do condomínio informado, sem acesso ativo, e código do condomínio correto.
+    // Código do condomínio certo e forte, depois morador ativo desse condomínio sem nenhuma credencial.
     private async Task<User?> FindEligibleResidentAsync(string cpf, string condominiumId, string condominiumCode)
     {
+        var code = CondominiumCodePolicy.Normalize(condominiumCode);
+        var codeHash = string.IsNullOrWhiteSpace(condominiumId)
+            ? null
+            : await _accounts.GetCondominiumCodeHashAsync(condominiumId);
+
+        // Sempre uma verificação BCrypt, exista ou não o condomínio, antes de qualquer consulta pelo CPF.
+        var codeMatches = _verifier.Verify(code, codeHash ?? UnknownCondominiumHash);
+        // Código fraco (condomínio ainda com o padrão antigo, como 123456) não serve de prova de vínculo.
+        if (codeHash is null || !codeMatches || !CondominiumCodePolicy.IsStrong(code)) return null;
+
         var digits = new string((cpf ?? string.Empty).Where(char.IsDigit).ToArray());
-        if (digits.Length == 0 || string.IsNullOrWhiteSpace(condominiumCode)) return null;
+        if (digits.Length == 0) return null;
 
         var user = await _accounts.GetUserByCpfAsync(digits);
         if (user is null || !user.IsActive || user.Role != UserRole.morador ||
@@ -154,17 +179,7 @@ public class SelfServiceAuthService
             return null;
         }
 
-        var codeHash = await _accounts.GetCondominiumCodeHashAsync(condominiumId);
-        if (string.IsNullOrWhiteSpace(codeHash) || !VerifyCode(condominiumCode, codeHash)) return null;
-
-        var credential = await _accounts.GetCredentialAsync(user.Id!);
-        return credential is not null && credential.IsActive ? null : user;
-    }
-
-    private static bool VerifyCode(string code, string hash)
-    {
-        try { return BCrypt.Net.BCrypt.Verify(code, hash); }
-        catch { return false; }
+        return await _accounts.GetCredentialAsync(user.Id!) is null ? user : null;
     }
 
     private static bool IsSkeletonUser(User user) =>
