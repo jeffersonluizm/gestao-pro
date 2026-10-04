@@ -1,142 +1,116 @@
-# GestaoPro — Sistema de Gestão Condominial
+# Gestão Pro · gestão de condomínio
 
-`Análise e Desenvolvimento de Sistemas`
+Avisos, reservas de áreas comuns, portaria, encomendas, assembleias e financeiro do condomínio num **painel web** e num **app**, com cada pessoa vendo só o que é dela.
 
-`Eixo 4 — Projeto: Arquitetura de Sistemas Distribuídos`
+| | |
+|---|---|
+| **Demonstração (painel)** | `https://gestaopro.vercel.app` *(link definitivo depois da publicação; ver [docs/deploy.md](docs/deploy.md))* |
+| **Demonstração (app no navegador)** | `https://gestaopro-app.vercel.app` *(idem)* |
+| **API** | `https://gestaopro-api-demo.onrender.com/api/demo` *(idem)* |
+| **Como testar** | Abra o painel e clique em **Entrar como síndico**, **morador** ou **porteiro**. As senhas das contas de demonstração aparecem no próprio cartão (vêm da API). |
 
-`2026/1`
+> A API fica em hospedagem gratuita e dorme sem uso: a primeira resposta pode levar até 1 minuto (o painel avisa "Acordando o servidor de demonstração"). Os dados da demonstração voltam ao estado inicial a cada 6 horas.
 
-Sistema distribuído de gestão condominial composto por uma API REST em C# ASP.NET Core, um painel web em React (TypeScript) e um aplicativo mobile em React Native (Expo). A plataforma permite que administradores gerenciem moradores, avisos, reservas de áreas comuns, assembleias, estacionamento, visitantes, encomendas e financeiro, enquanto moradores acessam essas funcionalidades pelo aplicativo móvel.
+![Início do painel](docs/img/prints/painel-inicio.jpg)
 
-## Integrantes
+| Explore a demonstração | Painel da gestão | Mural no celular | App: financeiro |
+|---|---|---|---|
+| ![Cartão de demonstração](docs/img/prints/painel-demo.jpg) | ![Painel da gestão](docs/img/prints/painel-gestao.jpg) | ![Avisos no celular](docs/img/prints/painel-avisos-celular.jpg) | ![Financeiro no app](docs/img/prints/app-financeiro.jpg) |
 
-* Deuslano Veloso de Oliveira Junior
-* Gustavo Marques Pereira
-* Jefferson Luiz Mendonça da Silva
+## O que dá para fazer
 
-## Orientador
+| Papel | No painel e no app |
+|---|---|
+| **Morador** | Lê o mural de avisos; reserva áreas comuns (sem conflito de horário) e cancela as próprias; registra ocorrências; acompanha encomendas, visitantes, cobranças e pagamentos; vota nas assembleias; ativa o próprio acesso com CPF e o código do condomínio. |
+| **Porteiro** | Registra visitantes, entrada e saída; registra a chegada e a retirada de encomendas. |
+| **Síndico / administração** | Painel com o que precisa de atenção; aprova reservas; publica avisos; trata ocorrências; cria assembleias e pautas; lança cobranças e pagamentos; cadastra condomínio, unidades e pessoas; redefine senha. O síndico pode **ver como morador**. |
 
-* Leonardo Vilela Cardoso
+A API decide tudo pelo token: dados de outro condomínio respondem como inexistentes, e o morador só enxerga os próprios registros.
 
-## Instruções de utilização
+## Arquitetura
 
-### Pré-requisitos
+Monólito modular: uma API REST em **.NET 10** com **MongoDB**, servida a um painel em **React + TypeScript** e a um app em **React Native (Expo)**. Detalhes em [docs/05-Arquitetura da Solução](docs/05-Arquitetura%20da%20Solução.md).
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Node.js 18+](https://nodejs.org/)
-- [Expo CLI](https://docs.expo.dev/get-started/installation/) (`npm install -g expo-cli`)
-
-### Configuração da API
-
-A connection string do MongoDB e a chave JWT não ficam no repositório. Crie o arquivo `src/GestaoPro.API/appsettings.Local.json` (ele já é ignorado pelo Git e pelo Docker):
-
-```json
-{
-  "MongoDbSettings": { "ConnectionString": "mongodb+srv://<usuario>:<senha>@<cluster>/" },
-  "JwtSettings": { "SecretKey": "<chave aleatória com pelo menos 32 caracteres>" }
-}
+```mermaid
+flowchart LR
+  W["Painel web<br/>React + Vite"] -- "HTTPS + JWT" --> A
+  M["App<br/>React Native + Expo"] -- "HTTPS + JWT" --> A
+  subgraph A["API .NET 10"]
+    direction TB
+    MW["Middleware: erro, segurança, CORS,<br/>limite de tentativas, acesso"] --> C["Controllers"] --> S["Services"] --> R["Repositories"]
+  end
+  R --> DB[("MongoDB")]
 ```
 
-Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__ConnectionString` e `JwtSettings__SecretKey` **antes** do deploy: sem elas a API recusa a partida com uma mensagem dizendo o que falta.
+**Decisões** ([docs/adr](docs/adr/README.md)): monólito modular em vez de microsserviços; acesso por dono e por condomínio decidido na API; modo demonstração por flag de servidor, sem credencial no código; trava por área e data contra reservas simultâneas; segredos fora do Git com precedência correta; hospedagem gratuita (Render, Vercel, Atlas).
 
-#### Cadastro de moradores e limites de tentativa
+**Segurança:** login com tempo de resposta igual para conta existente ou não, BCrypt, política de senha no servidor, limite de tentativas por IP e por condomínio com `Retry-After`, mensagens únicas nas rotas anônimas, isolamento por condomínio no banco, ProblemDetails sem detalhe interno, Swagger fechado em produção, CORS restrito e cabeçalhos de segurança.
 
-O morador ativa a própria conta pela tela "Cadastrar-se" (painel web ou app) informando o condomínio, o CPF e o **código do condomínio**. O código é a senha padrão do condomínio, definida no cadastro do condomínio e entregue pela administração aos moradores (é também a senha inicial das contas criadas pela administração). Regras:
+**Identidade visual:** a partir da logo (marinho `#0E243F`, dourado `#C8953D`, teal `#176B87` para ações), fonte Inter, contraste AA conferido; mesmos tokens no painel e no app ([docs/06](docs/06-Template%20Padrão%20da%20Aplicação.md)).
 
-- o código é obrigatório ao cadastrar um condomínio, com ao menos 8 caracteres e sem sequências, repetições ou senhas comuns (123456, 12345678, abcdefgh...); na edição, em branco mantém o atual. Espaços nas pontas são ignorados;
-- condomínios antigos que ainda têm um código fraco (como 123456) não aceitam autoatendimento até a administração definir um código novo;
-- só contas de morador são ativadas assim; síndico, administrador e porteiro recebem o acesso da administração. Quem já tem credencial (ativa ou desativada) também precisa falar com a administração;
-- a verificação do CPF não mostra nome nem diz o motivo de uma recusa: a mensagem é sempre a mesma;
-- a troca de senha sem login vale só no primeiro acesso (conta marcada para trocar a senha).
+## Qualidade
 
-Em desenvolvimento, o condomínio de demonstração criado pela API usa o código `Demo-Condominio-2026`.
+| Suíte | Testes | Comando |
+|---|---|---|
+| API (xUnit, unidade e integração) | 496 | `dotnet test src/GestaoPro.API.Tests` |
+| Painel (Vitest + Testing Library) | 68 | `npm test` em `src/GestaoPro.Web` |
+| App (Vitest) | 18 | `npm test` em `src/GestaoPro.Mobile` |
 
-Limites de tentativa (acima deles a API responde 429 com o cabeçalho `Retry-After`):
+Lint (ESLint) sem avisos no painel e no app; GitHub Actions em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
-| Rotas | Limite padrão |
+## Teste de estresse
+
+<!-- carga:inicio -->
+Hipóteses escritas antes de medir em [docs/carga/2026-10-04-hipoteses.md](docs/carga/2026-10-04-hipoteses.md); resultados em [docs/carga](docs/carga).
+<!-- carga:fim -->
+
+## Limitações conhecidas
+
+- Não há envio de e-mail: a recuperação de senha passa pela administração, que volta a conta para o código do condomínio.
+- O token JWT fica no `localStorage` do painel e vale até expirar, mesmo depois de desativar a conta ([ADR 0003](docs/adr/0003-token-no-navegador.md)).
+- Pagamentos são registro manual; não há boleto bancário nem gateway.
+- Notificações em tempo real: o hub SignalR existe na API, mas os clientes ainda não exibem notificações.
+- Calendário geral de eventos e atas de assembleia (RF-026 a RF-028) não foram implementados ([status dos requisitos](docs/02-Especificação%20do%20Projeto.md)).
+- A instalação inicial (primeiro administrador num banco vazio) ainda é aceita sem login enquanto não existe administrador; numa instalação real, crie o administrador logo após subir a API.
+
+## Roadmap
+
+1. Cookie `httpOnly` e revogação de token.
+2. Notificações no painel e push no app (SignalR e Expo Notifications).
+3. Calendário de eventos e atas de assembleia.
+4. Paginação nas demais listas (avisos já paginam).
+
+## Rodar na sua máquina
+
+Pré-requisitos: [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0), [Node.js 18+](https://nodejs.org/) e [Docker Desktop](https://www.docker.com/products/docker-desktop/).
+
+```bat
+iniciar.bat
+```
+
+O script confere os pré-requisitos, cria o `.env` com segredos aleatórios (fora do Git), sobe o MongoDB do `compose.yaml`, liga o modo demonstração local, espera a API responder e abre o painel em `http://localhost:3000`. Pode rodar de novo quantas vezes quiser. Para abrir também o app: `iniciar.bat app`. Para parar: feche as janelas e rode `docker compose stop`.
+
+<details>
+<summary>Configuração manual, variáveis e detalhes</summary>
+
+| Variável | Para que serve |
 |---|---|
-| `POST /api/auth/login` | 10 por minuto por IP |
-| `POST /api/auth/check-cpf` e `POST /api/auth/register` | 10 por minuto por IP e 30 por minuto por condomínio |
-| `PATCH /api/auth/change-password` | 10 por minuto por IP |
+| `MongoDbSettings__ConnectionString`, `MongoDbSettings__DatabaseName` | banco (sem eles a API não sobe e diz o que falta) |
+| `JwtSettings__SecretKey` | assinatura do token (32+ caracteres) |
+| `Demo__Enabled`, `Demo__Senha`, `Demo__CodigoCondominio` | modo demonstração (desligado por padrão; nunca ligue com dados reais) |
+| `Cors__AllowedOrigins__0..n` | origens do painel e do app permitidas (em desenvolvimento valem as portas locais) |
+| `Proxy__ConfiarNoProxy` | `true` atrás de proxy (Render) para o limite de tentativas usar o IP real |
+| `RateLimiting__Auth__PermitLimit`, `__PerCondominiumPermitLimit`, `__WindowSeconds` | limites das rotas de autenticação (padrão 10/min por IP, 30/min por condomínio) |
+| `VITE_API_BASE_URL` (painel), `EXPO_PUBLIC_API_URL` (app) | endereço da API quando hospedados |
 
-Os valores ficam em `RateLimiting:Auth:PermitLimit`, `RateLimiting:Auth:PerCondominiumPermitLimit` e `RateLimiting:Auth:WindowSeconds` (segundos).
+Precedência: `appsettings.json` < `appsettings.{Ambiente}.json` < `appsettings.Local.json` (opcional, fora do Git) < variáveis de ambiente < linha de comando.
 
-**Proxy (Render):** atrás do proxy, o IP do cliente chega no cabeçalho `X-Forwarded-For`. A API só confia nesse cabeçalho com `Proxy:ConfiarNoProxy=true` (variável de ambiente `Proxy__ConfiarNoProxy=true`); o padrão é `false`, porque sem um proxy na frente qualquer cliente poderia forjar o cabeçalho. No Render, ligue a opção. Para confirmar, suba temporariamente um log do `X-Forwarded-For` e do `RemoteIpAddress` em uma requisição, confira que o IP mostrado é o do seu computador (e não o do proxy) e remova o log em seguida. Com a opção desligada atrás do proxy, todos os acessos contam como um único IP.
+Manual: `dotnet run` em `src/GestaoPro.API` (com as variáveis acima), `npm install` e `npm run dev` em `src/GestaoPro.Web` (proxy para `http://localhost:5088`) e `npx expo start` em `src/GestaoPro.Mobile` (no celular, `EXPO_PUBLIC_API_URL` com o IP do PC na rede). Publicação: [docs/deploy.md](docs/deploy.md).
 
-#### Dados antigos sem condomínio
+</details>
 
-Cada leitura e alteração é limitada ao condomínio de quem está logado. Visitantes e vagas gravados antes dessa regra podem estar sem o campo `condominiumId`, e a administração recebe "Registro não encontrado" ao editá-los. Por isso, a cada partida a API preenche o campo em segundo plano, sem atrasar a subida:
+## Créditos
 
-- visitante: usa o condomínio do morador visitado;
-- vaga: usa o condomínio do morador da vaga, de quem a reservou ou da unidade; se não houver nenhum vínculo e o sistema tiver um único condomínio, usa esse condomínio.
+Projeto do curso de Análise e Desenvolvimento de Sistemas da PUC Minas, eixo 4 (Arquitetura de Sistemas Distribuídos), 2026/1: Deuslano Veloso de Oliveira Junior, Gustavo Marques Pereira e **Jefferson Luiz Mendonça da Silva**; orientação de Leonardo Vilela Cardoso. A revisão para portfólio (acesso por condomínio, segurança, painel reorganizado, identidade visual, modo demonstração, documentação e teste de estresse) é de Jefferson.
 
-O preenchimento só mexe em registros sem condomínio, então pode rodar quantas vezes for preciso. Se algum registro não puder ser resolvido (vaga sem vínculo com mais de um condomínio cadastrado), o log da API mostra quantos ficaram sem condomínio; preencha `condominiumId` desses registros direto no banco. Se o banco estiver fora do ar, o preenchimento só registra o erro no log e a API continua de pé.
-
-### Executando o projeto
-
-**Opção rápida (Windows):** execute o arquivo `iniciar.bat` na raiz do repositório. Ele inicia a API, o painel web e o app mobile simultaneamente. Para o celular encontrar a API, o script usa, nesta ordem: a variável `EXPO_PUBLIC_API_URL` já definida, o arquivo `src/GestaoPro.Mobile/.env` ou o IP desta máquina na rede local, detectado automaticamente.
-
-**Manualmente:**
-
-1. **API (Backend):**
-   ```bash
-   cd src/GestaoPro.API
-   dotnet run
-   ```
-   A API estará disponível em `http://localhost:5088` (porta definida em `src/GestaoPro.API/Properties/launchSettings.json`) com Swagger em `/swagger`.
-
-2. **Painel Web:**
-   ```bash
-   cd src/GestaoPro.Web
-   npm install
-   npm run dev
-   ```
-   O painel estará disponível em `http://localhost:3000`. Em desenvolvimento, as chamadas a `/api` e `/notificacaoHub` passam por um proxy que aponta para a API local (`http://localhost:5088`). Os testes do painel rodam com `npm test`.
-
-3. **App Mobile:**
-   ```bash
-   cd src/GestaoPro.Mobile
-   npm install
-   cp .env.example .env   # e troque pelo IP do seu PC na rede
-   npx expo start
-   ```
-   Escaneie o QR Code com o app Expo Go ou execute em emulador. No celular, `localhost` é o próprio aparelho: por isso o app precisa do IP do PC em `EXPO_PUBLIC_API_URL`.
-
-### Variáveis de ambiente
-
-Os arquivos `.env` não vão para o Git; cada pasta tem um `.env.example` para copiar.
-
-| Variável | Onde | Para que serve | Padrão |
-|---|---|---|---|
-| `VITE_API_PROXY_TARGET` | `src/GestaoPro.Web/.env` | Destino do proxy do `npm run dev`. Use a URL do Render só para testar o painel contra a API de produção. | `http://localhost:5088` |
-| `VITE_API_BASE_URL` | `src/GestaoPro.Web/.env` | URL da API no build de produção (`npm run build`). | API do Render |
-| `EXPO_PUBLIC_API_URL` | `src/GestaoPro.Mobile/.env` | Endereço da API usado pelo app, por exemplo `http://192.168.0.10:5088`. | `http://localhost:5088` (só funciona no navegador do mesmo PC) |
-| `MongoDbSettings__ConnectionString`, `JwtSettings__SecretKey` | ambiente da API | Segredos da API (alternativa ao `appsettings.Local.json`). | nenhum: a API não sobe sem eles |
-
-O hub de notificações em tempo real (`/notificacaoHub`, SignalR) exige login: envie o mesmo token JWT da API (cabeçalho `Authorization` ou parâmetro `access_token`).
-
-# Documentação
-
-<ol>
-<li><a href="docs/01-Documentação de Contexto.md"> Documentação de Contexto</a></li>
-<li><a href="docs/02-Especificação do Projeto.md"> Especificação do Projeto</a></li>
-<li><a href="docs/03-Metodologia.md"> Metodologia</a></li>
-<li><a href="docs/04-Projeto de Interface.md"> Projeto de Interface</a></li>
-<li><a href="docs/05-Arquitetura da Solução.md"> Arquitetura da Solução</a></li>
-<li><a href="docs/06-Template Padrão da Aplicação.md"> Template Padrão da Aplicação</a></li>
-<li><a href="docs/07-Programação de Funcionalidades.md"> Programação de Funcionalidades</a></li>
-<li><a href="docs/08-Registro de Testes Unitários.md"> Registro de Testes Unitários</a></li>
-<li><a href="docs/09-Registro de Testes de Integração.md"> Registro de Testes de Integração</a></li>
-<li><a href="docs/10-Registro de Testes de Sistema.md"> Registro de Testes de Sistema</a></li>
-<li><a href="docs/11-Registro de Contribuição.md"> Registro de Contribuição</a></li>
-<li><a href="docs/12-Apresentação do Projeto.md"> Apresentação do Projeto</a></li>
-<li><a href="docs/13-Referências.md"> Referências</a></li>
-</ol>
-
-# Código
-
-<li><a href="src/README.md"> Código Fonte</a></li>
-
-# Apresentação
-
-<li><a href="presentation/README.md"> Apresentação da solução</a></li>
+Documentação acadêmica: [contexto](docs/01-Documentação%20de%20Contexto.md) · [especificação](docs/02-Especificação%20do%20Projeto.md) · [metodologia](docs/03-Metodologia.md) · [interface](docs/04-Projeto%20de%20Interface.md) · [arquitetura](docs/05-Arquitetura%20da%20Solução.md) · [template](docs/06-Template%20Padrão%20da%20Aplicação.md) · [funcionalidades](docs/07-Programação%20de%20Funcionalidades.md) · [testes unitários](docs/08-Registro%20de%20Testes%20Unitários.md) · [integração](docs/09-Registro%20de%20Testes%20de%20Integração.md) · [sistema](docs/10-Registro%20de%20Testes%20de%20Sistema.md) · [contribuição](docs/11-Registro%20de%20Contribuição.md) · [apresentação](docs/12-Apresentação%20do%20Projeto.md) ([PDF](presentation/GestaoPro_Apresentacao.pdf)) · [referências](docs/13-Referências.md). Licença Apache 2.0.
