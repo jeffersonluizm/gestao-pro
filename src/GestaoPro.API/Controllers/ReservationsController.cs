@@ -168,6 +168,15 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> Delete(string id)
     {
+        // O morador remove as próprias reservas (app mobile); a administração, as do condomínio.
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        var reservation = await _service.GetByIdAsync(id);
+        if (reservation is null) return NotFound();
+        if (this.Deny(ResourceAccess.Decide(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator)) is { } denied)
+            return denied;
+
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
     }

@@ -2,6 +2,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 
 namespace GestaoPro.API.Controllers;
 
@@ -104,8 +105,14 @@ public class OccurrencesController : ControllerBase
     [HttpDelete("{id}")]
     public async Task<IActionResult> Delete(string id)
     {
-        var userIdLogado = Request.Headers["X-User-Id"].ToString();
-        if (string.IsNullOrEmpty(userIdLogado)) return Unauthorized();
+        // Identidade vem do token, não de cabeçalho: o morador remove as próprias; a administração, as do condomínio.
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+        var occurrence = await _service.GetByIdAsync(id);
+        if (occurrence is null) return NotFound();
+        if (this.Deny(ResourceAccess.Decide(caller, occurrence.UserId, occurrence.CondominiumId, caller.IsAdministrator)) is { } denied)
+            return denied;
 
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();

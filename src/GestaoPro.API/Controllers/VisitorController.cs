@@ -62,6 +62,13 @@ namespace GestaoPro.API.Controllers
         // Portaria recebe os visitantes: vê os do condomínio, como a administração.
         private static bool SeesWholeCondominium(Caller caller) => caller.IsAdministrator || caller.IsDoorman;
 
+        // Entrada e saída: portaria e administração, só de visitante do próprio condomínio.
+        private ActionResult? DenyFrontDesk(Visitor visitor)
+        {
+            var caller = this.Caller();
+            return this.DenyManage(caller, visitor.CondominiumId, SeesWholeCondominium(caller));
+        }
+
         private static List<Visitor> Visible(Caller caller, IEnumerable<Visitor> visitors) =>
             visitors
                 .Where(visitor => ResourceAccess.CanSee(caller, visitor.ResidentId, visitor.CondominiumId, SeesWholeCondominium(caller)))
@@ -93,6 +100,7 @@ namespace GestaoPro.API.Controllers
 
             if (existingVisitor == null)
                 return NotFound();
+            if (DenyFrontDesk(existingVisitor) is { } denied) return denied;
 
             await _visitorService.CheckInAsync(id);
             return NoContent();
@@ -105,6 +113,7 @@ namespace GestaoPro.API.Controllers
 
             if (existingVisitor == null)
                 return NotFound();
+            if (DenyFrontDesk(existingVisitor) is { } denied) return denied;
 
             await _visitorService.CheckOutAsync(id);
             return NoContent();

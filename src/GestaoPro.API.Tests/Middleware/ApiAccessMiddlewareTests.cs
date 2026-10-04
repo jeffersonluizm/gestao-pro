@@ -124,4 +124,43 @@ public class ApiAccessMiddlewareTests
 
         Assert.True(nextCalled);
     }
+
+    // Ações que os clientes usam fora da administração; o controller confere dono e condomínio.
+    [Theory]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password", "morador")]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password", "porteiro")]
+    [InlineData("DELETE", "/api/reservations/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("DELETE", "/api/Occurrences/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("POST", "/api/Visitor/check-in/665f1c2e9b1e8a0012345678", "porteiro")]
+    [InlineData("POST", "/api/Visitor/check-out/665f1c2e9b1e8a0012345678", "porteiro")]
+    public async Task Acoes_do_proprio_papel_chegam_ao_controller(string method, string path, string role)
+    {
+        var (_, nextCalled) = await InvokeAsync(method, path, AuthenticatedUser(role));
+
+        Assert.True(nextCalled);
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/Visitor/check-in/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("POST", "/api/Visitor/check-out/665f1c2e9b1e8a0012345678", "morador")]
+    [InlineData("PUT", "/api/Visitor/665f1c2e9b1e8a0012345678", "porteiro")]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/password", "morador")]
+    [InlineData("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/reset-password", "morador")]
+    [InlineData("PUT", "/api/reservations/665f1c2e9b1e8a0012345678", "morador")]
+    public async Task Acoes_fora_do_papel_continuam_403(string method, string path, string role)
+    {
+        var (statusCode, nextCalled) = await InvokeAsync(method, path, AuthenticatedUser(role));
+
+        Assert.Equal(StatusCodes.Status403Forbidden, statusCode);
+        Assert.False(nextCalled);
+    }
+
+    [Fact]
+    public async Task Trocar_senha_sem_login_continua_401()
+    {
+        var (statusCode, nextCalled) = await InvokeAsync("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password");
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
+        Assert.False(nextCalled);
+    }
 }

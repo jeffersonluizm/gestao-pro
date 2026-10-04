@@ -92,7 +92,22 @@ public class ApiAccessMiddleware
             (HttpMethods.IsPost(context.Request.Method) ||
              HttpMethods.IsPut(context.Request.Method) ||
              HttpMethods.IsDelete(context.Request.Method));
+        // Ações próprias de quem não administra; o controller confere dono e condomínio.
+        var isOwnPasswordChange =
+            HttpMethods.IsPatch(context.Request.Method) &&
+            path.StartsWith("/api/users/") &&
+            path.EndsWith("/change-password");
+        var isOwnRecordRemoval =
+            HttpMethods.IsDelete(context.Request.Method) &&
+            (path.StartsWith("/api/reservations/") || path.StartsWith("/api/occurrences/"));
+        var isDoormanVisitorCheck =
+            role is "porteiro" &&
+            HttpMethods.IsPost(context.Request.Method) &&
+            (path.StartsWith("/api/visitor/check-in/") || path.StartsWith("/api/visitor/check-out/"));
         var isUserAllowedAction =
+            isOwnPasswordChange ||
+            isOwnRecordRemoval ||
+            isDoormanVisitorCheck ||
             path.StartsWith("/api/reservations") && HttpMethods.IsPost(context.Request.Method) ||
             path.StartsWith("/api/occurrences") && HttpMethods.IsPost(context.Request.Method) ||
             path.StartsWith("/api/vote") && HttpMethods.IsPost(context.Request.Method) ||

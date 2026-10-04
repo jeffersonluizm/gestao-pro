@@ -135,6 +135,11 @@ public class UsersController : ControllerBase
     [HttpPatch("{id}/change-password")]
     public async Task<IActionResult> ChangePassword(string id, [FromBody] ChangePasswordRequest request)
     {
+        // Qualquer papel troca a própria senha (com a senha atual); a de outro id, nunca.
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!string.Equals(caller.UserId, id, StringComparison.Ordinal)) return this.Forbidden();
+
         try
         {
             var result = await _service.ChangePasswordAsync(id, request);
