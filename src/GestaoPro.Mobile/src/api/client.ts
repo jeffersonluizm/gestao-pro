@@ -449,7 +449,8 @@ export const createUser = (data: {
   unitId?: string;
   name: string;
   email: string;
-  password: string;
+  // Opcional: sem senha, a API usa o código do condomínio como senha inicial.
+  password?: string;
   phone: string;
   cpf: string;
   role: string;
@@ -465,7 +466,8 @@ export const updateUser = (id: string, data: {
   unitId?: string;
   name: string;
   email: string;
-  password: string;
+  // Opcional: sem senha, a API usa o código do condomínio como senha inicial.
+  password?: string;
   phone: string;
   cpf: string;
   role: string;

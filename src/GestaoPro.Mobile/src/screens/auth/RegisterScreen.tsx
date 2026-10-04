@@ -10,6 +10,7 @@ import { Picker } from '@react-native-picker/picker';
 import { checkCpf, selfRegister, getPublicCondominiums, CondominiumSummary, getFriendlyErrorMessage } from '../../api/client';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { isValidCpfFormat, maskCpf, maskPhoneBR, onlyDigits } from '../../utils/formatters';
+import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
@@ -68,7 +69,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
   async function handleRegister() {
     if (!email.trim()) { Alert.alert('Atenção', 'Informe seu e-mail.'); return; }
-    if (password.length < 6) { Alert.alert('Atenção', 'A senha deve ter ao menos 6 caracteres.'); return; }
+    if (!isStrongPassword(password)) { Alert.alert('Atenção', WEAK_PASSWORD_MESSAGE); return; }
     if (password !== confirmPassword) { Alert.alert('Atenção', 'As senhas não coincidem.'); return; }
     if (needsProfileData && !name.trim()) { Alert.alert('Atenção', 'Informe seu nome completo.'); return; }
     if (phone && onlyDigits(phone).length !== 10) { Alert.alert('Atenção', 'Informe um telefone válido no formato 31 9999-2702.'); return; }
@@ -215,7 +216,7 @@ export default function RegisterScreen({ navigation }: Props) {
             <Text style={styles.label}>Senha *</Text>
             <TextInput
               style={styles.input}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               secureTextEntry
               value={password}
               onChangeText={setPassword}

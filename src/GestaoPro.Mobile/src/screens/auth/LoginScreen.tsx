@@ -7,6 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
 import { login, changePasswordOnFirstLogin, getFriendlyErrorMessage } from '../../api/client';
+import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 import { useAuth } from '../../context/AuthContext';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { sw, sf, HP } from '../../utils/responsive';
@@ -56,7 +57,7 @@ export default function LoginScreen({ navigation }: Props) {
   }
 
   async function handleChangePassword() {
-    if (newPassword.length < 6) { Alert.alert('Atenção', 'A nova senha deve ter ao menos 6 caracteres.'); return; }
+    if (!isStrongPassword(newPassword)) { Alert.alert('Atenção', WEAK_PASSWORD_MESSAGE); return; }
     if (newPassword !== confirmPassword) { Alert.alert('Atenção', 'As senhas não coincidem.'); return; }
     setLoading(true);
     try {

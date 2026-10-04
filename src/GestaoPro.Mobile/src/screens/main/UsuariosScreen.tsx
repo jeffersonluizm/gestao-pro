@@ -31,9 +31,12 @@ import {
 } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 import { apiDateToBR, dateBRToApi, isValidCpfFormat, maskCpf, maskDateBR, maskPhoneBR, onlyDigits } from '../../utils/formatters';
+import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 
 const ROLES = [
   { value: 'admin', label: 'Administrador' },
+  { value: 'sindico', label: 'Síndico' },
+  { value: 'porteiro', label: 'Porteiro' },
   { value: 'morador', label: 'Morador' },
 ];
 
@@ -43,7 +46,7 @@ function emptyForm(condominiumId = '') {
     unitId: '',
     name: '',
     email: '',
-    password: '123456',
+    password: '',
     phone: '',
     cpf: '',
     role: 'morador',
@@ -154,7 +157,7 @@ export default function UsuariosScreen() {
       unitId: user.unitId ?? '',
       name: user.name,
       email: user.email,
-      password: '123456',
+      password: '',
       phone: maskPhoneBR(user.phone),
       cpf: maskCpf(user.cpf),
       role: ROLES.some(role => role.value === user.role) ? user.role : '',
@@ -173,6 +176,7 @@ export default function UsuariosScreen() {
     if (!form.phone.trim()) { setFormError('Informe o telefone.'); return; }
     if (onlyDigits(form.phone).length !== 10) { setFormError('Informe um telefone válido no formato 31 9999-2702.'); return; }
     if (!form.role.trim()) { setFormError('Selecione o perfil.'); return; }
+    if (!editingId && form.password && !isStrongPassword(form.password)) { setFormError(WEAK_PASSWORD_MESSAGE); return; }
     if (!isValidCpfFormat(form.cpf)) {
       setFormError('Informe um CPF válido no formato 000.000.000-00.');
       return;
@@ -191,7 +195,8 @@ export default function UsuariosScreen() {
       unitId: form.unitId || undefined,
       name: form.name.trim(),
       email: form.email.trim(),
-      password: form.password || '123456',
+      // Sem senha, a API usa o código do condomínio como senha inicial (troca obrigatória no primeiro acesso).
+      password: form.password || undefined,
       phone: form.phone.trim(),
       cpf: form.cpf.trim(),
       role: form.role,
@@ -371,7 +376,7 @@ export default function UsuariosScreen() {
 
             <Field label="Nome *" value={form.name} onChangeText={name => setForm({ ...form, name })} />
             <Field label="E-mail *" keyboardType="email-address" autoCapitalize="none" value={form.email} onChangeText={email => setForm({ ...form, email })} />
-            <Field label="Senha" secureTextEntry value={form.password} onChangeText={password => setForm({ ...form, password })} />
+            <Field label="Senha inicial (opcional; em branco usa o código do condomínio)" secureTextEntry value={form.password} onChangeText={password => setForm({ ...form, password })} />
             <Field label="Telefone *" placeholder="31 9999-2702" keyboardType="phone-pad" maxLength={12} value={form.phone} onChangeText={phone => setForm({ ...form, phone: maskPhoneBR(phone) })} />
             <Field label="CPF *" placeholder="000.000.000-00" keyboardType="numeric" maxLength={14} value={form.cpf} onChangeText={cpf => setForm({ ...form, cpf: maskCpf(cpf) })} />
 

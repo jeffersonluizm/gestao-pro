@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getUserById, changeUserPassword, User, getFriendlyErrorMessage } from '../../api/client';
+import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 import { useAuth } from '../../context/AuthContext';
 import { sw, sf, HP } from '../../utils/responsive';
 
@@ -37,8 +38,8 @@ export default function ProfileScreen() {
       setPwdError('Preencha todos os campos.');
       return;
     }
-    if (newPwd.length < 6) {
-      setPwdError('A nova senha deve ter pelo menos 6 caracteres.');
+    if (!isStrongPassword(newPwd)) {
+      setPwdError(WEAK_PASSWORD_MESSAGE);
       return;
     }
     if (newPwd !== confirmPwd) {
@@ -212,7 +213,7 @@ export default function ProfileScreen() {
             <TextInput
               style={pwdStyles.input}
               secureTextEntry
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               value={newPwd}
               onChangeText={setNewPwd}
             />
