@@ -56,6 +56,7 @@ public class AuthController : ControllerBase
     {
         if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
         if (this.DenyManage(this.Caller(), request.CondominiumId, staff: true) is { } otherCondominium) return otherCondominium;
+        if (WeakPassword(request.Password) is { } weak) return weak;
 
         try
         {
@@ -72,6 +73,9 @@ public class AuthController : ControllerBase
     [EnableRateLimiting(AuthRateLimit.ChangePassword)]
     public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
     {
+        // A regra da senha nova não é segredo: responde com ela antes de olhar a conta.
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
+
         try
         {
             await _selfService.ChangePasswordOnFirstAccessAsync(request);
@@ -88,6 +92,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResetPassword([FromBody] AuthResetPasswordRequest request)
     {
         if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
         {
@@ -121,6 +126,7 @@ public class AuthController : ControllerBase
     [EnableRateLimiting(AuthRateLimit.Register)]
     public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
     {
+        if (WeakPassword(request.Password) is { } weak) return weak;
         if (DenyTooManyCondominiumAttempts(request.CondominiumId) is { } tooMany) return tooMany;
 
         try
@@ -143,6 +149,9 @@ public class AuthController : ControllerBase
         var result = await _service.DeactivateAsync(userId);
         return result ? NoContent() : NotFound();
     }
+
+    private IActionResult? WeakPassword(string? password) =>
+        PasswordPolicy.IsStrong(password) ? null : BadRequest(new { message = PasswordPolicy.WeakPasswordMessage });
 
     // Balde por condomínio do check-cpf e do cadastro (além do balde por IP): 429 com Retry-After.
     private IActionResult? DenyTooManyCondominiumAttempts(string condominiumId)

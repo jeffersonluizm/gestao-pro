@@ -9,7 +9,8 @@ public record CreateUserRequest(
     string? UnitLabel,
     [Required] string Name,
     [Required][EmailAddress] string Email,
-    [Required] string Password,
+    // Opcional: sem senha, a conta nasce com o código do condomínio e troca no primeiro acesso.
+    string? Password,
     [Required][Phone] string Phone,
     [Required][RegularExpression(@"^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$",
         ErrorMessage = "CPF deve ter 11 números ou seguir o formato 000.000.000-00")] string Cpf,

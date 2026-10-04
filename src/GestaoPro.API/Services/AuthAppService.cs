@@ -138,20 +138,31 @@ public class AuthAppService
     private static string CleanLegacyValue(string value) =>
         value.Trim().Trim(',', '/', '\\').Trim();
 
-    public async Task<bool> CreateCredentialAsync(CreateCredentialRequest request)
+    // Rota da administração: a senha vem em texto e o hash é gerado aqui (a política já foi conferida no controller).
+    public Task<bool> CreateCredentialAsync(CreateCredentialRequest request) =>
+        CreateCredentialWithHashAsync(
+            request.UserId,
+            request.RegistrationNumber,
+            BCrypt.Net.BCrypt.HashPassword(request.Password),
+            request.Role,
+            request.CondominiumId);
+
+    // Uso interno (UserAppService), com o hash já calculado no servidor.
+    public async Task<bool> CreateCredentialWithHashAsync(
+        string userId, string registrationNumber, string passwordHash, string role, string condominiumId)
     {
         // Verifica se já existe credencial para esse usuário
-        var existing = await _repository.GetByUserIdAsync(request.UserId);
+        var existing = await _repository.GetByUserIdAsync(userId);
         if (existing is not null)
             throw new InvalidOperationException("Já existe uma credencial para esse usuário.");
 
         var credential = new Credential
         {
-            UserId = request.UserId,
-            RegistrationNumber = request.RegistrationNumber,
-            PasswordHash = request.PasswordHash,
-            Role = request.Role,
-            CondominiumId = request.CondominiumId,
+            UserId = userId,
+            RegistrationNumber = registrationNumber,
+            PasswordHash = passwordHash,
+            Role = role,
+            CondominiumId = condominiumId,
             MustChangePassword = true
         };
 

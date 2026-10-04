@@ -97,6 +97,7 @@ public class UsersController : ControllerBase
             var caller = this.Caller();
             if (this.DenyManage(caller, request.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
         }
+        if (!string.IsNullOrEmpty(request.Password) && WeakPassword(request.Password) is { } weak) return weak;
 
         try
         {
@@ -161,6 +162,7 @@ public class UsersController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
         if (!string.Equals(caller.UserId, id, StringComparison.Ordinal)) return this.Forbidden();
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
         {
@@ -193,6 +195,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] ResetPasswordRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
         {
@@ -209,6 +212,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> CreateCredentialForExistingUser(string id, [FromBody] CreateUserCredentialRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (WeakPassword(request.Password) is { } weak) return weak;
 
         try
         {
@@ -228,5 +232,7 @@ public class UsersController : ControllerBase
             return BadRequest(new { message = ex.Message });
         }
     }
-}
 
+    private ActionResult? WeakPassword(string? password) =>
+        PasswordPolicy.IsStrong(password) ? null : BadRequest(new { message = PasswordPolicy.WeakPasswordMessage });
+}

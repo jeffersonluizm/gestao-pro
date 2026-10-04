@@ -18,10 +18,11 @@ public record LoginResponse(
     DateTime ExpiresAt
 );
 
+// A senha chega em texto (HTTPS) e a API aplica a política e gera o hash: nunca aceita hash vindo do cliente.
 public record CreateCredentialRequest(
     [Required] string UserId,
     [Required] string RegistrationNumber,
-    [Required] string PasswordHash,
+    [Required] string Password,
     [Required] string Role,
     [Required] string CondominiumId
 );

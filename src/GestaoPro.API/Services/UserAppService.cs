@@ -88,7 +88,10 @@ public class UserAppService : IUserDirectory
         }
 
         var registrationNumber = $"COND-{DateTime.UtcNow.Year}-{Random.Shared.Next(1000, 9999)}";
-        var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
+        // Sem senha informada, a senha inicial é o código do condomínio (já em hash); troca obrigatória no primeiro acesso.
+        var passwordHash = string.IsNullOrWhiteSpace(request.Password)
+            ? condominiumDefaultPasswordHash
+            : BCrypt.Net.BCrypt.HashPassword(request.Password);
 
         var user = new User
         {
@@ -114,13 +117,12 @@ public class UserAppService : IUserDirectory
                 await _unitRepository.AddResidentAsync(unitId, created.Id!);
             }
 
-            await _authAppService.CreateCredentialAsync(new CreateCredentialRequest(
+            await _authAppService.CreateCredentialWithHashAsync(
                 created.Id!,
                 registrationNumber,
                 passwordHash,
                 request.Role.ToString(),
-                request.CondominiumId
-            ));
+                request.CondominiumId);
 
             return MapToResponse(created);
         }
@@ -236,13 +238,12 @@ public class UserAppService : IUserDirectory
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(request.Password);
         await _userRepository.UpdatePasswordAsync(id, passwordHash);
 
-        await _authAppService.CreateCredentialAsync(new CreateCredentialRequest(
+        await _authAppService.CreateCredentialWithHashAsync(
             user.Id!,
             user.RegistrationNumber,
             passwordHash,
             user.Role.ToString(),
-            user.CondominiumId
-        ));
+            user.CondominiumId);
 
         return MapToResponse(user);
     }
