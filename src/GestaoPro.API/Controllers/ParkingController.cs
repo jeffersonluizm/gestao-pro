@@ -44,8 +44,16 @@ namespace GestaoPro.API.Controllers
         [HttpPost]
         public async Task<ActionResult> Create([FromBody] CreateParkingDto dto)
         {
-            var parking = await _parkingService.CreateAsync(dto);
-            return CreatedAtAction(nameof(GetById), new { id = parking.Id }, parking);
+            try
+            {
+                var parking = await _parkingService.CreateAsync(dto);
+                return CreatedAtAction(nameof(GetById), new { id = parking.Id }, parking);
+            }
+            catch (InvalidOperationException ex)
+            {
+                // Número de vaga repetido (ParkingAppService): conflito, não erro do servidor.
+                return Conflict(new { message = ex.Message });
+            }
         }
 
         [HttpPost("reserve/{id}")]
@@ -61,8 +69,15 @@ namespace GestaoPro.API.Controllers
         [HttpPut("{id}")]
         public async Task<ActionResult<Parking>> Update(string id, UpdateParkingDto dto)
         {
-            var parking = await _parkingService.UpdateAsync(id, dto);
-            return parking is null ? NotFound() : Ok(parking);
+            try
+            {
+                var parking = await _parkingService.UpdateAsync(id, dto);
+                return parking is null ? NotFound() : Ok(parking);
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Conflict(new { message = ex.Message });
+            }
         }
 
         [HttpPut("{id}/status")]
