@@ -4,3 +4,6 @@
 # Scripts do Windows precisam de CRLF (cmd interpreta mal arquivos so com LF)
 *.bat text eol=crlf
 *.cmd text eol=crlf
+
+# Scripts de shell precisam de LF (bash nao aceita CRLF)
+*.sh text eol=lf
