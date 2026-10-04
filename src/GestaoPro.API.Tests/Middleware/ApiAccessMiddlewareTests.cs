@@ -1,5 +1,6 @@
 using System.Security.Claims;
 using GestaoPro.API.Middleware;
+using GestaoPro.API.Repositories;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -7,12 +8,19 @@ namespace GestaoPro.API.Tests.Middleware;
 
 public class ApiAccessMiddlewareTests
 {
+    private sealed class FixedAdministratorLookup(bool hasAdministrator) : IAdministratorLookup
+    {
+        public Task<bool> HasAnyAdministratorAsync() => Task.FromResult(hasAdministrator);
+    }
+
     private static async Task<(int StatusCode, bool NextCalled)> InvokeAsync(
-        string method, string path, ClaimsPrincipal? user = null)
+        string method, string path, ClaimsPrincipal? user = null, bool hasAdministrator = true)
     {
         var context = new DefaultHttpContext
         {
-            RequestServices = new ServiceCollection().BuildServiceProvider()
+            RequestServices = new ServiceCollection()
+                .AddSingleton<IAdministratorLookup>(new FixedAdministratorLookup(hasAdministrator))
+                .BuildServiceProvider()
         };
         context.Request.Method = method;
         context.Request.Path = path;
@@ -66,6 +74,25 @@ public class ApiAccessMiddlewareTests
     public async Task Leitura_com_login_continua_liberada_para_qualquer_papel(string role)
     {
         var (_, nextCalled) = await InvokeAsync("GET", "/api/users", AuthenticatedUser(role));
+
+        Assert.True(nextCalled);
+    }
+
+    [Fact]
+    public async Task Criar_credencial_sem_login_e_bloqueado_quando_ja_existe_administrador()
+    {
+        var (statusCode, nextCalled) = await InvokeAsync(
+            "POST", "/api/users/665f1c2e9b1e8a0012345678/credentials", hasAdministrator: true);
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
+        Assert.False(nextCalled);
+    }
+
+    [Fact]
+    public async Task Criar_credencial_sem_login_e_liberado_enquanto_nao_existe_administrador()
+    {
+        var (_, nextCalled) = await InvokeAsync(
+            "POST", "/api/users/665f1c2e9b1e8a0012345678/credentials", hasAdministrator: false);
 
         Assert.True(nextCalled);
     }

@@ -42,12 +42,13 @@ public class ApiAccessMiddleware
             return;
         }
 
+        var hasAdministratorCredential =
+            await context.RequestServices.GetRequiredService<IAdministratorLookup>().HasAnyAdministratorAsync();
         var isInitialCredentialCreation =
             HttpMethods.IsPost(context.Request.Method) &&
             path.StartsWith("/api/users/") &&
-            path.EndsWith("/credentials");
-        var hasAdministratorCredential =
-            await context.RequestServices.GetRequiredService<IAdministratorLookup>().HasAnyAdministratorAsync();
+            path.EndsWith("/credentials") &&
+            !hasAdministratorCredential;
         var isFirstUserCreation =
             HttpMethods.IsPost(context.Request.Method) &&
             path == "/api/users" &&
