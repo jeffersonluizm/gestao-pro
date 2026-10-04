@@ -1,7 +1,7 @@
 namespace GestaoPro.API.Services.Demo;
 
-// Modo demonstração: de tempos em tempos (Demo:IntervaloResetHoras, padrão 6 h) devolve as contas demo
-// e o condomínio de demonstração ao estado inicial (senhas, papéis, contas ativas, dados de exemplo).
+// Modo demonstração: de tempos em tempos (Demo:IntervaloResetHoras, padrão 6 h) apaga o que os visitantes
+// criaram no condomínio de demonstração e recria contas e dados de exemplo do zero.
 // Desligado quando Demo:Enabled=false. A primeira execução é a da partida (Program.cs).
 public sealed class DemoResetService : BackgroundService
 {
@@ -27,6 +27,7 @@ public sealed class DemoResetService : BackgroundService
             try
             {
                 using var scope = _scopes.CreateScope();
+                await scope.ServiceProvider.GetRequiredService<DemoDataCleaner>().ResetAsync(stoppingToken);
                 await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
                 _logger.LogInformation("Modo demonstração restaurado.");
             }

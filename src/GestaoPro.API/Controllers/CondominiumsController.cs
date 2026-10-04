@@ -48,6 +48,9 @@ public class CondominiumsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> Create([FromBody] CreateCondominiumRequest request)
     {
+        // Na demonstração pública, um condomínio novo apareceria na lista do cadastro para todo mundo.
+        if (_demo.Enabled) return DemoGuard.Forbidden(DemoGuard.NoNewCondominiumMessage);
+
         try
         {
             var created = await _service.CreateAsync(request);

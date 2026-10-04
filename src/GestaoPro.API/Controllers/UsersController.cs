@@ -108,6 +108,7 @@ public class UsersController : ControllerBase
             var caller = this.Caller();
             if (this.DenyManage(caller, request.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
         }
+        if (_demo.IsReservedDomain(request.Email)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
         if (!string.IsNullOrEmpty(request.Password) && WeakPassword(request.Password) is { } weak) return weak;
 
         try
@@ -131,6 +132,7 @@ public class UsersController : ControllerBase
         if (await DenyManageUserAsync(id) is { } denied) return denied;
         if ((request.Role is not null || request.IsActive is not null || request.Email is not null || request.MustChangePassword is not null) &&
             await DenyDemoAccountAsync(id) is { } demo) return demo;
+        if (_demo.IsReservedDomain(request.Email)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
 
         try
         {

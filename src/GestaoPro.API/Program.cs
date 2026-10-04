@@ -134,6 +134,7 @@ builder.Services.AddScoped<DeliveryService>();
 builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredService<DeliveryService>());
 builder.Services.AddSingleton(DemoCatalog.FromConfiguration(builder.Configuration));
 builder.Services.AddScoped<DataSeeder>();
+builder.Services.AddScoped<DemoDataCleaner>();
 builder.Services.AddHostedService<DemoResetService>();
 builder.Services.AddHostedService<VoteIndexInitializer>();
 // Preenche o condomínio de visitantes e vagas antigos (em segundo plano; falha só gera log).
@@ -194,9 +195,10 @@ var app = builder.Build();
 // Sem a flag, nenhuma conta de demonstração existe.
 if (app.Services.GetRequiredService<DemoCatalog>().Enabled)
 {
+    // A cada partida a demonstração volta ao estado inicial (apaga o que visitantes criaram e recria).
     using var scope = app.Services.CreateScope();
-    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
-    await seeder.SeedAsync();
+    await scope.ServiceProvider.GetRequiredService<DemoDataCleaner>().ResetAsync();
+    await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
 }
 
 if (trustProxy) app.UseForwardedHeaders();

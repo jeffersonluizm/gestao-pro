@@ -18,7 +18,14 @@ public sealed class DemoGuard
         _catalog = catalog ?? DemoCatalog.Disabled;
     }
 
+    public const string ReservedDomainMessage = "O domínio demo.gestaopro.local é reservado às contas de demonstração.";
+    public const string NoNewCondominiumMessage = "Na demonstração não é possível cadastrar outro condomínio.";
+
+    public bool Enabled => _catalog.Enabled;
+
     public bool IsProtectedEmail(string? email) => _catalog.IsDemoEmail(email);
+
+    public bool IsReservedDomain(string? email) => _catalog.IsReservedDomain(email);
 
     public bool IsProtectedCondominium(string? condominiumId) => _catalog.IsDemoCondominium(condominiumId);
 

@@ -66,6 +66,10 @@ public class DemoCatalogTests
         Assert.True(on.IsDemoEmail("MORADOR@demo.gestaopro.local"));
         Assert.False(on.IsDemoEmail("maria@condominio.com"));
         Assert.False(off.IsDemoEmail("morador@demo.gestaopro.local"));
+        // Protegidas são só as contas publicadas; outro e-mail do domínio demo não ganha proteção.
+        Assert.False(on.IsDemoEmail("intruso@demo.gestaopro.local"));
+        Assert.True(on.IsReservedDomain("intruso@demo.gestaopro.local"));
+        Assert.False(off.IsReservedDomain("intruso@demo.gestaopro.local"));
     }
 }
 

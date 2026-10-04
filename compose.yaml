@@ -5,7 +5,8 @@ services:
     image: mongo:7
     container_name: gestaopro-mongo
     ports:
-      - "27117:27017"
+      # Só na própria máquina (sem login no banco local): nada de expor na rede da faculdade ou do trabalho.
+      - "127.0.0.1:27117:27017"
     volumes:
       - gestaopro-mongo-dados:/data/db
     healthcheck:

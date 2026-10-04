@@ -90,6 +90,21 @@ public class DemoProtectionTests
         Assert.Equal(403, StatusOf(deactivate));
     }
 
+    // Visitante não cria conta "@demo.gestaopro.local" (que ninguém conseguiria remover) nem condomínio novo
+    // (que apareceria na lista pública do cadastro).
+    [Fact]
+    public async Task Na_demo_nao_se_cria_usuario_do_dominio_demo_nem_condominio_novo()
+    {
+        var user = await Users("sindico-demo", "sindico").Create(new CreateUserRequest(
+            CondominioA, null, null, "Intruso", "intruso@demo.gestaopro.local", "Senha-Forte-2026", "3133330000", "12345678901", UserRole.sindico, null));
+        var condominium = await new CondominiumsController(new Mock<ICondominiumService>().Object, _catalog)
+            .As("sindico-demo", "sindico")
+            .Create(new CreateCondominiumRequest("Novo", "11.111.111/0001-11", "Rua", "1", "Bairro", "Cidade", "MG", "30000-000", "Codigo-Forte-2026", null, null));
+
+        Assert.Equal(400, StatusOf(user));
+        Assert.Equal(403, StatusOf(condominium));
+    }
+
     [Fact]
     public void Sem_o_modo_demo_nada_e_bloqueado_pela_protecao()
     {

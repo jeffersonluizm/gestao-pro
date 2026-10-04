@@ -54,7 +54,13 @@ public sealed class DemoCatalog
         });
     }
 
+    // Só as contas publicadas em GET /api/demo são protegidas.
     public bool IsDemoEmail(string? email) =>
+        Enabled && !string.IsNullOrWhiteSpace(email) &&
+        Accounts.Any(account => string.Equals(account.Email, email.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    // O domínio das contas demo é reservado: ninguém cria outra conta nele durante a demonstração.
+    public bool IsReservedDomain(string? email) =>
         Enabled && !string.IsNullOrWhiteSpace(email) && email.Trim().EndsWith(EmailDomain, StringComparison.OrdinalIgnoreCase);
 
     public bool IsDemoCondominium(string? condominiumId) =>

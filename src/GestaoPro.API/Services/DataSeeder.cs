@@ -31,6 +31,11 @@ public class DataSeeder
     private readonly UnitRepository _units;
     private readonly IAnnouncementRepository _announcements;
     private readonly IBillRepository _bills;
+    private readonly IReservationRepository _reservations;
+    private readonly IVisitorRepository _visitors;
+    private readonly OccurrenceRepository _occurrences;
+    private readonly IAssemblyRepository _assemblies;
+    private readonly IDeliveryService _deliveries;
     private readonly ILogger<DataSeeder> _logger;
 
     public DataSeeder(
@@ -42,6 +47,11 @@ public class DataSeeder
         UnitRepository units,
         IAnnouncementRepository announcements,
         IBillRepository bills,
+        IReservationRepository reservations,
+        IVisitorRepository visitors,
+        OccurrenceRepository occurrences,
+        IAssemblyRepository assemblies,
+        IDeliveryService deliveries,
         ILogger<DataSeeder> logger)
     {
         _catalog = catalog;
@@ -52,6 +62,11 @@ public class DataSeeder
         _units = units;
         _announcements = announcements;
         _bills = bills;
+        _reservations = reservations;
+        _visitors = visitors;
+        _occurrences = occurrences;
+        _assemblies = assemblies;
+        _deliveries = deliveries;
         _logger = logger;
     }
 
@@ -71,6 +86,7 @@ public class DataSeeder
         await EnsurePreRegisteredResidentsAsync(condominium.Id!);
         await EnsureAnnouncementsAsync(condominium.Id!, accounts["sindico"].Id!);
         await EnsureBillAsync(condominium.Id!, accounts["morador"].Id!);
+        await EnsureActivityAsync(condominium.Id!, unit.Id!, accounts["sindico"].Id!, accounts["morador"].Id!);
 
         _logger.LogInformation("Modo demonstração pronto: condomínio {Name} com {Count} contas (credenciais em GET /api/demo).",
             DemoCatalog.CondominiumName, _catalog.Accounts.Count);
@@ -208,6 +224,55 @@ public class DataSeeder
                 CondominiumId = condominiumId, AuthorId = authorId, Title = title, Content = content, Category = category,
             });
         }
+    }
+
+    // Movimento do condomínio para os fluxos parecerem vivos: reserva, encomendas, visita, ocorrência e assembleia.
+    private async Task EnsureActivityAsync(string condominiumId, string unitId, string sindicoId, string moradorId)
+    {
+        if ((await _reservations.GetByCondominiumAsync(condominiumId)).Count > 0) return;
+
+        var areas = await _commonAreas.GetByCondominiumAsync(condominiumId);
+        var salao = areas.FirstOrDefault(area => area.Name == "Salão de festas") ?? areas.First();
+        await _reservations.CreateAsync(new Reservation
+        {
+            CommonAreaId = salao.Id!, UserId = moradorId, CondominiumId = condominiumId,
+            Date = DateTime.Today.AddDays(6).ToString("yyyy-MM-dd"), StartTime = "14:00", EndTime = "18:00",
+            Status = ReservationStatus.Pendente, Observations = "Aniversário da Laura",
+        });
+
+        foreach (var (code, description) in new[] { ("BR123456789", "Caixa média, loja online"), ("LX998877", "Envelope de documentos") })
+        {
+            await _deliveries.CreateAsync(new Delivery
+            {
+                TrackingCode = code, Description = description, Type = "encomenda", ResidentId = moradorId,
+                UnitId = unitId, CondominiumId = condominiumId, Status = "pending",
+            });
+        }
+
+        await _visitors.CreateAsync(new Visitor
+        {
+            FullName = "Paulo Mendes", Document = "MG-12.345.678", Phone = "31999998888", ResidentId = moradorId,
+            CondominiumId = condominiumId, UnitId = unitId, Reason = "Visita", Status = "checked-in", CheckInAt = DateTime.UtcNow.AddHours(-1),
+        });
+
+        await _occurrences.CreateAsync(new Occurrence
+        {
+            CondominiumId = condominiumId, UserId = moradorId, Title = "Vazamento na garagem",
+            Description = "Goteira perto da vaga 12, no subsolo.", Category = OccurrenceCategory.Maintenance,
+            Priority = OccurrencePriority.Medium, Status = OccurrenceStatus.Open,
+        });
+
+        await _assemblies.CreateAsync(new AssemblyModel
+        {
+            CondominiumId = condominiumId, CreatedBy = sindicoId, Title = "Assembleia geral ordinária",
+            Description = "Previsão orçamentária e troca do portão da garagem.",
+            StartTime = DateTime.UtcNow.AddHours(-1), EndTime = DateTime.UtcNow.AddDays(14), Status = "em_andamento",
+            Topics =
+            {
+                new TopicModel { Title = "Aprovar a previsão orçamentária de 2027", VoteOptions = { "sim", "não" } },
+                new TopicModel { Title = "Trocar o portão da garagem", VoteOptions = { "sim", "não" } },
+            },
+        });
     }
 
     private async Task EnsureBillAsync(string condominiumId, string residentId)
