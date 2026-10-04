@@ -7,6 +7,7 @@ namespace GestaoPro.API.Tests.OccurrenceTests;
 public class OccurrencesControllerAccessTests
 {
     private readonly Mock<IOccurrenceService> _service = new();
+    private readonly Mock<IUserDirectory> _users = new();
     private readonly OccurrencesController _controller;
 
     private static readonly OccurrenceResponse DoJoao = Make("ocorrencia-joao", "joao", CondominioA);
@@ -15,7 +16,10 @@ public class OccurrencesControllerAccessTests
 
     public OccurrencesControllerAccessTests()
     {
-        _controller = new OccurrencesController(_service.Object);
+        _controller = new OccurrencesController(_service.Object, _users.Object);
+        foreach (var (userId, condominiumId) in new[] { ("joao", CondominioA), ("maria", CondominioA), ("carlos", CondominioB) })
+            _users.Setup(u => u.GetByIdAsync(userId)).ReturnsAsync(new UserResponse { Id = userId, CondominiumId = condominiumId });
+
         var all = new List<OccurrenceResponse> { DoJoao, DaMaria, DeOutroCondominio };
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>()))
             .ReturnsAsync((string id) => all.FirstOrDefault(o => o.Id == id));
@@ -165,4 +169,21 @@ public class OccurrencesControllerAccessTests
         CondominiumId = condominiumId,
         Title = "Barulho",
     };
+
+    [Fact]
+    public async Task Admin_nao_registra_ocorrencia_em_nome_de_morador_de_outro_condominio()
+    {
+        _service.Setup(s => s.CreateAsync(It.IsAny<CreateOccurrenceRequest>())).ReturnsAsync(DaMaria);
+        var controller = _controller.As("admin-a", "admin");
+        controller.Request.Headers["X-User-Id"] = "carlos";
+        var other = await controller.Create(
+            new CreateOccurrenceRequest(CondominioA, "carlos", "Barulho", "Muito barulho", OccurrenceCategory.Complaint, OccurrencePriority.Low));
+        controller.Request.Headers["X-User-Id"] = "maria";
+        var own = await controller.Create(
+            new CreateOccurrenceRequest(CondominioA, "maria", "Barulho", "Muito barulho", OccurrenceCategory.Complaint, OccurrencePriority.Low));
+
+        Assert.Equal(404, StatusOf(other));
+        Assert.Equal(201, StatusOf(own));
+        _service.Verify(s => s.CreateAsync(It.Is<CreateOccurrenceRequest>(r => r.UserId == "carlos")), Times.Never);
+    }
 }

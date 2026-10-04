@@ -7,16 +7,19 @@ using GestaoPro.API.Services.Access;
 namespace GestaoPro.API.Controllers;
 
 // Ocorrência é do morador que registrou: ele vê e remove as próprias; a administração vê e trata as do condomínio.
-// A identidade vem do token (os cabeçalhos X-User-Id/X-Condominium-Id não decidem mais nada).
+// Quem chama é sempre o usuário do token. Os cabeçalhos X-User-Id/X-Condominium-Id só são lidos quando a
+// administração registra em nome de um morador, e esse morador precisa ser do próprio condomínio.
 [ApiController]
 [Route("api/[controller]")]
 public class OccurrencesController : ControllerBase
 {
     private readonly IOccurrenceService _service;
+    private readonly IUserDirectory _users;
 
-    public OccurrencesController(IOccurrenceService service)
+    public OccurrencesController(IOccurrenceService service, IUserDirectory users)
     {
         _service = service;
+        _users = users;
     }
 
     [HttpGet("condominium/{condominiumId}")]
@@ -74,7 +77,10 @@ public class OccurrencesController : ControllerBase
             var userId = FirstFilled(Request.Headers["X-User-Id"].ToString(), request.UserId);
             var condominiumId = FirstFilled(Request.Headers["X-Condominium-Id"].ToString(), request.CondominiumId);
             if (this.DenyManage(caller, condominiumId, staff: true) is { } denied) return denied;
-            request = request with { UserId = userId ?? caller.UserId!, CondominiumId = condominiumId! };
+            userId ??= caller.UserId!;
+            var resident = await _users.GetByIdAsync(userId);
+            if (this.DenyManage(caller, resident?.CondominiumId, staff: true) is { } otherResident) return otherResident;
+            request = request with { UserId = userId, CondominiumId = condominiumId! };
         }
         else
         {
