@@ -25,8 +25,11 @@ public class AssemblyController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        var assemblies = history ? await _service.GetHistoryAsync() : await _service.GetAllAsync();
-        return Ok(caller.InCondominium(assemblies, assembly => assembly.CondominiumId));
+        // Filtro no banco: só as assembleias do condomínio do token.
+        var assemblies = history
+            ? await _service.GetHistoryByCondominiumAsync(caller.CondominiumId!)
+            : await _service.GetByCondominiumAsync(caller.CondominiumId!);
+        return Ok(assemblies);
     }
 
     [HttpGet("{id}")]

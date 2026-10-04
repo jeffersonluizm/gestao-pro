@@ -25,8 +25,8 @@ public class CommonAreasController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        var commonAreas = await _service.GetAllAsync();
-        return Ok(caller.InCondominium(commonAreas, area => area.CondominiumId));
+        // Filtro no banco: só as áreas do condomínio do token.
+        return Ok(await _service.GetByCondominiumAsync(caller.CondominiumId!));
     }
 
     [HttpGet("{id}")]

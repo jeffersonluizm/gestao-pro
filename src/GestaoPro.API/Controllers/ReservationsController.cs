@@ -33,7 +33,7 @@ public class ReservationsController : ControllerBase
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
         var reservations = caller.IsAdministrator
-            ? await _service.GetAllAsync()
+            ? await _service.GetByCondominiumAsync(caller.CondominiumId!)
             : await _service.GetByUserAsync(caller.UserId!);
         return Ok(Visible(caller, reservations));
     }

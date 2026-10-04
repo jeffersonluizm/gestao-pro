@@ -91,6 +91,16 @@ public class ReservationsControllerAccessTests
     }
 
     [Fact]
+    public async Task Administracao_lista_as_reservas_consultando_so_o_proprio_condominio()
+    {
+        var result = await _controller.As("admin-a", "admin").GetAll();
+
+        Assert.Equal(new[] { "reserva-joao", "reserva-maria" }, Ids(result));
+        _service.Verify(s => s.GetByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetAllAsync(), Times.Never);
+    }
+
+    [Fact]
     public async Task Token_sem_condominio_recebe_403_em_vez_de_todas_as_reservas()
     {
         var result = await _controller.As("joao", "morador", condominiumId: null).GetAll();

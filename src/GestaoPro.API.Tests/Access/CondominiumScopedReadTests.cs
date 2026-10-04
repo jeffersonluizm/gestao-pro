@@ -87,7 +87,18 @@ public class CommonAreasControllerReadTests
             new() { Id = "area-b", CondominiumId = CondominioB },
         };
         _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
+        _service.Setup(s => s.GetByCondominiumAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => all.Where(a => a.CondominiumId == id).ToList());
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => all.FirstOrDefault(a => a.Id == id));
+    }
+
+    [Fact]
+    public async Task Lista_consulta_so_o_condominio_do_token_sem_ler_todas()
+    {
+        await _controller.As("joao", "morador").GetAll();
+
+        _service.Verify(s => s.GetByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetAllAsync(), Times.Never);
     }
 
     [Fact]
@@ -187,7 +198,23 @@ public class AssemblyControllerReadTests
         };
         _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
         _service.Setup(s => s.GetHistoryAsync()).ReturnsAsync(all);
+        _service.Setup(s => s.GetByCondominiumAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => all.Where(a => a.CondominiumId == id).ToList());
+        _service.Setup(s => s.GetHistoryByCondominiumAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => all.Where(a => a.CondominiumId == id).ToList());
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => all.FirstOrDefault(a => a.Id == id));
+    }
+
+    [Fact]
+    public async Task Lista_e_historico_consultam_so_o_condominio_do_token()
+    {
+        await _controller.As("joao", "morador").GetAll();
+        await _controller.As("joao", "morador").GetAll(history: true);
+
+        _service.Verify(s => s.GetByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetHistoryByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetAllAsync(), Times.Never);
+        _service.Verify(s => s.GetHistoryAsync(), Times.Never);
     }
 
     [Fact]
