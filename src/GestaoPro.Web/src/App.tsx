@@ -3,6 +3,7 @@ import { ReactNode } from 'react'
 import { AuthProvider, useAuth } from './auth/AuthContext'
 import { ConfirmProvider } from './components/ui/ConfirmDialog'
 import { ToastProvider } from './components/ui/Toast'
+import { ServerWakeNotice } from './components/ui/ServerWakeNotice'
 import { ModulePage } from './features/ModulePage'
 import { AppShell } from './layouts/AppShell'
 import { AuthLayout } from './layouts/AuthLayout'
@@ -38,6 +39,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <ConfirmProvider>
+            <ServerWakeNotice />
             <Routes>
               <Route element={<PublicLayout />}>
                 <Route path="/" element={<LandingPage />} />

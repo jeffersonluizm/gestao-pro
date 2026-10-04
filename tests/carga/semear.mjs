@@ -4,7 +4,7 @@
 //   API=http://127.0.0.1:5101 MONGO=mongodb://127.0.0.1:27100 SAIDA=estado.json node semear.mjs base
 //   API=... MONGO=... node semear.mjs ruido 20000      (avisos de OUTRO condomínio, para H3)
 //
-// "base": usa a API (conta admin de demonstração, só existe em Development) para criar área comum,
+// "base": usa a API (conta de síndico do modo demonstração, lida de GET /api/demo) para criar área comum,
 // 100 avisos e uma assembleia; depois, direto no MongoDB, clona o condomínio de demonstração e os
 // moradores mock para chegar a 50 condomínios x 100 usuários (H4). O banco PRECISA ser GestaoProStress
 // em 127.0.0.1:27100: qualquer outra coisa aborta.
@@ -14,7 +14,6 @@ import { MongoClient, ObjectId } from 'mongodb';
 const API = process.env.API ?? 'http://127.0.0.1:5101';
 const MONGO = process.env.MONGO ?? 'mongodb://127.0.0.1:27100';
 const BANCO = 'GestaoProStress';
-const ADMIN = { registrationNumber: 'admin@gestaopro.local', password: 'Admin@123' };
 
 if (!/^mongodb:\/\/(127\.0\.0\.1|localhost):27100\/?$/.test(MONGO)) {
   console.error(`[semear] recusado: MONGO precisa ser o banco descartável em 127.0.0.1:27100 (recebi ${MONGO}).`);
@@ -42,7 +41,13 @@ async function api(method, path, token, body) {
 }
 
 async function base() {
-  const login = await api('POST', '/api/Auth/login', null, ADMIN);
+  // Credenciais: as do modo demonstração (GET /api/demo). Builds antigos (linha de base, sem o modo demo)
+  // recebem a conta pelo ambiente: CONTA_CARGA_EMAIL e CONTA_CARGA_SENHA (nada fixo no código).
+  const demo = await fetch(`${API}/api/demo`).then(r => (r.ok ? r.json() : null))
+  const sindico = demo?.accounts.find(account => account.role === 'sindico')
+    ?? { email: process.env.CONTA_CARGA_EMAIL, password: process.env.CONTA_CARGA_SENHA };
+  if (!sindico.email || !sindico.password) throw new Error('Sem /api/demo: defina CONTA_CARGA_EMAIL e CONTA_CARGA_SENHA.');
+  const login = await api('POST', '/api/Auth/login', null, { registrationNumber: sindico.email, password: sindico.password });
   const token = login.token;
   const condominiumId = login.condominiumId;
 
@@ -95,7 +100,7 @@ async function base() {
   await db.collection('users').insertMany(usuarios);
   await cliente.close();
 
-  const estado = { api: API, token, condominiumId, userId: login.userId, commonAreaId: area.id, assemblyId: assembleia.id, outroCondominioId: outros[0] };
+  const estado = { api: API, token, email: sindico.email, senha: sindico.password, condominiumId, userId: login.userId, commonAreaId: area.id, assemblyId: assembleia.id, outroCondominioId: outros[0] };
   writeFileSync(process.env.SAIDA ?? 'estado.json', JSON.stringify(estado, null, 2));
   console.log(`[semear] base pronta: 100 avisos, 50 condomínios, ${usuarios.length} usuários.`);
 }

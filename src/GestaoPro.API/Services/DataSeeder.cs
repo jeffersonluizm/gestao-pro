@@ -9,13 +9,6 @@ namespace GestaoPro.API.Services;
 // Nenhuma senha fica no código nem vai para o log: elas vêm do DemoCatalog e são publicadas em GET /api/demo.
 public class DataSeeder
 {
-    private static readonly (string Cpf, string Name)[] PreRegisteredResidents =
-    [
-        ("11111111111", "João da Silva"),
-        ("22222222222", "Paula Andrade"),
-        ("33333333333", "Pedro Oliveira"),
-    ];
-
     private static readonly (string Name, string Description, int Capacity, string Open, string Close)[] CommonAreas =
     [
         ("Salão de festas", "Salão com cozinha e mesas para 80 pessoas.", 80, "10:00", "23:00"),
@@ -182,7 +175,7 @@ public class DataSeeder
     // CPFs pré-cadastrados (sem acesso) para experimentar o "Ative o seu acesso" com o código do condomínio.
     private async Task EnsurePreRegisteredResidentsAsync(string condominiumId)
     {
-        foreach (var (cpf, name) in PreRegisteredResidents)
+        foreach (var (cpf, name) in DemoCatalog.PreRegisteredResidents)
         {
             var existing = await _users.GetByCpfAsync(cpf);
             if (existing is not null)

@@ -8,16 +8,38 @@ export function endpoint(path: string) {
 
 export const SESSION_EXPIRED_EVENT = 'gestaopro:session-expired'
 
+// Servidor gratuito "dormindo" (cold start): se uma requisição passa deste tempo, o painel avisa que está
+// acordando o servidor em vez de parecer travado. SERVER_SLOW_EVENT/SERVER_READY_EVENT levam a contagem.
+export const SERVER_SLOW_EVENT = 'gestaopro:server-slow'
+export const SERVER_READY_EVENT = 'gestaopro:server-ready'
+export const SLOW_REQUEST_MS = 2500
+let slowRequests = 0
+
+async function trackSlow<T>(work: Promise<T>): Promise<T> {
+  let slow = false
+  const timer = setTimeout(() => {
+    slow = true
+    slowRequests++
+    window.dispatchEvent(new Event(SERVER_SLOW_EVENT))
+  }, SLOW_REQUEST_MS)
+  try {
+    return await work
+  } finally {
+    clearTimeout(timer)
+    if (slow && --slowRequests === 0) window.dispatchEvent(new Event(SERVER_READY_EVENT))
+  }
+}
+
 export async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
   const token = localStorage.getItem('gestaopro_token')
   if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`)
 
-  const response = await fetch(endpoint(path), {
+  const response = await trackSlow(fetch(endpoint(path), {
     ...init,
     headers,
-  })
+  }))
 
   if (!response.ok) {
     const text = await response.text()

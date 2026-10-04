@@ -4,6 +4,7 @@ import {
   IoPersonAddOutline, IoShieldCheckmarkOutline,
 } from 'react-icons/io5'
 import { useAuth } from '../auth/AuthContext'
+import { DemoAccess } from '../features/demo/DemoAccess'
 
 const recursos = [
   { icon: IoMegaphoneOutline, titulo: 'Mural de avisos', texto: 'A administração publica; moradores e portaria leem no painel e no app.' },
@@ -48,6 +49,10 @@ export function LandingPage() {
           </div>
         </div>
       </section>
+
+      <div className="section" style={{ paddingBottom: 0 }}>
+        <DemoAccess />
+      </div>
 
       <section className="section" aria-labelledby="recursos">
         <header>

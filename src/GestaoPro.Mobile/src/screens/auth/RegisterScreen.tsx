@@ -7,7 +7,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 
-import { checkCpf, selfRegister, getPublicCondominiums, CondominiumSummary, getFriendlyErrorMessage } from '../../api/client';
+import { checkCpf, selfRegister, getPublicCondominiums, CondominiumSummary, getFriendlyErrorMessage, getDemoInfo, DemoInfo } from '../../api/client';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { isValidCpfFormat, maskCpf, maskPhoneBR, onlyDigits } from '../../utils/formatters';
 import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
@@ -28,6 +28,9 @@ export default function RegisterScreen({ navigation }: Props) {
   const [condominiumId, setCondominiumId] = useState('');
   // Código do condomínio (senha padrão entregue pela administração): prova o vínculo com o condomínio.
   const [condominiumCode, setCondominiumCode] = useState('');
+  // Só com o modo demonstração ligado no servidor: mostra os CPFs pré-cadastrados da demo.
+  const [demo, setDemo] = useState<DemoInfo | null>(null);
+  useEffect(() => { getDemoInfo().then(setDemo).catch(() => setDemo(null)); }, []);
 
   // Passo 2
   const [name, setName] = useState('');
@@ -153,13 +156,15 @@ export default function RegisterScreen({ navigation }: Props) {
             </TouchableOpacity>
           </View>
 
-          <View style={styles.hintCard}>
-            <AppText style={styles.hintTitle}>💡 CPFs de teste disponíveis</AppText>
-            <AppText style={styles.hintLine}>111.111.111-11 — João da Silva</AppText>
-            <AppText style={styles.hintLine}>222.222.222-22 — Maria Santos</AppText>
-            <AppText style={styles.hintLine}>333.333.333-33 — Pedro Oliveira</AppText>
-            <AppText style={styles.hintNote}>Condomínio: Condomínio GestaoPro</AppText>
-          </View>
+          {demo && (
+            <View style={styles.hintCard}>
+              <AppText style={styles.hintTitle}>Demonstração: CPFs pré-cadastrados</AppText>
+              {demo.preRegistered.map(resident => (
+                <AppText key={resident.cpf} style={styles.hintLine}>{resident.cpf} · {resident.name}</AppText>
+              ))}
+              <AppText style={styles.hintNote}>Condomínio: {demo.condominiumName} · código {demo.condominiumCode}</AppText>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     );

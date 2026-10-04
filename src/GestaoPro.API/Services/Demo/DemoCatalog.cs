@@ -14,6 +14,14 @@ public sealed class DemoCatalog
     public const string CondominiumName = "Residencial Demonstração";
     public const string CondominiumCnpj = "11.222.333/0001-81";
 
+    // Moradores pré-cadastrados sem acesso: servem para experimentar "Ative o seu acesso" com o código.
+    public static readonly IReadOnlyList<(string Cpf, string Name)> PreRegisteredResidents = new[]
+    {
+        ("11111111111", "João da Silva"),
+        ("22222222222", "Paula Andrade"),
+        ("33333333333", "Pedro Oliveira"),
+    };
+
     public bool Enabled { get; }
     public string CondominiumCode { get; }
     public IReadOnlyList<DemoAccount> Accounts { get; }

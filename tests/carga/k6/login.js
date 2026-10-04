@@ -8,7 +8,7 @@ export const options = {
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 
-const body = JSON.stringify({ registrationNumber: 'admin@gestaopro.local', password: 'Admin@123' });
+const body = JSON.stringify({ registrationNumber: __ENV.EMAIL, password: __ENV.SENHA });
 const params = { headers: { 'Content-Type': 'application/json' } };
 
 export default function () {

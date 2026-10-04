@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { requestJson } from '../../api/http'
 import { useAuth } from '../../auth/AuthContext'
 import { PasswordInput } from '../../components/ui/PasswordInput'
+import { DemoAccess } from '../../features/demo/DemoAccess'
 import { LoginResponse, MustChangePasswordResponse } from '../../domain/types'
 
 const avisos: Record<string, string> = {
@@ -78,11 +79,7 @@ export function LoginPage() {
         <Link to="/recuperar-senha">Esqueci minha senha</Link>
         <span>Primeira vez aqui? <Link to="/cadastro">Ative o seu acesso de morador</Link></span>
       </div>
-      {import.meta.env.DEV && (
-        <div className="demo-box">
-          <strong>Ambiente de desenvolvimento.</strong> A API cria a conta <code>admin@gestaopro.local</code> (senha <code>Admin@123</code>) e o condomínio de demonstração com o código <code>Demo-Condominio-2026</code>.
-        </div>
-      )}
+      <DemoAccess compact />
     </div>
   )
 }

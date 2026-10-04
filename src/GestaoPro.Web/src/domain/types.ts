@@ -162,3 +162,18 @@ export interface Occurrence {
   status: string
   createdAt?: string
 }
+
+// GET /api/demo (só existe com o modo demonstração ligado no servidor).
+export interface DemoAccount {
+  role: string
+  name: string
+  email: string
+  password: string
+}
+
+export interface DemoInfo {
+  condominiumName: string
+  condominiumCode: string
+  accounts: DemoAccount[]
+  preRegistered?: { cpf: string; name: string }[]
+}

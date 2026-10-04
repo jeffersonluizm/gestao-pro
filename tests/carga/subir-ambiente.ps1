@@ -33,6 +33,8 @@ $env:JwtSettings__SecretKey = $segredo
 $env:JwtSettings__ExpirationHours = '4'
 $env:Logging__LogLevel__Default = 'Warning'
 [Environment]::SetEnvironmentVariable('Logging__LogLevel__Microsoft.AspNetCore', 'Warning')
+# Modo demonstração ligado (contas e condomínio de demonstração; builds antigos ignoram a flag).
+$env:Demo__Enabled = 'true'
 $env:RateLimiting__Auth__PermitLimit = '1000000'
 $env:RateLimiting__Auth__PerCondominiumPermitLimit = '1000000'
 

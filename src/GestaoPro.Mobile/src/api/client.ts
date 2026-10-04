@@ -377,6 +377,17 @@ export const changeUserPassword = (userId: string, currentPassword: string, newP
     body: JSON.stringify({ currentPassword, newPassword }),
   });
 
+// ─── Demonstração ─────────────────────────────────────────────────────────────
+// GET /api/demo só existe com o modo demonstração ligado no servidor (404 desligado).
+export interface DemoInfo {
+  condominiumName: string;
+  condominiumCode: string;
+  accounts: { role: string; name: string; email: string; password: string }[];
+  preRegistered: { cpf: string; name: string }[];
+}
+
+export const getDemoInfo = () => request<DemoInfo>('/api/demo', {}, false);
+
 // ─── Condomínios ──────────────────────────────────────────────────────────────
 // Com login: só o condomínio do próprio token (lista de um item).
 export const getCondominiums = () =>

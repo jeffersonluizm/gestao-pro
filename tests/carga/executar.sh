@@ -33,6 +33,7 @@ API="$API" SAIDA="$SAIDA/estado.json" node "$AQUI/semear.mjs" base
 lerEstado() { node -p "require(process.argv[1])['$1']" "$(cygpath -w "$SAIDA/estado.json")"; }
 TOKEN="$(lerEstado token)"; CONDOMINIO="$(lerEstado condominiumId)"; USUARIO="$(lerEstado userId)"
 AREA="$(lerEstado commonAreaId)"; ASSEMBLEIA="$(lerEstado assemblyId)"
+EMAIL="$(lerEstado email)"; SENHA="$(lerEstado senha)"
 
 amostra() { powershell -NoProfile -Command "\$p=Get-Process -Id $API_PID; '{0:F2} {1:F0}' -f \$p.TotalProcessorTime.TotalSeconds, (\$p.WorkingSet64/1MB)"; }
 
@@ -50,8 +51,8 @@ rodar aquecimento get.js -e TOKEN="$TOKEN" -e CAMINHO=/api/announcements -e VUS=
 for v in 10 50 100 200; do rodar "h2-avisos-$v" get.js -e TOKEN="$TOKEN" -e CAMINHO=/api/announcements -e VUS=$v -e DURACAO=30s; done
 for v in 10 20 50; do rodar "h4-lista-publica-$v" get.js -e ANONIMO=1 -e CAMINHO=$LISTA_PUBLICA -e VUS=$v -e DURACAO=30s; done
 rodar h8-health-50 get.js -e ANONIMO=1 -e CAMINHO=/api/health/mongodb -e VUS=50 -e DURACAO=30s
-for v in 10 50; do rodar "h1-login-$v" login.js -e VUS=$v -e DURACAO=30s; done
-rodar h1b-tempo-login tempo-login.js -e ITERACOES=200
+for v in 10 50; do rodar "h1-login-$v" login.js -e EMAIL="$EMAIL" -e SENHA="$SENHA" -e VUS=$v -e DURACAO=30s; done
+rodar h1b-tempo-login tempo-login.js -e EMAIL="$EMAIL" -e SENHA="$SENHA" -e ITERACOES=200
 rodar h5-escrita-50 escrita.js -e TOKEN="$TOKEN" -e CONDOMINIO="$CONDOMINIO" -e USUARIO="$USUARIO" -e VUS=50 -e DURACAO=30s
 
 DATA="$(date -d '+3 day' +%Y-%m-%d)"

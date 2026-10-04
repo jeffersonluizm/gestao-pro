@@ -14,6 +14,7 @@ import { sw, sf, HP } from '../../utils/responsive';
 
 import { theme } from '../../theme/theme';
 import AppText from '../../components/AppText';
+import DemoAccessCard from '../../components/DemoAccessCard';
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
@@ -28,6 +29,19 @@ export default function LoginScreen({ navigation }: Props) {
   const [pendingUserId, setPendingUserId] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // Entrada com um clique pela demonstração (mesmo fluxo do login normal).
+  async function enterWith(demoEmail: string, demoPassword: string) {
+    try {
+      const res = await login(demoEmail, demoPassword);
+      await signIn({
+        token: res.token, userId: res.userId, userName: res.userName, role: res.role,
+        condominiumId: res.condominiumId, registrationNumber: res.registrationNumber,
+      });
+    } catch (err) {
+      Alert.alert('Erro', getFriendlyErrorMessage(err, 'Não foi possível entrar na demonstração.'));
+    }
+  }
 
   async function handleLogin() {
     if (!email.trim() || !password.trim()) {
@@ -153,18 +167,8 @@ export default function LoginScreen({ navigation }: Props) {
           </TouchableOpacity>
         </View>
 
-        {/* Credenciais de teste: a API só cria essas contas em desenvolvimento */}
-        {__DEV__ && (
-          <View style={styles.testCard}>
-            <AppText style={styles.testTitle}>Ambiente de desenvolvimento</AppText>
-            <AppText style={styles.testLine}>Administração: admin@gestaopro.local / Admin@123</AppText>
-            <AppText style={styles.testLine}>Código do condomínio de demonstração: Demo-Condominio-2026</AppText>
-            <AppText style={styles.testLine}>CPFs pré-cadastrados para ativar acesso:</AppText>
-            <AppText style={styles.testLine}>  111.111.111-11 (João da Silva)</AppText>
-            <AppText style={styles.testLine}>  222.222.222-22 (Maria Santos)</AppText>
-            <AppText style={styles.testLine}>  333.333.333-33 (Pedro Oliveira)</AppText>
-          </View>
-        )}
+        {/* Demonstração: só com o modo demo ligado no servidor (credenciais vêm da API) */}
+        <DemoAccessCard onEnter={enterWith} />
       </ScrollView>
     </KeyboardAvoidingView>
   );
@@ -201,10 +205,4 @@ const styles = StyleSheet.create({
   registerRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: sw(24) },
   registerText: { color: theme.color.inkMuted, fontSize: sf(14) },
   registerLink: { color: theme.color.action, fontSize: sf(14), fontWeight: '600' },
-  testCard: {
-    backgroundColor: theme.color.accentSoft, borderWidth: 1, borderColor: theme.color.brandAccent,
-    borderRadius: sw(12), padding: sw(14),
-  },
-  testTitle: { fontSize: sf(13), fontWeight: '700', color: theme.color.accentText, marginBottom: sw(6) },
-  testLine: { fontSize: sf(12), color: theme.color.accentText, marginBottom: sw(2) },
 });

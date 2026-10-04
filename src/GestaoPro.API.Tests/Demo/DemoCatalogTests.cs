@@ -97,5 +97,8 @@ public class DemoControllerTests
         Assert.Equal("Codigo-Da-Demo-2026", body.CondominiumCode);
         Assert.Equal(3, body.Accounts.Count);
         Assert.Contains(body.Accounts, account => account.Role == "sindico" && account.Email == "sindico@demo.gestaopro.local" && account.Password == "Senha-Da-Demo-2026");
+        // Moradores pré-cadastrados (sem acesso) para experimentar a ativação com o código do condomínio.
+        Assert.Equal(3, body.PreRegistered.Count);
+        Assert.All(body.PreRegistered, resident => Assert.Matches(@"^\d{3}\.\d{3}\.\d{3}-\d{2}$", resident.Cpf));
     }
 }

@@ -11,6 +11,6 @@ const params = { headers: { 'Content-Type': 'application/json' } };
 export default function () {
   const a = http.post(`${__ENV.API}/api/Auth/login`, JSON.stringify({ registrationNumber: `ninguem-${__ITER}@carga.local`, password: 'Senha-Qualquer-2026' }), params);
   inexistente.add(a.timings.duration);
-  const b = http.post(`${__ENV.API}/api/Auth/login`, JSON.stringify({ registrationNumber: 'admin@gestaopro.local', password: 'Senha-Errada-2026' }), params);
+  const b = http.post(`${__ENV.API}/api/Auth/login`, JSON.stringify({ registrationNumber: __ENV.EMAIL, password: 'Senha-Errada-2026' }), params);
   senhaErrada.add(b.timings.duration);
 }
