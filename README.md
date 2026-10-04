@@ -39,6 +39,15 @@ A connection string do MongoDB e a chave JWT não ficam no repositório. Crie o 
 
 Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__ConnectionString` e `JwtSettings__SecretKey` **antes** do deploy: sem elas a API recusa a partida com uma mensagem dizendo o que falta.
 
+#### Dados antigos sem condomínio
+
+Cada leitura e alteração é limitada ao condomínio de quem está logado. Visitantes e vagas gravados antes dessa regra podem estar sem o campo `condominiumId`, e a administração recebe "Registro não encontrado" ao editá-los. Por isso, a cada partida a API preenche o campo em segundo plano, sem atrasar a subida:
+
+- visitante: usa o condomínio do morador visitado;
+- vaga: usa o condomínio do morador da vaga, de quem a reservou ou da unidade; se não houver nenhum vínculo e o sistema tiver um único condomínio, usa esse condomínio.
+
+O preenchimento só mexe em registros sem condomínio, então pode rodar quantas vezes for preciso. Se algum registro não puder ser resolvido (vaga sem vínculo com mais de um condomínio cadastrado), o log da API mostra quantos ficaram sem condomínio; preencha `condominiumId` desses registros direto no banco. Se o banco estiver fora do ar, o preenchimento só registra o erro no log e a API continua de pé.
+
 ### Executando o projeto
 
 **Opção rápida (Windows):** execute o arquivo `iniciar.bat` na raiz do repositório. Ele inicia a API, o painel web e o app mobile simultaneamente. Para o celular encontrar a API, o script usa, nesta ordem: a variável `EXPO_PUBLIC_API_URL` já definida, o arquivo `src/GestaoPro.Mobile/.env` ou o IP desta máquina na rede local, detectado automaticamente.
