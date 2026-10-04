@@ -12,7 +12,8 @@ export function ReservationCalendar({
   currentMonth: Date
   onMonthChange: (month: Date) => void
 }) {
-  const monthLabel = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const rawLabel = currentMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
+  const monthLabel = rawLabel.charAt(0).toUpperCase() + rawLabel.slice(1)
   const firstDay = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
   const startOffset = firstDay.getDay()
   const daysInMonth = new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 0).getDate()
@@ -32,9 +33,9 @@ export function ReservationCalendar({
   return (
     <div className="calendar-panel">
       <div className="calendar-header">
-        <button type="button" className="secondary-button" onClick={() => moveMonth(-1)}>Anterior</button>
-        <strong>{monthLabel}</strong>
-        <button type="button" className="secondary-button" onClick={() => moveMonth(1)}>Próximo</button>
+        <button type="button" className="secondary-button" onClick={() => moveMonth(-1)} aria-label="Mês anterior">Anterior</button>
+        <strong aria-live="polite">{monthLabel}</strong>
+        <button type="button" className="secondary-button" onClick={() => moveMonth(1)} aria-label="Próximo mês">Próximo</button>
       </div>
       <div className="calendar-weekdays">
         {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => <span key={day}>{day}</span>)}
