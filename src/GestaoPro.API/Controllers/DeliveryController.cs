@@ -10,9 +10,9 @@ namespace GestaoPro.API.Controllers;
 [Route("api/[controller]")]
 public class DeliveryController : ControllerBase
 {
-    private readonly DeliveryService _deliveryService;
+    private readonly IDeliveryService _deliveryService;
 
-    public DeliveryController(DeliveryService deliveryService)
+    public DeliveryController(IDeliveryService deliveryService)
     {
         _deliveryService = deliveryService;
     }

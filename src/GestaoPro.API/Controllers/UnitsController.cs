@@ -8,9 +8,9 @@ namespace GestaoPro.API.Controllers;
 [Route("api/[controller]")]
 public class UnitsController : ControllerBase
 {
-    private readonly UnitAppService _service;
+    private readonly IUnitService _service;
 
-    public UnitsController(UnitAppService service)
+    public UnitsController(IUnitService service)
     {
         _service = service;
     }

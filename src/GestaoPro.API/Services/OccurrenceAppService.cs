@@ -4,7 +4,7 @@ using GestaoPro.API.Repositories;
 
 namespace GestaoPro.API.Services;
 
-public class OccurrenceAppService
+public class OccurrenceAppService : IOccurrenceService
 {
     private readonly OccurrenceRepository _repository;
 

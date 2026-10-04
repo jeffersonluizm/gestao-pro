@@ -5,7 +5,7 @@ using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace GestaoPro.API.Services;
 
-public class UnitAppService
+public class UnitAppService : IUnitService
 {
     private readonly UnitRepository _unitRepository;
     private readonly UserRepository _userRepository;

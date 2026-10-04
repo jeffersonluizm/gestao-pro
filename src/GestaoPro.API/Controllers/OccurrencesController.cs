@@ -9,9 +9,9 @@ namespace GestaoPro.API.Controllers;
 [Route("api/[controller]")]
 public class OccurrencesController : ControllerBase
 {
-    private readonly OccurrenceAppService _service;
+    private readonly IOccurrenceService _service;
 
-    public OccurrencesController(OccurrenceAppService service)
+    public OccurrencesController(IOccurrenceService service)
     {
         _service = service;
     }

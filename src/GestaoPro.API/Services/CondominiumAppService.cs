@@ -4,7 +4,7 @@ using GestaoPro.API.Repositories;
 
 namespace GestaoPro.API.Services;
 
-public class CondominiumAppService
+public class CondominiumAppService : ICondominiumService
 {
     private readonly CondominiumRepository _condominiumRepository;
     private readonly UserRepository _userRepository;

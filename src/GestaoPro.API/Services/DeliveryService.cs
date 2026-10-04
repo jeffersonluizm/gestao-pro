@@ -7,7 +7,7 @@ using MongoDB.Driver;
 
 namespace GestaoPro.API.Services;
 
-public class DeliveryService
+public class DeliveryService : IDeliveryService
 {
     private readonly IMongoCollection<Delivery> _deliveries;
     private readonly CacheService _cache;

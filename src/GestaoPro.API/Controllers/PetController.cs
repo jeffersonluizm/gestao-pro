@@ -8,9 +8,9 @@ namespace GestaoPro.API.Controllers;
 [Route("api/[controller]")]
 public class PetsController : ControllerBase
 {
-    private readonly PetAppService _service;
+    private readonly IPetService _service;
 
-    public PetsController(PetAppService service)
+    public PetsController(IPetService service)
     {
         _service = service;
     }

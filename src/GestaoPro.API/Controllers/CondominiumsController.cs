@@ -8,9 +8,9 @@ namespace GestaoPro.API.Controllers;
 [Route("api/[controller]")]
 public class CondominiumsController : ControllerBase
 {
-    private readonly CondominiumAppService _service;
+    private readonly ICondominiumService _service;
 
-    public CondominiumsController(CondominiumAppService service)
+    public CondominiumsController(ICondominiumService service)
     {
         _service = service;
     }
