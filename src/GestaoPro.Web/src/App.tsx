@@ -55,6 +55,8 @@ interface ModuleDef {
   editFields?: FieldDef[]
   columns?: string[]
   adminOnly?: boolean
+  // Papéis para os quais a API recusa as leituras do módulo (403): o módulo nem aparece.
+  hiddenForRoles?: string[]
   // A API não tem DELETE para o recurso: esconde o botão Remover.
   noDelete?: boolean
 }
@@ -609,6 +611,7 @@ export const modules: ModuleDef[] = [
     title: 'Cobranças',
     description: 'Boletos e taxas por morador.',
     createEndpoint: '/api/Bills',
+    hiddenForRoles: ['porteiro'],
     noDelete: true,
     columns: ['description', 'amount', 'dueDate', 'status', 'barcode', 'userId'],
     fields: billFields,
@@ -623,6 +626,7 @@ export const modules: ModuleDef[] = [
     title: 'Pagamentos',
     description: 'Pagamentos registrados por cobrança.',
     createEndpoint: '/api/Payments',
+    hiddenForRoles: ['porteiro'],
     noDelete: true,
     columns: ['paymentDate', 'amountPaid', 'paymentMethod', 'receiptUrl'],
     fields: paymentFields,
@@ -1047,10 +1051,12 @@ export default function App() {
   const [lookups, setLookups] = useState<LookupData>(emptyLookups)
   const isLoggedIn = Boolean(session.token)
   const canManage = session.accessType === 'admin' && isAdminRole(session.role)
-  const visibleModules = modules.filter(module => module.id !== 'auth' && (!module.adminOnly || canManage))
+  const canSeeModule = (module: ModuleDef) =>
+    (!module.adminOnly || canManage) && !(module.hiddenForRoles ?? []).includes(session.role)
+  const visibleModules = modules.filter(module => module.id !== 'auth' && canSeeModule(module))
   const selectedModule = modules.find(module => module.id === activeId) ?? modules[0]
   const fallbackModule = visibleModules[0] ?? modules.find(module => module.id === 'auth')!
-  const activeModule = !isLoggedIn ? modules.find(module => module.id === 'auth')! : selectedModule.adminOnly && !canManage ? fallbackModule : selectedModule
+  const activeModule = !isLoggedIn ? modules.find(module => module.id === 'auth')! : !canSeeModule(selectedModule) ? fallbackModule : selectedModule
   const pageModule = moduleForSession(activeModule, session, canManage)
 
   async function refreshLookups(currentSession = session) {

@@ -45,7 +45,7 @@ function stubFetch() {
   }))
 }
 
-function loginAs(kind: 'admin' | 'morador') {
+function loginAs(kind: 'admin' | 'morador' | 'porteiro') {
   localStorage.setItem('gestaopro_token', 'token-de-teste')
   localStorage.setItem('gestaopro_user_id', kind === 'admin' ? 'u-admin' : 'u-maria')
   localStorage.setItem('gestaopro_user_name', kind === 'admin' ? 'Admin' : 'Maria')
@@ -109,6 +109,16 @@ describe('navegação', () => {
     for (const label of ['Cobranças', 'Pagamentos', 'Estacionamento']) {
       expect(within(nav).getByRole('button', { name: label })).toBeTruthy()
     }
+  })
+
+  // A API devolve 403 para porteiro em /api/Bills e /api/Payments: os módulos nem aparecem.
+  it('esconde Cobranças e Pagamentos do porteiro', () => {
+    loginAs('porteiro')
+    render(<App />)
+    const nav = screen.getByRole('navigation', { name: 'Módulos' })
+    expect(within(nav).queryByRole('button', { name: 'Cobranças' })).toBeNull()
+    expect(within(nav).queryByRole('button', { name: 'Pagamentos' })).toBeNull()
+    expect(within(nav).getByRole('button', { name: 'Estacionamento' })).toBeTruthy()
   })
 })
 
