@@ -587,6 +587,8 @@ function endpoint(path: string) {
   return `${API_BASE}${path}`
 }
 
+const SESSION_EXPIRED_EVENT = 'gestaopro:session-expired'
+
 async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
@@ -602,6 +604,7 @@ async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
     const text = await response.text()
     if (response.status === 401) {
       clearStoredSession()
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
       throw new Error('Sessão expirada ou login obrigatório. Saia e entre novamente.')
     }
     throw new Error(formatApiError(text, response.status))
@@ -1021,6 +1024,12 @@ export default function App() {
     setLookups(emptyLookups)
     setActiveId('auth')
   }
+
+  // A API devolveu 401 (token expirado): volta para a tela de login em vez de manter o painel aberto.
+  useEffect(() => {
+    window.addEventListener(SESSION_EXPIRED_EVENT, logout)
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, logout)
+  }, [])
 
   if (!isLoggedIn) {
     return (
