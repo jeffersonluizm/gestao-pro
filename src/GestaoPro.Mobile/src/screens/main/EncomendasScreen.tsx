@@ -1,7 +1,7 @@
 // src/screens/main/EncomendasScreen.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
+  View, FlatList, StyleSheet, TouchableOpacity,
   Modal, TextInput, ScrollView, ActivityIndicator, RefreshControl,
   Alert, Platform,
 } from 'react-native';
@@ -25,6 +25,9 @@ import {
   User,
 } from '../../api/client';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 function canManageDeliveries(role?: string) {
   return ['admin', 'sindico', 'porteiro'].includes((role ?? '').toLowerCase());
 }
@@ -49,12 +52,12 @@ function emptyForm() {
 
 function statusInfo(status: string) {
   if (status === 'picked_up' || status === 'retirado') {
-    return { bg: '#dcfce7', text: '#15803d', label: 'Retirado' };
+    return { bg: theme.color.successSoft, text: theme.color.success, label: 'Retirado' };
   }
   if (status === 'returned' || status === 'devolvido') {
-    return { bg: '#e2e8f0', text: '#64748b', label: 'Devolvido' };
+    return { bg: theme.color.border, text: theme.color.inkMuted, label: 'Devolvido' };
   }
-  return { bg: '#fef3c7', text: '#b45309', label: 'Pendente' };
+  return { bg: theme.color.warningSoft, text: theme.color.warning, label: 'Pendente' };
 }
 
 export default function EncomendasScreen() {
@@ -242,36 +245,36 @@ export default function EncomendasScreen() {
     return (
       <View style={styles.card}>
         <View style={styles.cardRow}>
-          <Text style={styles.cardTracking}>{item.trackingCode}</Text>
+          <AppText style={styles.cardTracking}>{item.trackingCode}</AppText>
           <View style={[styles.badge, { backgroundColor: info.bg }]}>
-            <Text style={[styles.badgeText, { color: info.text }]}>{info.label}</Text>
+            <AppText style={[styles.badgeText, { color: info.text }]}>{info.label}</AppText>
           </View>
         </View>
-        <Text style={styles.cardDesc}>{item.description || item.type}</Text>
-        <Text style={styles.cardMeta}>Morador: {residentName(item.residentId)}</Text>
-        <Text style={styles.cardMeta}>Unidade: {unitName(item.unitId)}</Text>
-        <Text style={styles.cardMeta}>
+        <AppText style={styles.cardDesc}>{item.description || item.type}</AppText>
+        <AppText style={styles.cardMeta}>Morador: {residentName(item.residentId)}</AppText>
+        <AppText style={styles.cardMeta}>Unidade: {unitName(item.unitId)}</AppText>
+        <AppText style={styles.cardMeta}>
           Chegou em: {item.arrivedAt ? new Date(item.arrivedAt).toLocaleDateString('pt-BR') : '-'}
-        </Text>
-        {pickedDate ? <Text style={styles.cardMeta}>Retirado em: {pickedDate}</Text> : null}
-        {item.observations ? <Text style={styles.cardObs}>{item.observations}</Text> : null}
+        </AppText>
+        {pickedDate ? <AppText style={styles.cardMeta}>Retirado em: {pickedDate}</AppText> : null}
+        {item.observations ? <AppText style={styles.cardObs}>{item.observations}</AppText> : null}
         <View style={styles.actionRow}>
           {canManage ? (
             <>
-              <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionBtn}>
-                <Ionicons name="create-outline" size={18} color="#3b82f6" />
-                <Text style={{ color: '#3b82f6' }}>Editar</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => handleEdit(item)} style={styles.actionBtn}>
+                <Ionicons name="create-outline" size={18} color={theme.color.action} />
+                <AppText style={{ color: theme.color.action }}>Editar</AppText>
               </TouchableOpacity>
-              <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
-                <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                <Text style={{ color: '#ef4444' }}>Remover</Text>
+              <TouchableOpacity accessibilityRole="button" onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
+                <Ionicons name="trash-outline" size={18} color={theme.color.danger} />
+                <AppText style={{ color: theme.color.danger }}>Remover</AppText>
               </TouchableOpacity>
             </>
           ) : null}
           {item.status !== 'picked_up' && item.status !== 'retirado' ? (
-            <TouchableOpacity onPress={() => handlePickup(item.id)} style={styles.actionBtn}>
-              <Ionicons name="checkmark-circle-outline" size={18} color="#10b981" />
-              <Text style={{ color: '#10b981' }}>Retirar</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => handlePickup(item.id)} style={styles.actionBtn}>
+              <Ionicons name="checkmark-circle-outline" size={18} color={theme.color.success} />
+              <AppText style={{ color: theme.color.success }}>Retirar</AppText>
             </TouchableOpacity>
           ) : null}
         </View>
@@ -282,23 +285,24 @@ export default function EncomendasScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Encomendas</Text>
+        <BackButton />
+        <AppText style={styles.title}>Encomendas</AppText>
         {canManage ? (
-          <TouchableOpacity style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
+          <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
             <Ionicons name="add" size={22} color="#fff" />
-            <Text style={styles.addBtnText}>Nova</Text>
+            <AppText style={styles.addBtnText}>Nova</AppText>
           </TouchableOpacity>
         ) : null}
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#176b87" style={{ marginTop: 60 }} />
+        <ActivityIndicator size="large" color={theme.color.action} style={{ marginTop: 60 }} />
       ) : listError ? (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={32} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadEncomendas()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={32} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadEncomendas()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -306,15 +310,15 @@ export default function EncomendasScreen() {
           data={encomendas}
           keyExtractor={item => item.id}
           renderItem={renderEncomenda}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#176b87']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.color.action]} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="gift-outline" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Nenhuma encomenda encontrada.</Text>
-              <Text style={styles.emptySubtext}>
+              <Ionicons name="gift-outline" size={48} color={theme.color.borderStrong} />
+              <AppText style={styles.emptyText}>Nenhuma encomenda encontrada.</AppText>
+              <AppText style={styles.emptySubtext}>
                 {canManage ? 'Toque em "Nova" para adicionar.' : 'Quando chegar uma encomenda, ela aparecera aqui.'}
-              </Text>
+              </AppText>
             </View>
           }
         />
@@ -323,90 +327,90 @@ export default function EncomendasScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{editingId ? 'Editar Encomenda' : 'Nova Encomenda'}</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={26} color="#64748b" />
+            <AppText style={styles.modalTitle}>{editingId ? 'Editar Encomenda' : 'Nova Encomenda'}</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setModalVisible(false)}>
+              <Ionicons name="close" size={26} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             {formError ? (
               <View style={styles.formError}>
-                <Ionicons name="alert-circle-outline" size={16} color="#dc2626" />
-                <Text style={styles.formErrorText}>{formError}</Text>
+                <Ionicons name="alert-circle-outline" size={16} color={theme.color.danger} />
+                <AppText style={styles.formErrorText}>{formError}</AppText>
               </View>
             ) : null}
 
-            <Text style={styles.label}>Codigo *</Text>
-            <TextInput style={styles.input} value={form.trackingCode} onChangeText={trackingCode => setForm({ ...form, trackingCode })} />
+            <AppText style={styles.label}>Codigo *</AppText>
+            <TextInput accessibilityLabel="Codigo" style={styles.input} value={form.trackingCode} onChangeText={trackingCode => setForm({ ...form, trackingCode })} />
 
-            <Text style={styles.label}>Tipo</Text>
+            <AppText style={styles.label}>Tipo</AppText>
             <View style={styles.chipRow}>
               {['encomenda', 'lanche'].map(type => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={type}
                   style={[styles.areaChip, form.type === type && styles.areaChipActive]}
                   onPress={() => setForm({ ...form, type })}
                 >
-                  <Text style={[styles.areaChipText, form.type === type && { color: '#fff' }]}>
+                  <AppText style={[styles.areaChipText, form.type === type && { color: '#fff' }]}>
                     {type === 'lanche' ? 'Lanche' : 'Encomenda'}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.label}>Descricao</Text>
-            <TextInput style={styles.input} value={form.description} onChangeText={description => setForm({ ...form, description })} />
+            <AppText style={styles.label}>Descricao</AppText>
+            <TextInput accessibilityLabel="Descricao" style={styles.input} value={form.description} onChangeText={description => setForm({ ...form, description })} />
 
-            <Text style={styles.label}>Morador *</Text>
-            <TouchableOpacity style={styles.selectMorador} onPress={() => setMoradorModalVisible(true)}>
-              <Text style={form.residentId ? styles.selectMoradorText : styles.selectMoradorPlaceholder}>
+            <AppText style={styles.label}>Morador *</AppText>
+            <TouchableOpacity accessibilityRole="button" style={styles.selectMorador} onPress={() => setMoradorModalVisible(true)}>
+              <AppText style={form.residentId ? styles.selectMoradorText : styles.selectMoradorPlaceholder}>
                 {form.residentId ? residentName(form.residentId) : 'Selecione um morador'}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color="#64748b" />
+              </AppText>
+              <Ionicons name="chevron-down" size={20} color={theme.color.inkMuted} />
             </TouchableOpacity>
 
-            <Text style={styles.label}>Unidade</Text>
+            <AppText style={styles.label}>Unidade</AppText>
             {units.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 {units.map(unit => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={unit.id}
                     style={[styles.areaChip, form.unitId === unit.id && styles.areaChipActive]}
                     onPress={() => setForm({ ...form, unitId: unit.id })}
                   >
-                    <Text style={[styles.areaChipText, form.unitId === unit.id && { color: '#fff' }]}>
+                    <AppText style={[styles.areaChipText, form.unitId === unit.id && { color: '#fff' }]}>
                       {formatUnit(unit)}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             ) : (
-              <Text style={styles.helpText}>Nenhuma unidade cadastrada para este condominio.</Text>
+              <AppText style={styles.helpText}>Nenhuma unidade cadastrada para este condominio.</AppText>
             )}
 
-            <Text style={styles.label}>Status</Text>
+            <AppText style={styles.label}>Status</AppText>
             <View style={styles.chipRow}>
-              <TouchableOpacity style={[styles.areaChip, form.status === 'pending' && styles.areaChipActive]} onPress={() => setForm({ ...form, status: 'pending' })}>
-                <Text style={form.status === 'pending' ? { color: '#fff' } : {}}>Pendente</Text>
+              <TouchableOpacity accessibilityRole="button" style={[styles.areaChip, form.status === 'pending' && styles.areaChipActive]} onPress={() => setForm({ ...form, status: 'pending' })}>
+                <AppText style={form.status === 'pending' ? { color: '#fff' } : {}}>Pendente</AppText>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.areaChip, form.status === 'picked_up' && styles.areaChipActive]} onPress={() => setForm({ ...form, status: 'picked_up' })}>
-                <Text style={form.status === 'picked_up' ? { color: '#fff' } : {}}>Retirado</Text>
+              <TouchableOpacity accessibilityRole="button" style={[styles.areaChip, form.status === 'picked_up' && styles.areaChipActive]} onPress={() => setForm({ ...form, status: 'picked_up' })}>
+                <AppText style={form.status === 'picked_up' ? { color: '#fff' } : {}}>Retirado</AppText>
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.label}>Observacoes</Text>
-            <TextInput
+            <AppText style={styles.label}>Observacoes</AppText>
+            <TextInput accessibilityLabel="Observacoes"
               style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
               multiline
               value={form.observations}
               onChangeText={observations => setForm({ ...form, observations })}
             />
 
-            <Text style={styles.label}>Foto URL/Base64</Text>
-            <TextInput style={styles.input} value={form.fotoUrl} onChangeText={fotoUrl => setForm({ ...form, fotoUrl })} />
+            <AppText style={styles.label}>Foto URL/Base64</AppText>
+            <TextInput accessibilityLabel="Foto URL/Base64" style={styles.input} value={form.fotoUrl} onChangeText={fotoUrl => setForm({ ...form, fotoUrl })} />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salvar</Text>}
+            <TouchableOpacity accessibilityRole="button" style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <AppText style={styles.saveBtnText}>Salvar</AppText>}
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -416,23 +420,23 @@ export default function EncomendasScreen() {
         <View style={styles.moradorModalOverlay}>
           <View style={styles.moradorModalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecione um morador</Text>
-              <TouchableOpacity onPress={() => setMoradorModalVisible(false)}>
-                <Ionicons name="close" size={26} color="#64748b" />
+              <AppText style={styles.modalTitle}>Selecione um morador</AppText>
+              <TouchableOpacity accessibilityRole="button" onPress={() => setMoradorModalVisible(false)}>
+                <Ionicons name="close" size={26} color={theme.color.inkMuted} />
               </TouchableOpacity>
             </View>
             <FlatList
               data={residents}
               keyExtractor={item => item.id}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.moradorItem} onPress={() => handleSelectMorador(item)}>
-                  <Text style={styles.moradorName}>{item.name}</Text>
-                  <Text style={styles.moradorUnit}>Unidade {item.unitId ? unitName(item.unitId) : '-'}</Text>
+                <TouchableOpacity accessibilityRole="button" style={styles.moradorItem} onPress={() => handleSelectMorador(item)}>
+                  <AppText style={styles.moradorName}>{item.name}</AppText>
+                  <AppText style={styles.moradorUnit}>Unidade {item.unitId ? unitName(item.unitId) : '-'}</AppText>
                 </TouchableOpacity>
               )}
               ItemSeparatorComponent={() => <View style={styles.separator} />}
               ListEmptyComponent={
-                <Text style={styles.modalEmpty}>Nenhum morador encontrado.</Text>
+                <AppText style={styles.modalEmpty}>Nenhum morador encontrado.</AppText>
               }
             />
           </View>
@@ -443,69 +447,69 @@ export default function EncomendasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1e293b' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
+  title: { fontSize: 20, fontWeight: '700', color: theme.color.ink },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   list: { padding: 16, gap: 12, paddingBottom: 80 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6, gap: 8 },
-  cardTracking: { fontSize: 16, fontWeight: '700', color: '#1e293b', flex: 1 },
+  cardTracking: { fontSize: 16, fontWeight: '700', color: theme.color.ink, flex: 1 },
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  cardDesc: { fontSize: 15, fontWeight: '500', marginVertical: 4, color: '#334155' },
-  cardMeta: { fontSize: 13, color: '#64748b', marginTop: 2 },
-  cardObs: { fontSize: 13, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' },
-  actionRow: { flexDirection: 'row', justifyContent: 'flex-start', flexWrap: 'wrap', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  cardDesc: { fontSize: 15, fontWeight: '500', marginVertical: 4, color: theme.color.ink },
+  cardMeta: { fontSize: 13, color: theme.color.inkMuted, marginTop: 2 },
+  cardObs: { fontSize: 13, color: theme.color.inkMuted, marginTop: 6, fontStyle: 'italic' },
+  actionRow: { flexDirection: 'row', justifyContent: 'flex-start', flexWrap: 'wrap', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: theme.color.surfaceSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 24 },
-  emptyText: { color: '#94a3b8', fontSize: 15, marginTop: 12, fontWeight: '600' },
-  emptySubtext: { color: '#cbd5e1', fontSize: 13, marginTop: 6, textAlign: 'center' },
+  emptyText: { color: theme.color.inkMuted, fontSize: 15, marginTop: 12, fontWeight: '600' },
+  emptySubtext: { color: theme.color.borderStrong, fontSize: 13, marginTop: 6, textAlign: 'center' },
   errorBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#176b87', borderRadius: 8 },
+  errorText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.color.action, borderRadius: 8 },
   retryText: { color: '#fff', fontWeight: '600' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  modal: { flex: 1, backgroundColor: theme.color.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: theme.color.ink },
   modalBody: { padding: 20 },
   formError: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, marginBottom: 8,
+    backgroundColor: theme.color.dangerSoft, borderRadius: 8, padding: 12, marginBottom: 8,
   },
-  formErrorText: { color: '#dc2626', fontSize: 13, flex: 1 },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff', marginBottom: 4 },
+  formErrorText: { color: theme.color.danger, fontSize: 13, flex: 1 },
+  label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 6, marginTop: 12 },
+  input: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff', marginBottom: 4 },
   chipRow: { flexDirection: 'row', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
-  areaChip: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' },
-  areaChipActive: { backgroundColor: '#176b87', borderColor: '#176b87' },
-  areaChipText: { fontSize: 14, color: '#475569', fontWeight: '600' },
-  helpText: { color: '#ef4444', fontSize: 13, marginBottom: 8 },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 40 },
+  areaChip: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' },
+  areaChipActive: { backgroundColor: theme.color.action, borderColor: theme.color.action },
+  areaChipText: { fontSize: 14, color: theme.color.inkMuted, fontWeight: '600' },
+  helpText: { color: theme.color.danger, fontSize: 13, marginBottom: 8 },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 40 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   selectMorador: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: theme.color.border,
     borderRadius: 10,
     padding: 12,
     backgroundColor: '#fff',
     marginBottom: 4,
   },
-  selectMoradorText: { fontSize: 15, color: '#1e293b' },
-  selectMoradorPlaceholder: { fontSize: 15, color: '#94a3b8' },
+  selectMoradorText: { fontSize: 15, color: theme.color.ink },
+  selectMoradorPlaceholder: { fontSize: 15, color: theme.color.inkMuted },
   moradorModalOverlay: { flex: 1, backgroundColor: '#00000080', justifyContent: 'center', padding: 20 },
   moradorModalContent: { backgroundColor: '#fff', borderRadius: 20, maxHeight: '80%' },
   moradorItem: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 12 },
-  moradorName: { fontSize: 16, fontWeight: '500', color: '#1e293b', flex: 1 },
-  moradorUnit: { fontSize: 14, color: '#64748b' },
-  modalEmpty: { padding: 20, color: '#64748b', textAlign: 'center' },
-  separator: { height: 1, backgroundColor: '#e2e8f0' },
+  moradorName: { fontSize: 16, fontWeight: '500', color: theme.color.ink, flex: 1 },
+  moradorUnit: { fontSize: 14, color: theme.color.inkMuted },
+  modalEmpty: { padding: 20, color: theme.color.inkMuted, textAlign: 'center' },
+  separator: { height: 1, backgroundColor: theme.color.border },
 });

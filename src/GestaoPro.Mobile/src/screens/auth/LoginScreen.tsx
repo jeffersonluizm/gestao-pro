@@ -1,6 +1,6 @@
 ﻿import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, Image, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -12,6 +12,8 @@ import { useAuth } from '../../context/AuthContext';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { sw, sf, HP } from '../../utils/responsive';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Login'> };
 
 export default function LoginScreen({ navigation }: Props) {
@@ -81,13 +83,15 @@ export default function LoginScreen({ navigation }: Props) {
     return (
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.card}>
-          <Ionicons name="lock-closed-outline" size={48} color="#176b87" style={styles.centerIcon} />
-          <Text style={styles.title}>Primeiro acesso</Text>
-          <Text style={styles.subtitle}>Crie uma nova senha para continuar.</Text>
-          <TextInput style={styles.input} placeholder="Nova senha" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
-          <TextInput style={styles.input} placeholder="Confirmar nova senha" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
-          <TouchableOpacity style={styles.button} onPress={handleChangePassword} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Salvar senha</Text>}
+          <Ionicons name="lock-closed-outline" size={48} color={theme.color.action} style={styles.centerIcon} />
+          <AppText style={styles.title}>Primeiro acesso</AppText>
+          <AppText style={styles.subtitle}>Crie uma nova senha para continuar.</AppText>
+          <AppText style={styles.label}>Nova senha</AppText>
+          <TextInput style={styles.input} accessibilityLabel="Nova senha" placeholder="Mínimo 8 caracteres" secureTextEntry value={newPassword} onChangeText={setNewPassword} />
+          <AppText style={styles.label}>Confirmar nova senha</AppText>
+          <TextInput style={styles.input} accessibilityLabel="Confirmar nova senha" placeholder="Repita a senha" secureTextEntry value={confirmPassword} onChangeText={setConfirmPassword} />
+          <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={handleChangePassword} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <AppText style={styles.buttonText}>Salvar senha</AppText>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -99,63 +103,66 @@ export default function LoginScreen({ navigation }: Props) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.logoCircle}>
-            <Ionicons name="business" size={40} color="#fff" />
-          </View>
-          <Text style={styles.appName}>GestaoPro</Text>
-          <Text style={styles.appTagline}>Eficiência para seu condomínio</Text>
+          <Image source={require('../../../assets/logo.png')} style={styles.logo} accessible accessibilityLabel="Logo do Gestão Pro" />
+          <AppText style={styles.appName} accessibilityRole="header">Gestão Pro</AppText>
+          <AppText style={styles.appTagline}>Eficiência para o seu condomínio</AppText>
         </View>
 
         {/* Card */}
         <View style={styles.card}>
-          <Text style={styles.title}>Entrar</Text>
+          <AppText style={styles.title}>Entrar</AppText>
 
-          <Text style={styles.label}>E-mail</Text>
+          <AppText style={styles.label}>E-mail</AppText>
           <TextInput
             style={styles.input}
             placeholder="seu@email.com"
+            accessibilityLabel="E-mail"
+            autoComplete="email"
             keyboardType="email-address"
             autoCapitalize="none"
             value={email}
             onChangeText={setEmail}
           />
 
-          <Text style={styles.label}>Senha</Text>
+          <AppText style={styles.label}>Senha</AppText>
           <View style={styles.passwordRow}>
             <TextInput
               style={[styles.input, { flex: 1, marginBottom: 0 }]}
-              placeholder="••••••••"
+              placeholder="Sua senha"
+              accessibilityLabel="Senha"
+              autoComplete="password"
               secureTextEntry={!showPwd}
               value={password}
               onChangeText={setPassword}
             />
-            <TouchableOpacity onPress={() => setShowPwd(v => !v)} style={styles.eyeBtn}>
-              <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={20} color="#64748b" />
+            <TouchableOpacity accessibilityRole="button" accessibilityLabel={showPwd ? 'Ocultar senha' : 'Mostrar senha'} onPress={() => setShowPwd(v => !v)} style={styles.eyeBtn}>
+              <Ionicons name={showPwd ? 'eye-off-outline' : 'eye-outline'} size={20} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
 
-          <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={loading}>
-            {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Entrar</Text>}
+          <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={handleLogin} disabled={loading}>
+            {loading ? <ActivityIndicator color="#fff" /> : <AppText style={styles.buttonText}>Entrar</AppText>}
           </TouchableOpacity>
         </View>
 
         {/* Link para cadastro */}
         <View style={styles.registerRow}>
-          <Text style={styles.registerText}>Primeira vez? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate('Register')}>
-            <Text style={styles.registerLink}>Criar conta</Text>
+          <AppText style={styles.registerText}>Primeira vez? </AppText>
+          <TouchableOpacity accessibilityRole="button" onPress={() => navigation.navigate('Register')}>
+            <AppText style={styles.registerLink}>Ative o seu acesso</AppText>
           </TouchableOpacity>
         </View>
 
         {/* Credenciais de teste: a API só cria essas contas em desenvolvimento */}
         {__DEV__ && (
           <View style={styles.testCard}>
-            <Text style={styles.testTitle}>🧪 Credenciais de teste</Text>
-            <Text style={styles.testLine}>Admin → admin@gestaopro.local / Admin@123</Text>
-            <Text style={styles.testLine}>CPFs mock para cadastro:</Text>
-            <Text style={styles.testLine}>  111.111.111-11 (João da Silva)</Text>
-            <Text style={styles.testLine}>  222.222.222-22 (Maria Santos)</Text>
-            <Text style={styles.testLine}>  333.333.333-33 (Pedro Oliveira)</Text>
+            <AppText style={styles.testTitle}>Ambiente de desenvolvimento</AppText>
+            <AppText style={styles.testLine}>Administração: admin@gestaopro.local / Admin@123</AppText>
+            <AppText style={styles.testLine}>Código do condomínio de demonstração: Demo-Condominio-2026</AppText>
+            <AppText style={styles.testLine}>CPFs pré-cadastrados para ativar acesso:</AppText>
+            <AppText style={styles.testLine}>  111.111.111-11 (João da Silva)</AppText>
+            <AppText style={styles.testLine}>  222.222.222-22 (Maria Santos)</AppText>
+            <AppText style={styles.testLine}>  333.333.333-33 (Pedro Oliveira)</AppText>
           </View>
         )}
       </ScrollView>
@@ -164,16 +171,12 @@ export default function LoginScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4ff' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   scroll: { flexGrow: 1, paddingHorizontal: HP, paddingTop: sw(60), paddingBottom: sw(24) },
   header: { alignItems: 'center', marginBottom: sw(32) },
-  logoCircle: {
-    width: sw(80), height: sw(80), borderRadius: sw(40),
-    backgroundColor: '#176b87', justifyContent: 'center', alignItems: 'center',
-    marginBottom: sw(12),
-  },
-  appName: { fontSize: sf(26), fontWeight: '700', color: '#1e293b' },
-  appTagline: { fontSize: sf(14), color: '#64748b', marginTop: sw(4) },
+  logo: { width: sw(84), height: sw(84), borderRadius: sw(18), marginBottom: sw(12) },
+  appName: { fontSize: sf(26), fontWeight: '700', color: theme.color.ink },
+  appTagline: { fontSize: sf(14), color: theme.color.inkMuted, marginTop: sw(4) },
   card: {
     backgroundColor: '#fff', borderRadius: sw(16), padding: sw(24),
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
@@ -181,27 +184,27 @@ const styles = StyleSheet.create({
     marginBottom: sw(20),
   },
   centerIcon: { alignSelf: 'center', marginBottom: sw(12) },
-  title: { fontSize: sf(22), fontWeight: '700', color: '#1e293b', marginBottom: sw(4) },
-  subtitle: { fontSize: sf(14), color: '#64748b', marginBottom: sw(20) },
-  label: { fontSize: sf(13), fontWeight: '600', color: '#475569', marginBottom: sw(4), marginTop: sw(12) },
+  title: { fontSize: sf(22), fontWeight: '700', color: theme.color.ink, marginBottom: sw(4) },
+  subtitle: { fontSize: sf(14), color: theme.color.inkMuted, marginBottom: sw(20) },
+  label: { fontSize: sf(13), fontWeight: '600', color: theme.color.inkMuted, marginBottom: sw(4), marginTop: sw(12) },
   input: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: sw(10),
-    padding: sw(12), fontSize: sf(15), backgroundColor: '#f8fafc', marginBottom: sw(12),
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: sw(10),
+    padding: sw(12), fontSize: sf(15), backgroundColor: theme.color.background, marginBottom: sw(12),
   },
   passwordRow: { flexDirection: 'row', alignItems: 'center', marginBottom: sw(20) },
   eyeBtn: { padding: sw(12) },
   button: {
-    backgroundColor: '#176b87', borderRadius: sw(10), padding: sw(14),
+    backgroundColor: theme.color.action, borderRadius: sw(10), padding: sw(14),
     alignItems: 'center', marginTop: sw(4),
   },
   buttonText: { color: '#fff', fontSize: sf(16), fontWeight: '700' },
   registerRow: { flexDirection: 'row', justifyContent: 'center', marginBottom: sw(24) },
-  registerText: { color: '#64748b', fontSize: sf(14) },
-  registerLink: { color: '#176b87', fontSize: sf(14), fontWeight: '600' },
+  registerText: { color: theme.color.inkMuted, fontSize: sf(14) },
+  registerLink: { color: theme.color.action, fontSize: sf(14), fontWeight: '600' },
   testCard: {
-    backgroundColor: '#fefce8', borderWidth: 1, borderColor: '#fde047',
+    backgroundColor: theme.color.accentSoft, borderWidth: 1, borderColor: theme.color.brandAccent,
     borderRadius: sw(12), padding: sw(14),
   },
-  testTitle: { fontSize: sf(13), fontWeight: '700', color: '#854d0e', marginBottom: sw(6) },
-  testLine: { fontSize: sf(12), color: '#713f12', marginBottom: sw(2) },
+  testTitle: { fontSize: sf(13), fontWeight: '700', color: theme.color.accentText, marginBottom: sw(6) },
+  testLine: { fontSize: sf(12), color: theme.color.accentText, marginBottom: sw(2) },
 });

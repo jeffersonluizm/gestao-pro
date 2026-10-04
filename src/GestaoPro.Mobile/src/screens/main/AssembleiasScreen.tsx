@@ -1,7 +1,7 @@
 // src/screens/main/AssembleiasScreen.tsx
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TextInput, TouchableOpacity,
+  View, FlatList, StyleSheet, TextInput, TouchableOpacity,
   Modal, Alert, ActivityIndicator, Platform, RefreshControl, ScrollView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,6 +23,9 @@ import {
 import { sw, sf, HP } from '../../utils/responsive';
 import { apiDateToBR, dateBRToIso, maskDateBR } from '../../utils/formatters';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 type AssemblyStatus = 'agendada' | 'em_andamento' | 'encerrada' | 'cancelada';
 
 const STATUS_OPTIONS: { value: AssemblyStatus; label: string }[] = [
@@ -67,15 +70,15 @@ function normalizeDateForApi(value: string, endOfDay = false) {
 
 function statusInfo(status: string) {
   if (status === 'em_andamento' || status === 'en_andamento') {
-    return { bg: '#dcfce7', text: '#15803d', label: 'Em andamento' };
+    return { bg: theme.color.successSoft, text: theme.color.success, label: 'Em andamento' };
   }
   if (status === 'encerrada') {
-    return { bg: '#e0f2fe', text: '#0369a1', label: 'Encerrada' };
+    return { bg: theme.color.actionSoft, text: theme.color.action, label: 'Encerrada' };
   }
   if (status === 'cancelada') {
-    return { bg: '#fee2e2', text: '#dc2626', label: 'Cancelada' };
+    return { bg: theme.color.dangerSoft, text: theme.color.danger, label: 'Cancelada' };
   }
-  return { bg: '#fef3c7', text: '#b45309', label: 'Agendada' };
+  return { bg: theme.color.warningSoft, text: theme.color.warning, label: 'Agendada' };
 }
 
 export default function AssembleiasScreen() {
@@ -295,42 +298,42 @@ export default function AssembleiasScreen() {
     return (
       <View style={styles.card}>
         <View style={styles.cardHeader}>
-          <Text style={styles.cardTitle} numberOfLines={2}>{item.title}</Text>
+          <AppText style={styles.cardTitle} numberOfLines={2}>{item.title}</AppText>
           <View style={[styles.statusBadge, { backgroundColor: info.bg }]}>
-            <Text style={[styles.statusText, { color: info.text }]}>{info.label}</Text>
+            <AppText style={[styles.statusText, { color: info.text }]}>{info.label}</AppText>
           </View>
         </View>
-        {item.description ? <Text style={styles.description}>{item.description}</Text> : null}
+        {item.description ? <AppText style={styles.description}>{item.description}</AppText> : null}
         <View style={styles.detailRow}>
-          <Ionicons name="business-outline" size={sw(16)} color="#64748b" />
-          <Text style={styles.detailText}>{condominiumName(item.condominiumId)}</Text>
+          <Ionicons name="business-outline" size={sw(16)} color={theme.color.inkMuted} />
+          <AppText style={styles.detailText}>{condominiumName(item.condominiumId)}</AppText>
         </View>
         <View style={styles.detailRow}>
-          <Ionicons name="calendar-outline" size={sw(16)} color="#64748b" />
-          <Text style={styles.detailText}>
+          <Ionicons name="calendar-outline" size={sw(16)} color={theme.color.inkMuted} />
+          <AppText style={styles.detailText}>
             {formatDate(item.startTime)} ate {formatDate(item.endTime)}
-          </Text>
+          </AppText>
         </View>
         <View style={styles.detailRow}>
-          <Ionicons name="list-outline" size={sw(16)} color="#64748b" />
-          <Text style={styles.detailText}>{topics.length || 0} pauta(s)</Text>
+          <Ionicons name="list-outline" size={sw(16)} color={theme.color.inkMuted} />
+          <AppText style={styles.detailText}>{topics.length || 0} pauta(s)</AppText>
         </View>
         {topics.length ? (
           <View style={styles.topicsBox}>
             {topics.slice(0, 3).map((topic, index) => (
-              <Text key={`${item.id}-${index}`} style={styles.topicText}>{index + 1}. {topic}</Text>
+              <AppText key={`${item.id}-${index}`} style={styles.topicText}>{index + 1}. {topic}</AppText>
             ))}
           </View>
         ) : null}
         {canManage ? (
           <View style={styles.actions}>
-            <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionBtn}>
-              <Ionicons name="create-outline" size={sw(18)} color="#3b82f6" />
-              <Text style={[styles.actionText, { color: '#3b82f6' }]}>Editar</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => handleEdit(item)} style={styles.actionBtn}>
+              <Ionicons name="create-outline" size={sw(18)} color={theme.color.action} />
+              <AppText style={[styles.actionText, { color: theme.color.action }]}>Editar</AppText>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
-              <Ionicons name="trash-outline" size={sw(18)} color="#ef4444" />
-              <Text style={[styles.actionText, { color: '#ef4444' }]}>Remover</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => handleDelete(item.id)} style={styles.actionBtn}>
+              <Ionicons name="trash-outline" size={sw(18)} color={theme.color.danger} />
+              <AppText style={[styles.actionText, { color: theme.color.danger }]}>Remover</AppText>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -341,34 +344,35 @@ export default function AssembleiasScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>Assembleias</Text>
+        <BackButton />
+        <AppText style={styles.titleHeader}>Assembleias</AppText>
         {canManage ? (
-          <TouchableOpacity style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
+          <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
             <Ionicons name="add" size={sw(22)} color="#fff" />
-            <Text style={styles.addBtnText}>Nova</Text>
+            <AppText style={styles.addBtnText}>Nova</AppText>
           </TouchableOpacity>
         ) : null}
       </View>
 
       {canManage ? (
         <View style={styles.filterSection}>
-          <Text style={styles.filterLabel}>Condominio</Text>
+          <AppText style={styles.filterLabel}>Condominio</AppText>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               style={[styles.filterChip, filterCondominiumId === '' && styles.filterChipActive]}
               onPress={() => setFilterCondominiumId('')}
             >
-              <Text style={filterCondominiumId === '' ? styles.filterChipActiveText : styles.filterChipText}>Todos</Text>
+              <AppText style={filterCondominiumId === '' ? styles.filterChipActiveText : styles.filterChipText}>Todos</AppText>
             </TouchableOpacity>
             {visibleCondominiums.map(condominium => (
-              <TouchableOpacity
+              <TouchableOpacity accessibilityRole="button"
                 key={condominium.id}
                 style={[styles.filterChip, filterCondominiumId === condominium.id && styles.filterChipActive]}
                 onPress={() => setFilterCondominiumId(condominium.id)}
               >
-                <Text style={filterCondominiumId === condominium.id ? styles.filterChipActiveText : styles.filterChipText}>
+                <AppText style={filterCondominiumId === condominium.id ? styles.filterChipActiveText : styles.filterChipText}>
                   {condominium.name}
-                </Text>
+                </AppText>
               </TouchableOpacity>
             ))}
           </ScrollView>
@@ -376,28 +380,28 @@ export default function AssembleiasScreen() {
       ) : null}
 
       <View style={styles.historyFilter}>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.filterChip, !showHistory && styles.filterChipActive]}
           onPress={() => setShowHistory(false)}
         >
-          <Text style={!showHistory ? styles.filterChipActiveText : styles.filterChipText}>Atuais</Text>
+          <AppText style={!showHistory ? styles.filterChipActiveText : styles.filterChipText}>Atuais</AppText>
         </TouchableOpacity>
-        <TouchableOpacity
+        <TouchableOpacity accessibilityRole="button"
           style={[styles.filterChip, showHistory && styles.filterChipActive]}
           onPress={() => setShowHistory(true)}
         >
-          <Text style={showHistory ? styles.filterChipActiveText : styles.filterChipText}>Histórico</Text>
+          <AppText style={showHistory ? styles.filterChipActiveText : styles.filterChipText}>Histórico</AppText>
         </TouchableOpacity>
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#176b87" style={{ marginTop: sw(60) }} />
+        <ActivityIndicator size="large" color={theme.color.action} style={{ marginTop: sw(60) }} />
       ) : listError ? (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={sw(32)} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadAssemblies()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={sw(32)} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadAssemblies()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -405,14 +409,14 @@ export default function AssembleiasScreen() {
           data={assemblies}
           keyExtractor={item => item.id}
           renderItem={renderAssembly}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#176b87']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.color.action]} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="people-outline" size={sw(56)} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Nenhuma assembleia encontrada.</Text>
-              <Text style={styles.emptySubtext}>
+              <Ionicons name="people-outline" size={sw(56)} color={theme.color.borderStrong} />
+              <AppText style={styles.emptyText}>Nenhuma assembleia encontrada.</AppText>
+              <AppText style={styles.emptySubtext}>
                 {canManage ? 'Toque em "Nova" para criar.' : 'Novas assembleias aparecerao aqui.'}
-              </Text>
+              </AppText>
             </View>
           }
           contentContainerStyle={styles.listContent}
@@ -422,71 +426,71 @@ export default function AssembleiasScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{editingId ? 'Editar Assembleia' : 'Nova Assembleia'}</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={sw(26)} color="#64748b" />
+            <AppText style={styles.modalTitle}>{editingId ? 'Editar Assembleia' : 'Nova Assembleia'}</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setModalVisible(false)}>
+              <Ionicons name="close" size={sw(26)} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             {formError ? (
               <View style={styles.formError}>
-                <Ionicons name="alert-circle-outline" size={sw(16)} color="#dc2626" />
-                <Text style={styles.formErrorText}>{formError}</Text>
+                <Ionicons name="alert-circle-outline" size={sw(16)} color={theme.color.danger} />
+                <AppText style={styles.formErrorText}>{formError}</AppText>
               </View>
             ) : null}
 
-            <Text style={styles.label}>Condominio *</Text>
+            <AppText style={styles.label}>Condominio *</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: sw(12) }}>
               {visibleCondominiums.map(condominium => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={condominium.id}
                   style={[styles.optionButton, form.condominiumId === condominium.id && styles.optionSelected]}
                   onPress={() => setForm({ ...form, condominiumId: condominium.id })}
                 >
-                  <Text style={[styles.optionText, form.condominiumId === condominium.id && styles.optionSelectedText]}>
+                  <AppText style={[styles.optionText, form.condominiumId === condominium.id && styles.optionSelectedText]}>
                     {condominium.name}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Titulo *</Text>
-            <TextInput style={styles.input} value={form.title} onChangeText={title => setForm({ ...form, title })} />
+            <AppText style={styles.label}>Titulo *</AppText>
+            <TextInput accessibilityLabel="Titulo" style={styles.input} value={form.title} onChangeText={title => setForm({ ...form, title })} />
 
-            <Text style={styles.label}>Descricao</Text>
-            <TextInput
+            <AppText style={styles.label}>Descricao</AppText>
+            <TextInput accessibilityLabel="Descricao"
               style={[styles.input, { minHeight: sw(80), textAlignVertical: 'top' }]}
               multiline
               value={form.description}
               onChangeText={description => setForm({ ...form, description })}
             />
 
-            <Text style={styles.label}>Data inicial da votação *</Text>
-            <TextInput style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} autoCorrect={false} value={form.startDate} onChangeText={startDate => setForm({ ...form, startDate: maskDateBR(startDate) })} />
+            <AppText style={styles.label}>Data inicial da votação *</AppText>
+            <TextInput accessibilityLabel="Data inicial da votação" style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} autoCorrect={false} value={form.startDate} onChangeText={startDate => setForm({ ...form, startDate: maskDateBR(startDate) })} />
 
-            <Text style={styles.label}>Data final da votação</Text>
-            <TextInput style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} autoCorrect={false} value={form.endDate} onChangeText={endDate => setForm({ ...form, endDate: maskDateBR(endDate) })} />
+            <AppText style={styles.label}>Data final da votação</AppText>
+            <TextInput accessibilityLabel="Data final da votação" style={styles.input} placeholder="DD/MM/AAAA" keyboardType="numeric" maxLength={10} autoCorrect={false} value={form.endDate} onChangeText={endDate => setForm({ ...form, endDate: maskDateBR(endDate) })} />
 
             {editingId ? (
               <>
-                <Text style={styles.label}>Status</Text>
+                <AppText style={styles.label}>Status</AppText>
                 <View style={styles.optionsRow}>
                   {STATUS_OPTIONS.map(option => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={option.value}
                       style={[styles.optionButton, form.status === option.value && styles.optionSelected]}
                       onPress={() => setForm({ ...form, status: option.value })}
                     >
-                      <Text style={[styles.optionText, form.status === option.value && styles.optionSelectedText]}>{option.label}</Text>
+                      <AppText style={[styles.optionText, form.status === option.value && styles.optionSelectedText]}>{option.label}</AppText>
                     </TouchableOpacity>
                   ))}
                 </View>
               </>
             ) : null}
 
-            <Text style={styles.label}>Pautas</Text>
-            <TextInput
+            <AppText style={styles.label}>Pautas</AppText>
+            <TextInput accessibilityLabel="Pautas"
               style={[styles.input, { minHeight: sw(100), textAlignVertical: 'top' }]}
               multiline
               placeholder={'Uma pauta por linha'}
@@ -494,16 +498,16 @@ export default function AssembleiasScreen() {
               onChangeText={topicsText => setForm({ ...form, topicsText })}
             />
 
-            <Text style={styles.label}>Ata</Text>
-            <TextInput
+            <AppText style={styles.label}>Ata</AppText>
+            <TextInput accessibilityLabel="Ata"
               style={[styles.input, { minHeight: sw(80), textAlignVertical: 'top' }]}
               multiline
               value={form.minutes}
               onChangeText={minutes => setForm({ ...form, minutes })}
             />
 
-            <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : 'Salvar'}</Text>
+            <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+              <AppText style={styles.saveBtnText}>{saving ? 'Salvando...' : 'Salvar'}</AppText>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -513,57 +517,57 @@ export default function AssembleiasScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: HP, paddingVertical: sw(16),
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  titleHeader: { fontSize: sf(20), fontWeight: '700', color: '#1e293b' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: sw(8), paddingHorizontal: sw(14), paddingVertical: sw(8), gap: sw(4) },
+  titleHeader: { fontSize: sf(20), fontWeight: '700', color: theme.color.ink },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: sw(8), paddingHorizontal: sw(14), paddingVertical: sw(8), gap: sw(4) },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: sf(14) },
   disabled: { opacity: 0.55 },
   filterSection: { backgroundColor: '#fff', padding: sw(16), margin: sw(16), borderRadius: sw(12), shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
   historyFilter: { flexDirection: 'row', paddingHorizontal: sw(16), paddingTop: sw(12) },
-  filterLabel: { fontSize: sf(14), fontWeight: '600', color: '#334155', marginBottom: sw(12) },
-  filterChip: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: '#f1f5f9', borderRadius: sw(20), marginRight: sw(8) },
-  filterChipActive: { backgroundColor: '#176b87' },
-  filterChipText: { color: '#475569', fontWeight: '500' },
+  filterLabel: { fontSize: sf(14), fontWeight: '600', color: theme.color.ink, marginBottom: sw(12) },
+  filterChip: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: theme.color.surfaceSoft, borderRadius: sw(20), marginRight: sw(8) },
+  filterChipActive: { backgroundColor: theme.color.action },
+  filterChipText: { color: theme.color.inkMuted, fontWeight: '500' },
   filterChipActiveText: { color: '#fff', fontWeight: '600' },
   listContent: { padding: sw(16), paddingBottom: sw(80), gap: sw(12) },
   card: { backgroundColor: '#fff', borderRadius: sw(12), padding: sw(16), shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: sw(8), gap: sw(8) },
-  cardTitle: { fontSize: sf(16), fontWeight: '700', color: '#0f172a', flex: 1 },
+  cardTitle: { fontSize: sf(16), fontWeight: '700', color: theme.color.ink, flex: 1 },
   statusBadge: { paddingHorizontal: sw(8), paddingVertical: sw(3), borderRadius: sw(6) },
   statusText: { fontSize: sf(11), fontWeight: '700' },
-  description: { fontSize: sf(14), color: '#475569', marginBottom: sw(12) },
+  description: { fontSize: sf(14), color: theme.color.inkMuted, marginBottom: sw(12) },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: sw(8), marginBottom: sw(6) },
-  detailText: { fontSize: sf(13), color: '#475569', flex: 1 },
-  topicsBox: { backgroundColor: '#f8fafc', borderRadius: sw(8), padding: sw(10), marginTop: sw(8) },
-  topicText: { fontSize: sf(13), color: '#475569', marginBottom: sw(4) },
-  actions: { flexDirection: 'row', justifyContent: 'flex-start', flexWrap: 'wrap', marginTop: sw(12), paddingTop: sw(12), borderTopWidth: 1, borderTopColor: '#e2e8f0', gap: sw(12) },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: sw(6), paddingVertical: sw(6), paddingHorizontal: sw(12), borderRadius: sw(20), backgroundColor: '#f1f5f9' },
+  detailText: { fontSize: sf(13), color: theme.color.inkMuted, flex: 1 },
+  topicsBox: { backgroundColor: theme.color.background, borderRadius: sw(8), padding: sw(10), marginTop: sw(8) },
+  topicText: { fontSize: sf(13), color: theme.color.inkMuted, marginBottom: sw(4) },
+  actions: { flexDirection: 'row', justifyContent: 'flex-start', flexWrap: 'wrap', marginTop: sw(12), paddingTop: sw(12), borderTopWidth: 1, borderTopColor: theme.color.border, gap: sw(12) },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: sw(6), paddingVertical: sw(6), paddingHorizontal: sw(12), borderRadius: sw(20), backgroundColor: theme.color.surfaceSoft },
   actionText: { fontSize: sf(13), fontWeight: '500' },
   errorBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: sw(24) },
-  errorText: { color: '#64748b', fontSize: sf(14), textAlign: 'center', marginTop: sw(8) },
-  retryBtn: { marginTop: sw(16), paddingHorizontal: HP, paddingVertical: sw(10), backgroundColor: '#176b87', borderRadius: sw(8) },
+  errorText: { color: theme.color.inkMuted, fontSize: sf(14), textAlign: 'center', marginTop: sw(8) },
+  retryBtn: { marginTop: sw(16), paddingHorizontal: HP, paddingVertical: sw(10), backgroundColor: theme.color.action, borderRadius: sw(8) },
   retryText: { color: '#fff', fontWeight: '600' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: sw(64), paddingHorizontal: sw(24) },
-  emptyText: { fontSize: sf(16), fontWeight: '600', color: '#64748b', marginTop: sw(16), textAlign: 'center' },
-  emptySubtext: { fontSize: sf(14), color: '#94a3b8', marginTop: sw(8), textAlign: 'center' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: HP, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: sf(18), fontWeight: '700', color: '#1e293b' },
+  emptyText: { fontSize: sf(16), fontWeight: '600', color: theme.color.inkMuted, marginTop: sw(16), textAlign: 'center' },
+  emptySubtext: { fontSize: sf(14), color: theme.color.inkMuted, marginTop: sw(8), textAlign: 'center' },
+  modal: { flex: 1, backgroundColor: theme.color.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: HP, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  modalTitle: { fontSize: sf(18), fontWeight: '700', color: theme.color.ink },
   modalBody: { padding: HP },
-  formError: { flexDirection: 'row', alignItems: 'center', gap: sw(6), backgroundColor: '#fef2f2', borderRadius: sw(8), padding: sw(12), marginBottom: sw(8) },
-  formErrorText: { color: '#dc2626', fontSize: sf(13), flex: 1 },
-  label: { fontSize: sf(13), fontWeight: '600', color: '#475569', marginBottom: sw(6), marginTop: sw(12) },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: sw(10), padding: sw(12), fontSize: sf(15), backgroundColor: '#fff', marginBottom: sw(4) },
+  formError: { flexDirection: 'row', alignItems: 'center', gap: sw(6), backgroundColor: theme.color.dangerSoft, borderRadius: sw(8), padding: sw(12), marginBottom: sw(8) },
+  formErrorText: { color: theme.color.danger, fontSize: sf(13), flex: 1 },
+  label: { fontSize: sf(13), fontWeight: '600', color: theme.color.inkMuted, marginBottom: sw(6), marginTop: sw(12) },
+  input: { borderWidth: 1, borderColor: theme.color.border, borderRadius: sw(10), padding: sw(12), fontSize: sf(15), backgroundColor: '#fff', marginBottom: sw(4) },
   optionsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: sw(12), gap: sw(8) },
-  optionButton: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: '#f1f5f9', borderRadius: sw(20), marginRight: sw(8) },
-  optionSelected: { backgroundColor: '#176b87' },
-  optionText: { color: '#475569', fontWeight: '500' },
+  optionButton: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: theme.color.surfaceSoft, borderRadius: sw(20), marginRight: sw(8) },
+  optionSelected: { backgroundColor: theme.color.action },
+  optionText: { color: theme.color.inkMuted, fontWeight: '500' },
   optionSelectedText: { color: '#fff', fontWeight: '600' },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: sw(12), padding: sw(16), alignItems: 'center', marginTop: sw(24), marginBottom: sw(40) },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: sw(12), padding: sw(16), alignItems: 'center', marginTop: sw(24), marginBottom: sw(40) },
   saveBtnText: { color: '#fff', fontSize: sf(16), fontWeight: '700' },
 });

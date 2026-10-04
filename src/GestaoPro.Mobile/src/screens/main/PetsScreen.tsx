@@ -1,7 +1,7 @@
 // src/screens/main/PetsScreen.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
+  View, FlatList, StyleSheet, TouchableOpacity,
   Modal, TextInput, ScrollView, ActivityIndicator, RefreshControl,
   Switch, Alert, Platform,
 } from 'react-native';
@@ -27,6 +27,9 @@ import {
   User,
 } from '../../api/client';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 const SPECIES_OPTIONS: { label: string; value: PetSpecies }[] = [
   { label: 'Cao', value: 'Dog' },
   { label: 'Gato', value: 'Cat' },
@@ -296,26 +299,26 @@ export default function PetsScreen() {
     return (
       <View style={styles.card}>
         <View style={styles.cardRow}>
-          <Text style={styles.cardTitle}>{item.name}</Text>
+          <AppText style={styles.cardTitle}>{item.name}</AppText>
           <View style={[styles.badge, item.vaccination ? styles.badgeSuccess : styles.badgeWarning]}>
-            <Text style={[styles.badgeText, item.vaccination ? styles.badgeSuccessText : styles.badgeWarningText]}>
+            <AppText style={[styles.badgeText, item.vaccination ? styles.badgeSuccessText : styles.badgeWarningText]}>
               {item.vaccination ? 'Vacinado' : 'Nao vacinado'}
-            </Text>
+            </AppText>
           </View>
         </View>
-        <Text style={styles.cardMeta}>Tutor: {ownerName(item.ownerId)} - Unidade {unitName(item.unitId)}</Text>
-        <Text style={styles.cardMeta}>Especie: {speciesLabel}</Text>
-        <Text style={styles.cardMeta}>Raca: {item.breed || '-'} | Cor: {item.color || '-'}</Text>
-        {item.observations ? <Text style={styles.cardObs}>Obs: {item.observations}</Text> : null}
+        <AppText style={styles.cardMeta}>Tutor: {ownerName(item.ownerId)} - Unidade {unitName(item.unitId)}</AppText>
+        <AppText style={styles.cardMeta}>Especie: {speciesLabel}</AppText>
+        <AppText style={styles.cardMeta}>Raca: {item.breed || '-'} | Cor: {item.color || '-'}</AppText>
+        {item.observations ? <AppText style={styles.cardObs}>Obs: {item.observations}</AppText> : null}
         {canManage ? (
           <View style={styles.actionRow}>
-            <TouchableOpacity onPress={() => handleEdit(item)} style={styles.actionBtn}>
-              <Ionicons name="create-outline" size={18} color="#3b82f6" />
-              <Text style={{ color: '#3b82f6' }}>Editar</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => handleEdit(item)} style={styles.actionBtn}>
+              <Ionicons name="create-outline" size={18} color={theme.color.action} />
+              <AppText style={{ color: theme.color.action }}>Editar</AppText>
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => handleDelete(item)} style={styles.actionBtn}>
-              <Ionicons name="trash-outline" size={18} color="#ef4444" />
-              <Text style={{ color: '#ef4444' }}>Remover</Text>
+            <TouchableOpacity accessibilityRole="button" onPress={() => handleDelete(item)} style={styles.actionBtn}>
+              <Ionicons name="trash-outline" size={18} color={theme.color.danger} />
+              <AppText style={{ color: theme.color.danger }}>Remover</AppText>
             </TouchableOpacity>
           </View>
         ) : null}
@@ -326,23 +329,24 @@ export default function PetsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Pets</Text>
+        <BackButton />
+        <AppText style={styles.title}>Pets</AppText>
         {canManage ? (
-          <TouchableOpacity style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
+          <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
             <Ionicons name="add" size={22} color="#fff" />
-            <Text style={styles.addBtnText}>Novo</Text>
+            <AppText style={styles.addBtnText}>Novo</AppText>
           </TouchableOpacity>
         ) : null}
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#176b87" style={{ marginTop: 60 }} />
+        <ActivityIndicator size="large" color={theme.color.action} style={{ marginTop: 60 }} />
       ) : listError ? (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={32} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadPets()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={32} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadPets()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -350,15 +354,15 @@ export default function PetsScreen() {
           data={pets}
           keyExtractor={(item, index) => petId(item) || String(index)}
           renderItem={renderPet}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#176b87']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.color.action]} />}
           contentContainerStyle={styles.list}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="paw-outline" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Nenhum pet cadastrado.</Text>
-              <Text style={styles.emptySubtext}>
+              <Ionicons name="paw-outline" size={48} color={theme.color.borderStrong} />
+              <AppText style={styles.emptyText}>Nenhum pet cadastrado.</AppText>
+              <AppText style={styles.emptySubtext}>
                 {canManage ? 'Toque em "Novo" para adicionar.' : 'Pets da sua unidade aparecerao aqui.'}
-              </Text>
+              </AppText>
             </View>
           }
         />
@@ -367,24 +371,24 @@ export default function PetsScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{editingId ? 'Editar Pet' : 'Novo Pet'}</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={26} color="#64748b" />
+            <AppText style={styles.modalTitle}>{editingId ? 'Editar Pet' : 'Novo Pet'}</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setModalVisible(false)}>
+              <Ionicons name="close" size={26} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             {formError ? (
               <View style={styles.formError}>
-                <Ionicons name="alert-circle-outline" size={16} color="#dc2626" />
-                <Text style={styles.formErrorText}>{formError}</Text>
+                <Ionicons name="alert-circle-outline" size={16} color={theme.color.danger} />
+                <AppText style={styles.formErrorText}>{formError}</AppText>
               </View>
             ) : null}
 
-            <Text style={styles.label}>Tutor *</Text>
+            <AppText style={styles.label}>Tutor *</AppText>
             {residents.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 {residents.map(user => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={user.id}
                     style={[styles.areaChip, form.ownerId === user.id && styles.areaChipActive]}
                     onPress={() => {
@@ -392,82 +396,82 @@ export default function PetsScreen() {
                       setForm(prev => ({ ...prev, ownerId: user.id, unitId: linkedUnit?.id ?? '' }));
                     }}
                   >
-                    <Text style={[styles.areaChipText, form.ownerId === user.id && { color: '#fff' }]}>
+                    <AppText style={[styles.areaChipText, form.ownerId === user.id && { color: '#fff' }]}>
                       {user.name}{unitForResident(user.id)?.id
                         ? ` - ${unitName(unitForResident(user.id)?.id ?? '')}`
                         : ''}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             ) : (
-              <Text style={styles.helpText}>Nenhum morador encontrado neste condominio.</Text>
+              <AppText style={styles.helpText}>Nenhum morador encontrado neste condominio.</AppText>
             )}
 
-            <Text style={styles.label}>Unidade *</Text>
+            <AppText style={styles.label}>Unidade *</AppText>
             {tutorUnits.length ? (
               <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
                 {tutorUnits.map(unit => (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={unit.id}
                     style={[styles.areaChip, form.unitId === unit.id && styles.areaChipActive]}
                     onPress={() => setForm(prev => ({ ...prev, unitId: unit.id }))}
                   >
-                    <Text style={[styles.areaChipText, form.unitId === unit.id && { color: '#fff' }]}>
+                    <AppText style={[styles.areaChipText, form.unitId === unit.id && { color: '#fff' }]}>
                       {formatUnit(unit)}
-                    </Text>
+                    </AppText>
                   </TouchableOpacity>
                 ))}
               </ScrollView>
             ) : (
-              <Text style={styles.helpText}>
+              <AppText style={styles.helpText}>
                 {form.ownerId
                   ? 'O tutor selecionado não está vinculado a nenhuma unidade.'
                   : 'Selecione um tutor para visualizar as unidades disponíveis.'}
-              </Text>
+              </AppText>
             )}
 
-            <Text style={styles.label}>Nome do pet *</Text>
-            <TextInput style={styles.input} value={form.name} onChangeText={name => setForm({ ...form, name })} />
+            <AppText style={styles.label}>Nome do pet *</AppText>
+            <TextInput accessibilityLabel="Nome do pet" style={styles.input} value={form.name} onChangeText={name => setForm({ ...form, name })} />
 
-            <Text style={styles.label}>Especie *</Text>
+            <AppText style={styles.label}>Especie *</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               {SPECIES_OPTIONS.map(option => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={option.value}
                   style={[styles.areaChip, form.species === option.value && styles.areaChipActive]}
                   onPress={() => setForm({ ...form, species: option.value })}
                 >
-                  <Text style={[styles.areaChipText, form.species === option.value && { color: '#fff' }]}>{option.label}</Text>
+                  <AppText style={[styles.areaChipText, form.species === option.value && { color: '#fff' }]}>{option.label}</AppText>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Raca</Text>
-            <TextInput style={styles.input} value={form.breed} onChangeText={breed => setForm({ ...form, breed })} />
+            <AppText style={styles.label}>Raca</AppText>
+            <TextInput accessibilityLabel="Raca" style={styles.input} value={form.breed} onChangeText={breed => setForm({ ...form, breed })} />
 
-            <Text style={styles.label}>Cor</Text>
-            <TextInput style={styles.input} value={form.color} onChangeText={color => setForm({ ...form, color })} />
+            <AppText style={styles.label}>Cor</AppText>
+            <TextInput accessibilityLabel="Cor" style={styles.input} value={form.color} onChangeText={color => setForm({ ...form, color })} />
 
             <View style={styles.switchRow}>
-              <Text style={styles.label}>Vacinado</Text>
+              <AppText style={styles.label}>Vacinado</AppText>
               <Switch
                 value={form.vaccination}
                 onValueChange={vaccination => setForm({ ...form, vaccination })}
-                trackColor={{ false: '#e2e8f0', true: '#176b87' }}
+                trackColor={{ false: theme.color.border, true: theme.color.action }}
               />
             </View>
 
-            <Text style={styles.label}>Observacoes</Text>
-            <TextInput
+            <AppText style={styles.label}>Observacoes</AppText>
+            <TextInput accessibilityLabel="Observacoes"
               style={[styles.input, { height: 80, textAlignVertical: 'top' }]}
               multiline
               value={form.observations}
               onChangeText={observations => setForm({ ...form, observations })}
             />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salvar</Text>}
+            <TouchableOpacity accessibilityRole="button" style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <AppText style={styles.saveBtnText}>Salvar</AppText>}
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -477,52 +481,52 @@ export default function PetsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1e293b' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
+  title: { fontSize: 20, fontWeight: '700', color: theme.color.ink },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   list: { padding: 16, paddingBottom: 80, gap: 12 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, gap: 8 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', flex: 1 },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: theme.color.ink, flex: 1 },
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeSuccess: { backgroundColor: '#dcfce7' },
-  badgeWarning: { backgroundColor: '#fef3c7' },
+  badgeSuccess: { backgroundColor: theme.color.successSoft },
+  badgeWarning: { backgroundColor: theme.color.warningSoft },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  badgeSuccessText: { color: '#15803d' },
-  badgeWarningText: { color: '#b45309' },
-  cardMeta: { fontSize: 13, color: '#64748b', marginTop: 4 },
-  cardObs: { fontSize: 13, color: '#94a3b8', marginTop: 6, fontStyle: 'italic' },
-  actionRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#f1f5f9', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+  badgeSuccessText: { color: theme.color.success },
+  badgeWarningText: { color: theme.color.warning },
+  cardMeta: { fontSize: 13, color: theme.color.inkMuted, marginTop: 4 },
+  cardObs: { fontSize: 13, color: theme.color.inkMuted, marginTop: 6, fontStyle: 'italic' },
+  actionRow: { flexDirection: 'row', justifyContent: 'flex-start', gap: 16, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border },
+  actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: theme.color.surfaceSoft, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   empty: { alignItems: 'center', paddingTop: 80, paddingHorizontal: 24 },
-  emptyText: { color: '#94a3b8', fontSize: 15, marginTop: 12, fontWeight: '600' },
-  emptySubtext: { color: '#cbd5e1', fontSize: 13, marginTop: 6, textAlign: 'center' },
+  emptyText: { color: theme.color.inkMuted, fontSize: 15, marginTop: 12, fontWeight: '600' },
+  emptySubtext: { color: theme.color.borderStrong, fontSize: 13, marginTop: 6, textAlign: 'center' },
   errorBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#176b87', borderRadius: 8 },
+  errorText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.color.action, borderRadius: 8 },
   retryText: { color: '#fff', fontWeight: '600' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  modal: { flex: 1, backgroundColor: theme.color.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: theme.color.ink },
   modalBody: { padding: 20 },
   formError: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, marginBottom: 8,
+    backgroundColor: theme.color.dangerSoft, borderRadius: 8, padding: 12, marginBottom: 8,
   },
-  formErrorText: { color: '#dc2626', fontSize: 13, flex: 1 },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff', marginBottom: 4 },
-  areaChip: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' },
-  areaChipActive: { backgroundColor: '#176b87', borderColor: '#176b87' },
-  areaChipText: { fontSize: 14, color: '#475569', fontWeight: '600' },
-  helpText: { color: '#ef4444', fontSize: 13, marginBottom: 8 },
+  formErrorText: { color: theme.color.danger, fontSize: 13, flex: 1 },
+  label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 6, marginTop: 12 },
+  input: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff', marginBottom: 4 },
+  areaChip: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' },
+  areaChipActive: { backgroundColor: theme.color.action, borderColor: theme.color.action },
+  areaChipText: { fontSize: 14, color: theme.color.inkMuted, fontWeight: '600' },
+  helpText: { color: theme.color.danger, fontSize: 13, marginBottom: 8 },
   switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginVertical: 12 },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 40 },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24, marginBottom: 40 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

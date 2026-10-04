@@ -518,8 +518,46 @@ export const deleteUnit = (id: string) =>
   });
 
 // ─── Avisos ───────────────────────────────────────────────────────────────────
+// Avisos ativos do condomínio do token (a API filtra no banco; mais recentes primeiro).
 export const getAnnouncements = () =>
-  request<Announcement[]>('/api/announcements');
+  request<Announcement[]>('/api/announcements/active');
+
+// Síndico e administração publicam; o condomínio vai o do token (a API recusa outro).
+export const createAnnouncement = (data: {
+  condominiumId: string;
+  authorId: string;
+  title: string;
+  content: string;
+  category: string;
+}) =>
+  request<Announcement>('/api/announcements', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+// ─── Financeiro ───────────────────────────────────────────────────────────────
+export interface Bill {
+  id: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+  status: string;
+  barcode?: string;
+}
+
+export interface Payment {
+  id: string;
+  billId: string;
+  paymentDate: string;
+  amountPaid: number;
+  paymentMethod: string;
+}
+
+export const getBillsByUser = (userId: string) =>
+  request<Bill[]>(`/api/Bills/user/${encodeURIComponent(userId)}`);
+
+export const getPaymentsByBill = (billId: string) =>
+  request<Payment[]>(`/api/Payments/bill/${encodeURIComponent(billId)}`);
 
 // ─── Áreas Comuns ─────────────────────────────────────────────────────────────
 export const getCommonAreas = () =>

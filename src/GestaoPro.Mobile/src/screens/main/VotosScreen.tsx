@@ -1,7 +1,7 @@
 // src/screens/main/VotosScreen.tsx
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
+  View, FlatList, StyleSheet, TouchableOpacity,
   Modal, Alert, ActivityIndicator, RefreshControl, ScrollView, Platform,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -20,6 +20,9 @@ import {
 } from '../../api/client';
 import { sw, sf, HP } from '../../utils/responsive';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 type VoteValue = string;
 
 function canSeeAllVotes(role?: string) {
@@ -40,9 +43,9 @@ function formatDate(value?: string) {
 
 function voteIcon(vote: string) {
   const normalized = vote.toLowerCase();
-  if (normalized === 'sim') return <Ionicons name="checkmark-circle" size={sw(22)} color="#10b981" />;
-  if (normalized === 'não' || normalized === 'nao') return <Ionicons name="close-circle" size={sw(22)} color="#ef4444" />;
-  return <Ionicons name="lock-closed-outline" size={sw(22)} color="#94a3b8" />;
+  if (normalized === 'sim') return <Ionicons name="checkmark-circle" size={sw(22)} color={theme.color.success} />;
+  if (normalized === 'não' || normalized === 'nao') return <Ionicons name="close-circle" size={sw(22)} color={theme.color.danger} />;
+  return <Ionicons name="lock-closed-outline" size={sw(22)} color={theme.color.inkMuted} />;
 }
 
 function getTopicVoteOptions(assembly?: Assembly, topicIndex = 0) {
@@ -259,29 +262,29 @@ export default function VotosScreen() {
   const renderVote = ({ item }: { item: VoteResponse }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <Text style={styles.cardTitle} numberOfLines={2}>{item.assemblyTitle || selectedAssembly?.title || 'Assembleia'}</Text>
+        <AppText style={styles.cardTitle} numberOfLines={2}>{item.assemblyTitle || selectedAssembly?.title || 'Assembleia'}</AppText>
         {voteIcon(item.voto)}
       </View>
       {item.topicDescription ? (
         <View style={styles.detailRow}>
-          <Ionicons name="document-text-outline" size={sw(16)} color="#64748b" />
-          <Text style={styles.detailText}>{item.topicDescription}</Text>
+          <Ionicons name="document-text-outline" size={sw(16)} color={theme.color.inkMuted} />
+          <AppText style={styles.detailText}>{item.topicDescription}</AppText>
         </View>
       ) : null}
       {canSeeAll ? (
         <View style={styles.detailRow}>
-          <Ionicons name="person-outline" size={sw(16)} color="#64748b" />
-          <Text style={styles.detailText}>Usuario: {item.userId}</Text>
+          <Ionicons name="person-outline" size={sw(16)} color={theme.color.inkMuted} />
+          <AppText style={styles.detailText}>Usuario: {item.userId}</AppText>
         </View>
       ) : null}
       <View style={styles.detailRow}>
-        <Ionicons name="checkbox-outline" size={sw(16)} color="#64748b" />
-        <Text style={styles.detailText}>Voto: {item.voto}</Text>
+        <Ionicons name="checkbox-outline" size={sw(16)} color={theme.color.inkMuted} />
+        <AppText style={styles.detailText}>Voto: {item.voto}</AppText>
       </View>
       {item.createdAt ? (
         <View style={styles.detailRow}>
-          <Ionicons name="time-outline" size={sw(16)} color="#64748b" />
-          <Text style={styles.detailText}>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</Text>
+          <Ionicons name="time-outline" size={sw(16)} color={theme.color.inkMuted} />
+          <AppText style={styles.detailText}>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</AppText>
         </View>
       ) : null}
     </View>
@@ -295,29 +298,29 @@ export default function VotosScreen() {
     return (
       <View style={styles.summary}>
         <View style={styles.summaryHeader}>
-          <Text style={styles.summaryTitle}>{selectedAssembly.title}</Text>
+          <AppText style={styles.summaryTitle}>{selectedAssembly.title}</AppText>
           <View style={[styles.statusBadge, voteOpen ? styles.statusOpen : styles.statusClosed]}>
-            <Text style={[styles.statusText, voteOpen ? styles.statusOpenText : styles.statusClosedText]}>
+            <AppText style={[styles.statusText, voteOpen ? styles.statusOpenText : styles.statusClosedText]}>
               {statusLabel}
-            </Text>
+            </AppText>
           </View>
         </View>
-        {selectedAssembly.description ? <Text style={styles.summaryText}>{selectedAssembly.description}</Text> : null}
-        <Text style={styles.summaryMeta}>
+        {selectedAssembly.description ? <AppText style={styles.summaryText}>{selectedAssembly.description}</AppText> : null}
+        <AppText style={styles.summaryMeta}>
           {formatDate(selectedAssembly.startTime)} ate {formatDate(selectedAssembly.endTime)}
-        </Text>
+        </AppText>
         {selectedAssembly.topics.map((topic, index) => {
           const result = votes.find(vote => vote.topicIndex === index);
           const counts = result?.optionCounts ?? {};
           return (
             <View style={styles.topicResult} key={`${selectedAssembly.id}-${index}`}>
-              <Text style={styles.topicResultTitle}>{topic.title || `Pauta ${index + 1}`}</Text>
+              <AppText style={styles.topicResultTitle}>{topic.title || `Pauta ${index + 1}`}</AppText>
               {Object.keys(counts).length
                 ? Object.entries(counts).map(([option, count]) => (
-                    <Text style={styles.resultText} key={option}>{option}: {count}</Text>
+                    <AppText style={styles.resultText} key={option}>{option}: {count}</AppText>
                   ))
-                : <Text style={styles.resultText}>Nenhum voto registrado.</Text>}
-              <Text style={styles.resultText}>Total da pauta: {result?.totalVotes ?? 0}</Text>
+                : <AppText style={styles.resultText}>Nenhum voto registrado.</AppText>}
+              <AppText style={styles.resultText}>Total da pauta: {result?.totalVotes ?? 0}</AppText>
             </View>
           );
         })}
@@ -328,38 +331,39 @@ export default function VotosScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.titleHeader}>Votos</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={openVoteModal}>
+        <BackButton />
+        <AppText style={styles.titleHeader}>Votos</AppText>
+        <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={openVoteModal}>
           <Ionicons name="checkbox-outline" size={sw(20)} color="#fff" />
-          <Text style={styles.addBtnText}>Votar</Text>
+          <AppText style={styles.addBtnText}>Votar</AppText>
         </TouchableOpacity>
       </View>
 
       <View style={styles.filterSection}>
-        <Text style={styles.filterLabel}>Assembleia</Text>
+        <AppText style={styles.filterLabel}>Assembleia</AppText>
         <ScrollView horizontal showsHorizontalScrollIndicator={false}>
           {assemblies.map(assembly => (
-            <TouchableOpacity
+            <TouchableOpacity accessibilityRole="button"
               key={assembly.id}
               style={[styles.filterChip, selectedAssemblyId === assembly.id && styles.filterChipActive]}
               onPress={() => handleSelectAssembly(assembly.id)}
             >
-              <Text style={selectedAssemblyId === assembly.id ? styles.filterChipActiveText : styles.filterChipText}>
+              <AppText style={selectedAssemblyId === assembly.id ? styles.filterChipActiveText : styles.filterChipText}>
                 {assembly.title}
-              </Text>
+              </AppText>
             </TouchableOpacity>
           ))}
         </ScrollView>
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#176b87" style={{ marginTop: sw(60) }} />
+        <ActivityIndicator size="large" color={theme.color.action} style={{ marginTop: sw(60) }} />
       ) : listError ? (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={sw(32)} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadVotes()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={sw(32)} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadVotes()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -368,12 +372,12 @@ export default function VotosScreen() {
           keyExtractor={item => item.id}
           renderItem={renderVote}
           ListHeaderComponent={renderAssemblySummary}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#176b87']} />}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[theme.color.action]} />}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
-              <Ionicons name="checkbox-outline" size={sw(56)} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Nenhum voto encontrado.</Text>
-              <Text style={styles.emptySubtext}>Use o botao "Votar" para registrar seu voto.</Text>
+              <Ionicons name="checkbox-outline" size={sw(56)} color={theme.color.borderStrong} />
+              <AppText style={styles.emptyText}>Nenhum voto encontrado.</AppText>
+              <AppText style={styles.emptySubtext}>Use o botao "Votar" para registrar seu voto.</AppText>
             </View>
           }
           contentContainerStyle={styles.listContent}
@@ -383,73 +387,73 @@ export default function VotosScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Novo Voto</Text>
-            <TouchableOpacity onPress={() => setModalVisible(false)}>
-              <Ionicons name="close" size={sw(26)} color="#64748b" />
+            <AppText style={styles.modalTitle}>Novo Voto</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setModalVisible(false)}>
+              <Ionicons name="close" size={sw(26)} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
             {formError ? (
               <View style={styles.formError}>
-                <Ionicons name="alert-circle-outline" size={sw(16)} color="#dc2626" />
-                <Text style={styles.formErrorText}>{formError}</Text>
+                <Ionicons name="alert-circle-outline" size={sw(16)} color={theme.color.danger} />
+                <AppText style={styles.formErrorText}>{formError}</AppText>
               </View>
             ) : null}
 
-            <Text style={styles.label}>Assembleia *</Text>
+            <AppText style={styles.label}>Assembleia *</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: sw(12) }}>
               {assemblies.map(assembly => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={assembly.id}
                   style={[styles.optionButton, form.assemblyId === assembly.id && styles.optionSelected]}
                   onPress={() => handleFormAssemblyChange(assembly.id)}
                 >
-                  <Text style={[styles.optionText, form.assemblyId === assembly.id && styles.optionSelectedText]}>
+                  <AppText style={[styles.optionText, form.assemblyId === assembly.id && styles.optionSelectedText]}>
                     {assembly.title}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
             {formAssembly?.topics?.length ? (
               <>
-                <Text style={styles.label}>Pauta *</Text>
+                <AppText style={styles.label}>Pauta *</AppText>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: sw(12) }}>
                   {formAssembly.topics.map((topic, index) => (
-                    <TouchableOpacity
+                    <TouchableOpacity accessibilityRole="button"
                       key={`${formAssembly.id}-${index}`}
                       style={[styles.optionButton, form.topicIndex === index && styles.optionSelected]}
                       onPress={() => handleTopicChange(index)}
                     >
-                      <Text style={[styles.optionText, form.topicIndex === index && styles.optionSelectedText]}>
+                      <AppText style={[styles.optionText, form.topicIndex === index && styles.optionSelectedText]}>
                         {topic.title || `Pauta ${index + 1}`}
-                      </Text>
+                      </AppText>
                     </TouchableOpacity>
                   ))}
                 </ScrollView>
-                {formTopic?.desc ? <Text style={styles.topicDescription}>{formTopic.desc}</Text> : null}
+                {formTopic?.desc ? <AppText style={styles.topicDescription}>{formTopic.desc}</AppText> : null}
               </>
             ) : null}
 
-            <Text style={styles.label}>Voto *</Text>
+            <AppText style={styles.label}>Voto *</AppText>
             <View style={styles.optionsRow}>
               {formVoteOptions.map(option => {
                 const selected = form.vote === option;
                 return (
-                  <TouchableOpacity
+                  <TouchableOpacity accessibilityRole="button"
                     key={option}
                     style={[styles.voteOption, selected && styles.voteSelected]}
                     onPress={() => setForm({ ...form, vote: option })}
                   >
-                    <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={sw(18)} color={selected ? '#fff' : '#176b87'} />
-                    <Text style={[styles.voteOptionText, selected && { color: '#fff' }]}>{option}</Text>
+                    <Ionicons name={selected ? 'radio-button-on' : 'radio-button-off'} size={sw(18)} color={selected ? '#fff' : theme.color.action} />
+                    <AppText style={[styles.voteOptionText, selected && { color: '#fff' }]}>{option}</AppText>
                   </TouchableOpacity>
                 );
               })}
             </View>
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={saving}>
-              {saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Salvar voto</Text>}
+            <TouchableOpacity accessibilityRole="button" style={styles.saveBtn} onPress={handleSave} disabled={saving}>
+              {saving ? <ActivityIndicator color="#fff" /> : <AppText style={styles.saveBtnText}>Salvar voto</AppText>}
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -459,65 +463,65 @@ export default function VotosScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: HP, paddingVertical: sw(16),
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  titleHeader: { fontSize: sf(20), fontWeight: '700', color: '#1e293b' },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: sw(8), paddingHorizontal: sw(14), paddingVertical: sw(8), gap: sw(6) },
+  titleHeader: { fontSize: sf(20), fontWeight: '700', color: theme.color.ink },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: sw(8), paddingHorizontal: sw(14), paddingVertical: sw(8), gap: sw(6) },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: sf(14) },
   filterSection: { backgroundColor: '#fff', padding: sw(16), margin: sw(16), borderRadius: sw(12), shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8, elevation: 2 },
-  filterLabel: { fontSize: sf(14), fontWeight: '600', color: '#334155', marginBottom: sw(12) },
-  filterChip: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: '#f1f5f9', borderRadius: sw(20), marginRight: sw(8) },
-  filterChipActive: { backgroundColor: '#176b87' },
-  filterChipText: { color: '#475569', fontWeight: '500' },
+  filterLabel: { fontSize: sf(14), fontWeight: '600', color: theme.color.ink, marginBottom: sw(12) },
+  filterChip: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: theme.color.surfaceSoft, borderRadius: sw(20), marginRight: sw(8) },
+  filterChipActive: { backgroundColor: theme.color.action },
+  filterChipText: { color: theme.color.inkMuted, fontWeight: '500' },
   filterChipActiveText: { color: '#fff', fontWeight: '600' },
   listContent: { padding: sw(16), paddingBottom: sw(80), gap: sw(12) },
-  summary: { backgroundColor: '#fff', borderRadius: sw(12), padding: sw(16), marginBottom: sw(12), borderWidth: 1, borderColor: '#e2e8f0' },
+  summary: { backgroundColor: '#fff', borderRadius: sw(12), padding: sw(16), marginBottom: sw(12), borderWidth: 1, borderColor: theme.color.border },
   summaryHeader: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: sw(8) },
-  summaryTitle: { fontSize: sf(16), fontWeight: '700', color: '#0f172a', flex: 1 },
-  summaryText: { fontSize: sf(14), color: '#475569', marginTop: sw(8) },
-  summaryMeta: { fontSize: sf(13), color: '#64748b', marginTop: sw(8) },
+  summaryTitle: { fontSize: sf(16), fontWeight: '700', color: theme.color.ink, flex: 1 },
+  summaryText: { fontSize: sf(14), color: theme.color.inkMuted, marginTop: sw(8) },
+  summaryMeta: { fontSize: sf(13), color: theme.color.inkMuted, marginTop: sw(8) },
   statusBadge: { borderRadius: sw(6), paddingHorizontal: sw(8), paddingVertical: sw(3) },
-  statusOpen: { backgroundColor: '#dcfce7' },
-  statusClosed: { backgroundColor: '#fef3c7' },
+  statusOpen: { backgroundColor: theme.color.successSoft },
+  statusClosed: { backgroundColor: theme.color.warningSoft },
   statusText: { fontSize: sf(11), fontWeight: '700' },
-  statusOpenText: { color: '#15803d' },
-  statusClosedText: { color: '#b45309' },
+  statusOpenText: { color: theme.color.success },
+  statusClosedText: { color: theme.color.warning },
   resultRow: { flexDirection: 'row', flexWrap: 'wrap', gap: sw(8), marginTop: sw(12) },
-  topicResult: { marginTop: sw(12), gap: sw(6), borderTopWidth: 1, borderTopColor: '#e2e8f0', paddingTop: sw(10) },
-  topicResultTitle: { fontSize: sf(14), fontWeight: '700', color: '#0f172a' },
-  resultText: { backgroundColor: '#f1f5f9', borderRadius: sw(8), paddingHorizontal: sw(10), paddingVertical: sw(6), color: '#334155', fontSize: sf(13), fontWeight: '600' },
+  topicResult: { marginTop: sw(12), gap: sw(6), borderTopWidth: 1, borderTopColor: theme.color.border, paddingTop: sw(10) },
+  topicResultTitle: { fontSize: sf(14), fontWeight: '700', color: theme.color.ink },
+  resultText: { backgroundColor: theme.color.surfaceSoft, borderRadius: sw(8), paddingHorizontal: sw(10), paddingVertical: sw(6), color: theme.color.ink, fontSize: sf(13), fontWeight: '600' },
   card: { backgroundColor: '#fff', borderRadius: sw(12), padding: sw(16), shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: sw(8), gap: sw(8) },
-  cardTitle: { fontSize: sf(16), fontWeight: '700', color: '#0f172a', flex: 1 },
+  cardTitle: { fontSize: sf(16), fontWeight: '700', color: theme.color.ink, flex: 1 },
   detailRow: { flexDirection: 'row', alignItems: 'center', gap: sw(8), marginBottom: sw(6) },
-  detailText: { fontSize: sf(13), color: '#475569', flex: 1 },
+  detailText: { fontSize: sf(13), color: theme.color.inkMuted, flex: 1 },
   errorBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: sw(24) },
-  errorText: { color: '#64748b', fontSize: sf(14), textAlign: 'center', marginTop: sw(8) },
-  retryBtn: { marginTop: sw(16), paddingHorizontal: HP, paddingVertical: sw(10), backgroundColor: '#176b87', borderRadius: sw(8) },
+  errorText: { color: theme.color.inkMuted, fontSize: sf(14), textAlign: 'center', marginTop: sw(8) },
+  retryBtn: { marginTop: sw(16), paddingHorizontal: HP, paddingVertical: sw(10), backgroundColor: theme.color.action, borderRadius: sw(8) },
   retryText: { color: '#fff', fontWeight: '600' },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: sw(64), paddingHorizontal: sw(24) },
-  emptyText: { fontSize: sf(16), fontWeight: '600', color: '#64748b', marginTop: sw(16), textAlign: 'center' },
-  emptySubtext: { fontSize: sf(14), color: '#94a3b8', marginTop: sw(8), textAlign: 'center' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: HP, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: sf(18), fontWeight: '700', color: '#1e293b' },
+  emptyText: { fontSize: sf(16), fontWeight: '600', color: theme.color.inkMuted, marginTop: sw(16), textAlign: 'center' },
+  emptySubtext: { fontSize: sf(14), color: theme.color.inkMuted, marginTop: sw(8), textAlign: 'center' },
+  modal: { flex: 1, backgroundColor: theme.color.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: HP, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  modalTitle: { fontSize: sf(18), fontWeight: '700', color: theme.color.ink },
   modalBody: { padding: HP },
-  formError: { flexDirection: 'row', alignItems: 'center', gap: sw(6), backgroundColor: '#fef2f2', borderRadius: sw(8), padding: sw(12), marginBottom: sw(8) },
-  formErrorText: { color: '#dc2626', fontSize: sf(13), flex: 1 },
-  label: { fontSize: sf(13), fontWeight: '600', color: '#475569', marginBottom: sw(6), marginTop: sw(12) },
+  formError: { flexDirection: 'row', alignItems: 'center', gap: sw(6), backgroundColor: theme.color.dangerSoft, borderRadius: sw(8), padding: sw(12), marginBottom: sw(8) },
+  formErrorText: { color: theme.color.danger, fontSize: sf(13), flex: 1 },
+  label: { fontSize: sf(13), fontWeight: '600', color: theme.color.inkMuted, marginBottom: sw(6), marginTop: sw(12) },
   optionsRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: sw(12), gap: sw(8) },
-  optionButton: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: '#f1f5f9', borderRadius: sw(20), marginRight: sw(8) },
-  optionSelected: { backgroundColor: '#176b87' },
-  optionText: { color: '#475569', fontWeight: '500' },
+  optionButton: { paddingHorizontal: sw(14), paddingVertical: sw(8), backgroundColor: theme.color.surfaceSoft, borderRadius: sw(20), marginRight: sw(8) },
+  optionSelected: { backgroundColor: theme.color.action },
+  optionText: { color: theme.color.inkMuted, fontWeight: '500' },
   optionSelectedText: { color: '#fff', fontWeight: '600' },
-  voteOption: { flexDirection: 'row', alignItems: 'center', gap: sw(6), paddingHorizontal: sw(16), paddingVertical: sw(10), backgroundColor: '#fff', borderRadius: sw(10), borderWidth: 1, borderColor: '#e2e8f0' },
-  voteSelected: { backgroundColor: '#176b87', borderColor: '#176b87' },
-  topicDescription: { fontSize: sf(13), color: '#64748b', marginBottom: sw(8) },
-  voteOptionText: { fontSize: sf(14), color: '#475569', fontWeight: '700' },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: sw(12), padding: sw(16), alignItems: 'center', marginTop: sw(24), marginBottom: sw(40) },
+  voteOption: { flexDirection: 'row', alignItems: 'center', gap: sw(6), paddingHorizontal: sw(16), paddingVertical: sw(10), backgroundColor: '#fff', borderRadius: sw(10), borderWidth: 1, borderColor: theme.color.border },
+  voteSelected: { backgroundColor: theme.color.action, borderColor: theme.color.action },
+  topicDescription: { fontSize: sf(13), color: theme.color.inkMuted, marginBottom: sw(8) },
+  voteOptionText: { fontSize: sf(14), color: theme.color.inkMuted, fontWeight: '700' },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: sw(12), padding: sw(16), alignItems: 'center', marginTop: sw(24), marginBottom: sw(40) },
   saveBtnText: { color: '#fff', fontSize: sf(16), fontWeight: '700' },
 });

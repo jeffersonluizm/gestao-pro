@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -21,6 +20,9 @@ import { Condominium, createCondominium, deleteCondominium, getCondominiums, get
 import { useAuth } from '../../context/AuthContext';
 import { maskCep, maskCnpj, onlyDigits } from '../../utils/formatters';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 const INITIAL_FORM = {
   name: '',
   cnpj: '',
@@ -197,9 +199,9 @@ export default function CondominiosScreen() {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.denied}>
-          <Ionicons name="lock-closed-outline" size={48} color="#94a3b8" />
-          <Text style={styles.deniedTitle}>Acesso negado</Text>
-          <Text style={styles.deniedText}>Esta tela é permitida apenas para administrador ou síndico.</Text>
+          <Ionicons name="lock-closed-outline" size={48} color={theme.color.inkMuted} />
+          <AppText style={styles.deniedTitle}>Acesso negado</AppText>
+          <AppText style={styles.deniedText}>Esta tela é permitida apenas para administrador ou síndico.</AppText>
         </View>
       </SafeAreaView>
     );
@@ -208,24 +210,25 @@ export default function CondominiosScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <BackButton />
         <View>
-          <Text style={styles.title}>Condomínios</Text>
-          <Text style={styles.subtitle}>Cadastro e consulta de condomínios</Text>
+          <AppText style={styles.title}>Condomínios</AppText>
+          <AppText style={styles.subtitle}>Cadastro e consulta de condomínios</AppText>
         </View>
-        <TouchableOpacity style={styles.addBtn} onPress={() => { closeModal(); setModalVisible(true); }}>
+        <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={() => { closeModal(); setModalVisible(true); }}>
           <Ionicons name="add" size={22} color="#fff" />
-          <Text style={styles.addBtnText}>Novo</Text>
+          <AppText style={styles.addBtnText}>Novo</AppText>
         </TouchableOpacity>
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#176b87" style={styles.loader} />
+        <ActivityIndicator size="large" color={theme.color.action} style={styles.loader} />
       ) : listError ? (
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={36} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadCondominiums()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={36} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadCondominiums()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -237,30 +240,30 @@ export default function CondominiosScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); loadCondominiums(true); }}
-              colors={['#176b87']}
+              colors={[theme.color.action]}
             />
           }
           ListEmptyComponent={
             <View style={styles.center}>
-              <Ionicons name="business-outline" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Nenhum condomínio cadastrado.</Text>
+              <Ionicons name="business-outline" size={48} color={theme.color.borderStrong} />
+              <AppText style={styles.emptyText}>Nenhum condomínio cadastrado.</AppText>
             </View>
           }
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <Text style={styles.cardTitle}>{item.name}</Text>
-              <Text style={styles.cardText}>CNPJ: {item.cnpj}</Text>
-              <Text style={styles.cardText}>Cidade: {item.city}</Text>
-              <Text style={styles.cardText}>UF: {item.state}</Text>
-              <Text style={styles.cardText}>Moradores: {item.residentCount}</Text>
+              <AppText style={styles.cardTitle}>{item.name}</AppText>
+              <AppText style={styles.cardText}>CNPJ: {item.cnpj}</AppText>
+              <AppText style={styles.cardText}>Cidade: {item.city}</AppText>
+              <AppText style={styles.cardText}>UF: {item.state}</AppText>
+              <AppText style={styles.cardText}>Moradores: {item.residentCount}</AppText>
               <View style={styles.actionRow}>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleEdit(item)}>
-                  <Ionicons name="create-outline" size={18} color="#2563eb" />
-                  <Text style={styles.editText}>Editar</Text>
+                <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => handleEdit(item)}>
+                  <Ionicons name="create-outline" size={18} color={theme.color.action} />
+                  <AppText style={styles.editText}>Editar</AppText>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item)}>
-                  <Ionicons name="trash-outline" size={18} color="#dc2626" />
-                  <Text style={styles.deleteText}>Remover</Text>
+                <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => handleDelete(item)}>
+                  <Ionicons name="trash-outline" size={18} color={theme.color.danger} />
+                  <AppText style={styles.deleteText}>Remover</AppText>
                 </TouchableOpacity>
               </View>
             </View>
@@ -271,13 +274,13 @@ export default function CondominiosScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{editingId ? 'Editar Condominio' : 'Novo Condominio'}</Text>
-            <TouchableOpacity onPress={closeModal}>
-              <Ionicons name="close" size={26} color="#64748b" />
+            <AppText style={styles.modalTitle}>{editingId ? 'Editar Condominio' : 'Novo Condominio'}</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={closeModal}>
+              <Ionicons name="close" size={26} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-            {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+            {formError ? <AppText style={styles.formError}>{formError}</AppText> : null}
             <Field label="Nome *" value={form.name} onChangeText={name => setForm({ ...form, name })} />
             <Field label="CNPJ *" placeholder="00.000.000/0000-00" keyboardType="numeric" maxLength={18} value={form.cnpj} onChangeText={cnpj => setForm({ ...form, cnpj: maskCnpj(cnpj) })} />
             <Field label="Rua *" value={form.street} onChangeText={street => setForm({ ...form, street })} />
@@ -296,8 +299,8 @@ export default function CondominiosScreen() {
               value={form.defaultPassword}
               onChangeText={defaultPassword => setForm({ ...form, defaultPassword })}
             />
-            <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</Text>
+            <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+              <AppText style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</AppText>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -313,8 +316,9 @@ function Field({
 }: React.ComponentProps<typeof TextInput> & { label: string }) {
   return (
     <View>
-      <Text style={styles.label}>{label}</Text>
+      <AppText style={styles.label}>{label}</AppText>
       <TextInput
+        accessibilityLabel={label.replace(' *', '')}
         {...inputProps}
         multiline={multiline}
         style={[styles.input, multiline && styles.textarea]}
@@ -324,43 +328,43 @@ function Field({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16, gap: 12,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1e293b' },
-  subtitle: { fontSize: 12, color: '#64748b', marginTop: 2 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
+  title: { fontSize: 20, fontWeight: '700', color: theme.color.ink },
+  subtitle: { fontSize: 12, color: theme.color.inkMuted, marginTop: 2 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   disabled: { opacity: 0.55 },
   loader: { marginTop: 60 },
   list: { padding: 16, paddingBottom: 80, gap: 12, flexGrow: 1 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', marginBottom: 6 },
-  cardText: { fontSize: 13, color: '#64748b', marginTop: 3 },
-  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: theme.color.ink, marginBottom: 6 },
+  cardText: { fontSize: 13, color: theme.color.inkMuted, marginTop: 3 },
+  actionRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editText: { color: '#2563eb', fontWeight: '600' },
-  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  deleteText: { color: '#dc2626', fontWeight: '600' },
+  editText: { color: theme.color.action, fontWeight: '600' },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border },
+  deleteText: { color: theme.color.danger, fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText: { color: '#94a3b8', fontSize: 15, marginTop: 12, fontWeight: '600' },
-  errorText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#176b87', borderRadius: 8 },
+  emptyText: { color: theme.color.inkMuted, fontSize: 15, marginTop: 12, fontWeight: '600' },
+  errorText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.color.action, borderRadius: 8 },
   retryText: { color: '#fff', fontWeight: '600' },
   denied: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  deniedTitle: { color: '#1e293b', fontSize: 18, fontWeight: '700', marginTop: 12 },
-  deniedText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 6 },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  deniedTitle: { color: theme.color.ink, fontSize: 18, fontWeight: '700', marginTop: 12 },
+  deniedText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 6 },
+  modal: { flex: 1, backgroundColor: theme.color.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: theme.color.ink },
   form: { padding: 20, paddingBottom: 40 },
-  formError: { color: '#dc2626', backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, marginBottom: 8 },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff' },
+  formError: { color: theme.color.danger, backgroundColor: theme.color.dangerSoft, borderRadius: 8, padding: 12, marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 6, marginTop: 12 },
+  input: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff' },
   textarea: { minHeight: 80, textAlignVertical: 'top' },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

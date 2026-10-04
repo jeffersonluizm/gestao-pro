@@ -1,6 +1,6 @@
 ﻿import React, { useCallback, useEffect, useState } from 'react';
 import {
-  View, Text, FlatList, StyleSheet, TouchableOpacity,
+  View, FlatList, StyleSheet, TouchableOpacity,
   Modal, TextInput, ScrollView, ActivityIndicator, RefreshControl,
   Alert, Platform,
 } from 'react-native';
@@ -13,11 +13,13 @@ import {
 } from '../../api/client';
 import { useAuth } from '../../context/AuthContext';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
 // API enum values (must match C# enum names exactly)
 const STATUS_COLOR: Record<string, string> = {
-  Open: '#f59e0b',
-  InProgress: '#3b82f6',
-  Concluded: '#16a34a',
+  Open: theme.color.warning,
+  InProgress: theme.color.action,
+  Concluded: theme.color.success,
 };
 const STATUS_LABEL: Record<string, string> = {
   Open: 'Aberta',
@@ -25,10 +27,10 @@ const STATUS_LABEL: Record<string, string> = {
   Concluded: 'Concluída',
 };
 const PRIORITY_COLOR: Record<string, string> = {
-  Low: '#10b981',
-  Medium: '#f59e0b',
-  High: '#ef4444',
-  Urgent: '#dc2626',
+  Low: theme.color.success,
+  Medium: theme.color.warning,
+  High: theme.color.danger,
+  Urgent: theme.color.danger,
 };
 const PRIORITY_LABEL: Record<string, string> = {
   Low: 'Baixa',
@@ -160,21 +162,21 @@ export default function OccurrencesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Ocorrências</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
+        <AppText style={styles.title}>Ocorrências</AppText>
+        <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={() => { resetForm(); setModalVisible(true); }}>
           <Ionicons name="add" size={22} color="#fff" />
-          <Text style={styles.addBtnText}>Nova</Text>
+          <AppText style={styles.addBtnText}>Nova</AppText>
         </TouchableOpacity>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#176b87" style={{ marginTop: 60 }} />
+        <ActivityIndicator size="large" color={theme.color.action} style={{ marginTop: 60 }} />
       ) : listError ? (
         <View style={styles.errorBox}>
-          <Ionicons name="alert-circle-outline" size={32} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => load()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={32} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => load()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -186,43 +188,43 @@ export default function OccurrencesScreen() {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => { setRefreshing(true); load(true); }}
-              colors={['#176b87']}
+              colors={[theme.color.action]}
             />
           }
           renderItem={({ item }) => {
-            const sColor = STATUS_COLOR[item.status] ?? '#94a3b8';
-            const pColor = PRIORITY_COLOR[item.priority] ?? '#94a3b8';
+            const sColor = STATUS_COLOR[item.status] ?? theme.color.inkMuted;
+            const pColor = PRIORITY_COLOR[item.priority] ?? theme.color.inkMuted;
             const date = item.createdAt ? new Date(item.createdAt).toLocaleDateString('pt-BR') : '';
             return (
               <View style={styles.card}>
                 <View style={styles.cardRow}>
-                  <Text style={styles.cardTitle} numberOfLines={1}>{item.title}</Text>
+                  <AppText style={styles.cardTitle} numberOfLines={1}>{item.title}</AppText>
                   <View style={[styles.badge, { backgroundColor: sColor + '20' }]}>
-                    <Text style={[styles.badgeText, { color: sColor }]}>
+                    <AppText style={[styles.badgeText, { color: sColor }]}>
                       {STATUS_LABEL[item.status] ?? item.status}
-                    </Text>
+                    </AppText>
                   </View>
                 </View>
                 <View style={styles.cardMeta}>
                   <View style={[styles.priorityDot, { backgroundColor: pColor }]} />
-                  <Text style={styles.cardMetaText}>
+                  <AppText style={styles.cardMetaText}>
                     {PRIORITY_LABEL[item.priority] ?? item.priority} · {CATEGORY_LABEL[item.category] ?? item.category} · {date}
-                  </Text>
+                  </AppText>
                 </View>
                 {item.description ? (
-                  <Text style={styles.cardDesc} numberOfLines={2}>{item.description}</Text>
+                  <AppText style={styles.cardDesc} numberOfLines={2}>{item.description}</AppText>
                 ) : null}
-                <TouchableOpacity style={styles.deleteBtn} onPress={() => handleDelete(item)}>
-                  <Ionicons name="trash-outline" size={18} color="#ef4444" />
-                  <Text style={styles.deleteText}>Remover</Text>
+                <TouchableOpacity accessibilityRole="button" style={styles.deleteBtn} onPress={() => handleDelete(item)}>
+                  <Ionicons name="trash-outline" size={18} color={theme.color.danger} />
+                  <AppText style={styles.deleteText}>Remover</AppText>
                 </TouchableOpacity>
               </View>
             );
           }}
           ListEmptyComponent={
             <View style={styles.empty}>
-              <Ionicons name="construct-outline" size={48} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Nenhuma ocorrência registrada.</Text>
+              <Ionicons name="construct-outline" size={48} color={theme.color.borderStrong} />
+              <AppText style={styles.emptyText}>Nenhuma ocorrência registrada.</AppText>
             </View>
           }
         />
@@ -232,45 +234,45 @@ export default function OccurrencesScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>Nova Ocorrência</Text>
-            <TouchableOpacity onPress={() => { setModalVisible(false); resetForm(); }}>
-              <Ionicons name="close" size={26} color="#64748b" />
+            <AppText style={styles.modalTitle}>Nova Ocorrência</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={() => { setModalVisible(false); resetForm(); }}>
+              <Ionicons name="close" size={26} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
           <ScrollView style={styles.modalBody} keyboardShouldPersistTaps="handled">
 
             {formError ? (
               <View style={styles.formError}>
-                <Ionicons name="alert-circle-outline" size={16} color="#dc2626" />
-                <Text style={styles.formErrorText}>{formError}</Text>
+                <Ionicons name="alert-circle-outline" size={16} color={theme.color.danger} />
+                <AppText style={styles.formErrorText}>{formError}</AppText>
               </View>
             ) : null}
 
-            <Text style={styles.label}>Título *</Text>
-            <TextInput
+            <AppText style={styles.label}>Título *</AppText>
+            <TextInput accessibilityLabel="Título"
               style={styles.input}
               placeholder="Descreva brevemente o problema..."
               value={title}
               onChangeText={setTitle}
             />
 
-            <Text style={styles.label}>Categoria</Text>
+            <AppText style={styles.label}>Categoria</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
               {CATEGORIES.map(cat => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={cat.value}
                   style={[styles.chip, category === cat.value && styles.chipActive]}
                   onPress={() => setCategory(cat.value)}
                 >
-                  <Text style={[styles.chipText, category === cat.value && { color: '#fff' }]}>{cat.label}</Text>
+                  <AppText style={[styles.chipText, category === cat.value && { color: '#fff' }]}>{cat.label}</AppText>
                 </TouchableOpacity>
               ))}
             </ScrollView>
 
-            <Text style={styles.label}>Prioridade</Text>
+            <AppText style={styles.label}>Prioridade</AppText>
             <View style={styles.priorityRow}>
               {PRIORITIES.map(p => (
-                <TouchableOpacity
+                <TouchableOpacity accessibilityRole="button"
                   key={p.value}
                   style={[
                     styles.priorityChip,
@@ -278,15 +280,15 @@ export default function OccurrencesScreen() {
                   ]}
                   onPress={() => setPriority(p.value)}
                 >
-                  <Text style={[styles.priorityChipText, priority === p.value && { color: '#fff' }]}>
+                  <AppText style={[styles.priorityChipText, priority === p.value && { color: '#fff' }]}>
                     {p.label}
-                  </Text>
+                  </AppText>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.label}>Descrição *</Text>
-            <TextInput
+            <AppText style={styles.label}>Descrição *</AppText>
+            <TextInput accessibilityLabel="Descrição"
               style={[styles.input, { height: 100, textAlignVertical: 'top' }]}
               placeholder="Descreva a ocorrência com detalhes..."
               multiline
@@ -294,10 +296,10 @@ export default function OccurrencesScreen() {
               onChangeText={setDescription}
             />
 
-            <TouchableOpacity style={styles.saveBtn} onPress={handleCreate} disabled={saving}>
+            <TouchableOpacity accessibilityRole="button" style={styles.saveBtn} onPress={handleCreate} disabled={saving}>
               {saving
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={styles.saveBtnText}>Registrar ocorrência</Text>
+                : <AppText style={styles.saveBtnText}>Registrar ocorrência</AppText>
               }
             </TouchableOpacity>
           </ScrollView>
@@ -308,15 +310,15 @@ export default function OccurrencesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16,
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1e293b' },
+  title: { fontSize: 20, fontWeight: '700', color: theme.color.ink },
   addBtn: {
-    flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87',
+    flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action,
     borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4,
   },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
@@ -327,52 +329,52 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   cardRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 },
-  cardTitle: { fontSize: 15, fontWeight: '700', color: '#1e293b', flex: 1, marginRight: 8 },
+  cardTitle: { fontSize: 15, fontWeight: '700', color: theme.color.ink, flex: 1, marginRight: 8 },
   badge: { borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2 },
   badgeText: { fontSize: 11, fontWeight: '700' },
   cardMeta: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   priorityDot: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
-  cardMetaText: { fontSize: 12, color: '#64748b' },
-  cardDesc: { fontSize: 13, color: '#94a3b8', lineHeight: 18 },
-  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  deleteText: { color: '#ef4444', fontWeight: '600' },
+  cardMetaText: { fontSize: 12, color: theme.color.inkMuted },
+  cardDesc: { fontSize: 13, color: theme.color.inkMuted, lineHeight: 18 },
+  deleteBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border },
+  deleteText: { color: theme.color.danger, fontWeight: '600' },
   empty: { alignItems: 'center', paddingTop: 80 },
-  emptyText: { color: '#94a3b8', fontSize: 15, marginTop: 12 },
+  emptyText: { color: theme.color.inkMuted, fontSize: 15, marginTop: 12 },
   errorBox: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
-  errorText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#176b87', borderRadius: 8 },
+  errorText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.color.action, borderRadius: 8 },
   retryText: { color: '#fff', fontWeight: '600' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
+  modal: { flex: 1, backgroundColor: theme.color.background },
   modalHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: theme.color.ink },
   modalBody: { padding: 20 },
   formError: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, marginBottom: 8,
+    backgroundColor: theme.color.dangerSoft, borderRadius: 8, padding: 12, marginBottom: 8,
   },
-  formErrorText: { color: '#dc2626', fontSize: 13, flex: 1 },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
+  formErrorText: { color: theme.color.danger, fontSize: 13, flex: 1 },
+  label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 6, marginTop: 12 },
   input: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10,
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: 10,
     padding: 12, fontSize: 15, backgroundColor: '#fff', marginBottom: 4,
   },
   chip: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20,
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff',
   },
-  chipActive: { backgroundColor: '#176b87', borderColor: '#176b87' },
-  chipText: { fontSize: 14, color: '#475569', fontWeight: '600' },
+  chipActive: { backgroundColor: theme.color.action, borderColor: theme.color.action },
+  chipText: { fontSize: 14, color: theme.color.inkMuted, fontWeight: '600' },
   priorityRow: { flexDirection: 'row', gap: 8, marginBottom: 4 },
   priorityChip: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 8,
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#fff',
   },
-  priorityChipText: { fontSize: 13, color: '#475569', fontWeight: '600' },
+  priorityChipText: { fontSize: 13, color: theme.color.inkMuted, fontWeight: '600' },
   saveBtn: {
-    backgroundColor: '#176b87', borderRadius: 12, padding: 16,
+    backgroundColor: theme.color.action, borderRadius: 12, padding: 16,
     alignItems: 'center', marginTop: 24, marginBottom: 40,
   },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
