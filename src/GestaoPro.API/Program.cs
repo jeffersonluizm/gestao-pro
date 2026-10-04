@@ -36,23 +36,29 @@ builder.Services.AddDataProtection()
     .PersistKeysToFileSystem(new DirectoryInfo(Path.Combine(builder.Environment.ContentRootPath, ".keys")));
 
 var jwtSettings = builder.Configuration.GetSection("JwtSettings").Get<JwtSettings>() ?? new JwtSettings();
-if (!string.IsNullOrWhiteSpace(jwtSettings.SecretKey))
-{
-    builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
-        .AddJwtBearer(options =>
+
+// Os segredos não ficam no appsettings.json: sem eles a API não sobe (ver README, "Configuração da API").
+if (string.IsNullOrWhiteSpace(builder.Configuration["MongoDbSettings:ConnectionString"]))
+    throw new InvalidOperationException(
+        "Connection string do MongoDB ausente. Defina MongoDbSettings__ConnectionString ou crie appsettings.Local.json.");
+if (string.IsNullOrWhiteSpace(jwtSettings.SecretKey) || jwtSettings.SecretKey.Length < 32)
+    throw new InvalidOperationException(
+        "Chave JWT ausente ou com menos de 32 caracteres. Defina JwtSettings__SecretKey ou crie appsettings.Local.json.");
+
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
         {
-            options.TokenValidationParameters = new TokenValidationParameters
-            {
-                ValidateIssuer = true,
-                ValidateAudience = true,
-                ValidateLifetime = true,
-                ValidateIssuerSigningKey = true,
-                ValidIssuer = jwtSettings.Issuer,
-                ValidAudience = jwtSettings.Audience,
-                IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
-            };
-        });
-}
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = jwtSettings.Issuer,
+            ValidAudience = jwtSettings.Audience,
+            IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSettings.SecretKey))
+        };
+    });
 
 builder.Services.AddSingleton<IAnnouncementRepository, AnnouncementRepository>();
 builder.Services.AddSingleton<IReservationRepository, ReservationRepository>();

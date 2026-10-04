@@ -37,7 +37,7 @@ A connection string do MongoDB e a chave JWT não ficam no repositório. Crie o 
 }
 ```
 
-Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__ConnectionString` e `JwtSettings__SecretKey`.
+Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__ConnectionString` e `JwtSettings__SecretKey` **antes** do deploy: sem elas a API recusa a partida com uma mensagem dizendo o que falta.
 
 ### Executando o projeto
 
