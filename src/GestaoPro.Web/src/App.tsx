@@ -15,6 +15,9 @@ type ModuleId =
   | 'pets'
   | 'occurrences'
   | 'deliveries'
+  | 'bills'
+  | 'payments'
+  | 'parking'
   | 'assembly'
   | 'votes'
 
@@ -36,6 +39,7 @@ interface FieldDef {
   selectOptions?: SelectOption[]
   defaultValue?: string | number | boolean
   disallowPast?: boolean
+  step?: string
 }
 
 interface ModuleDef {
@@ -47,8 +51,12 @@ interface ModuleDef {
   createEndpoint?: string
   createHeaders?: (payload: Record<string, unknown>) => Record<string, string>
   fields?: FieldDef[]
+  // Formulário de edição quando difere do de criação (ex.: status só existe no PUT).
+  editFields?: FieldDef[]
   columns?: string[]
   adminOnly?: boolean
+  // A API não tem DELETE para o recurso: esconde o botão Remover.
+  noDelete?: boolean
 }
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL || (import.meta.env.PROD ? 'https://gestaopro-api-99vx.onrender.com' : '')
@@ -66,6 +74,9 @@ const createSuccessMessages: Partial<Record<ModuleId, string>> = {
   announcements: 'Aviso criado com sucesso.',
   occurrences: 'Ocorrência criada com sucesso.',
   deliveries: 'Encomenda criada com sucesso.',
+  bills: 'Cobrança criada com sucesso.',
+  payments: 'Pagamento registrado com sucesso.',
+  parking: 'Vaga criada com sucesso.',
   votes: 'Voto registrado.',
 }
 
@@ -81,6 +92,9 @@ const updateSuccessMessages: Partial<Record<ModuleId, string>> = {
   announcements: 'Aviso atualizado com sucesso.',
   occurrences: 'Ocorrência atualizada com sucesso.',
   deliveries: 'Encomenda atualizada com sucesso.',
+  bills: 'Cobrança atualizada com sucesso.',
+  payments: 'Pagamento atualizado com sucesso.',
+  parking: 'Vaga atualizada com sucesso.',
 }
 
 const deleteSuccessMessages: Partial<Record<ModuleId, string>> = {
@@ -95,6 +109,7 @@ const deleteSuccessMessages: Partial<Record<ModuleId, string>> = {
   announcements: 'Aviso removido com sucesso.',
   occurrences: 'Ocorrencia removida com sucesso.',
   deliveries: 'Encomenda removida com sucesso.',
+  parking: 'Vaga removida com sucesso.',
 }
 
 function deleteConfirmationMessage(moduleId: ModuleId) {
@@ -169,6 +184,13 @@ const labels: Record<string, string> = {
   voteStatus: 'Status da votação',
   amount: 'Valor',
   dueDate: 'Vencimento',
+  barcode: 'Código de barras',
+  billId: 'Cobrança',
+  paymentDate: 'Data do pagamento',
+  amountPaid: 'Valor pago',
+  paymentMethod: 'Forma de pagamento',
+  receiptUrl: 'Comprovante',
+  isShared: 'Compartilhada',
 }
 
 const statusLabels: Record<string, string> = {
@@ -333,11 +355,43 @@ function formatCell(column: string, value: unknown, lookups?: LookupData) {
   if (['birthDate', 'dueDate', 'expiresAt', 'scheduledDate', 'date'].includes(column) && typeof value === 'string') {
     return formatDateOnly(value)
   }
+  if (['amount', 'amountPaid'].includes(column)) return formatCurrency(value)
 
   return formatValue(value)
 }
 
-const modules: ModuleDef[] = [
+export function formatCurrency(value: unknown) {
+  if (value === null || value === undefined || value === '' || Number.isNaN(Number(value))) return '-'
+  return Number(value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+// Campos conforme CreateBillDto / UpdateBillDto (BillsController).
+const billFields: FieldDef[] = [
+  { name: 'condominiumId', label: 'Condomínio', required: true },
+  { name: 'userId', label: 'Morador', required: true },
+  { name: 'description', label: 'Descrição', placeholder: 'Ex.: Taxa condominial 05/2026', required: true },
+  { name: 'amount', label: 'Valor (R$)', type: 'number', step: '0.01', required: true },
+  { name: 'dueDate', label: 'Vencimento', type: 'date', required: true },
+  { name: 'barcode', label: 'Código de barras', placeholder: 'Gerado automaticamente se vazio' },
+]
+
+// Campos conforme CreatePaymentDto / UpdatePaymentDto; o billId vem da cobrança escolhida na tela.
+const paymentFields: FieldDef[] = [
+  { name: 'amountPaid', label: 'Valor pago (R$)', type: 'number', step: '0.01', required: true },
+  { name: 'paymentMethod', label: 'Forma de pagamento', type: 'select', options: ['pix', 'boleto', 'cartao'], required: true },
+  { name: 'receiptUrl', label: 'Link do comprovante', placeholder: 'https://...' },
+]
+
+// Campos conforme CreateParkingDto; status e ocupação só existem no UpdateParkingDto.
+const parkingFields: FieldDef[] = [
+  { name: 'condominiumId', label: 'Condomínio' },
+  { name: 'number', label: 'Número', placeholder: 'Ex.: V-01', required: true },
+  { name: 'type', label: 'Tipo', placeholder: 'Ex.: coberta, descoberta, visitante', required: true },
+  { name: 'unitId', label: 'Unidade' },
+  { name: 'isShared', label: 'Compartilhada', type: 'checkbox' },
+]
+
+export const modules: ModuleDef[] = [
   {
     id: 'dashboard',
     label: 'Painel',
@@ -547,6 +601,46 @@ const modules: ModuleDef[] = [
       { name: 'unitId', label: 'Unidade' },
       { name: 'status', label: 'Status', type: 'select', options: ['pending', 'picked_up'], defaultValue: 'pending' },
       { name: 'observations', label: 'Observações', type: 'textarea' },
+    ],
+  },
+  {
+    id: 'bills',
+    label: 'Cobranças',
+    title: 'Cobranças',
+    description: 'Boletos e taxas por morador.',
+    createEndpoint: '/api/Bills',
+    noDelete: true,
+    columns: ['description', 'amount', 'dueDate', 'status', 'barcode', 'userId'],
+    fields: billFields,
+    editFields: [
+      ...billFields,
+      { name: 'status', label: 'Status', type: 'select', options: ['pending', 'paid', 'overdue', 'canceled'], required: true },
+    ],
+  },
+  {
+    id: 'payments',
+    label: 'Pagamentos',
+    title: 'Pagamentos',
+    description: 'Pagamentos registrados por cobrança.',
+    createEndpoint: '/api/Payments',
+    noDelete: true,
+    columns: ['paymentDate', 'amountPaid', 'paymentMethod', 'receiptUrl'],
+    fields: paymentFields,
+  },
+  {
+    id: 'parking',
+    label: 'Estacionamento',
+    title: 'Estacionamento',
+    description: 'Vagas de estacionamento, ocupação e reservas.',
+    listEndpoint: '/api/Parking',
+    createEndpoint: '/api/Parking',
+    columns: ['number', 'type', 'status', 'isShared', 'unitId', 'residentId', 'reservedByUserId'],
+    fields: parkingFields,
+    editFields: [
+      ...parkingFields,
+      { name: 'status', label: 'Status', type: 'select', options: ['available', 'reserved', 'occupied'], required: true },
+      { name: 'residentId', label: 'Morador' },
+      { name: 'reservedByUserId', label: 'Reservado por' },
     ],
   },
   {
@@ -931,6 +1025,16 @@ function resolveSelectValue(field: FieldDef, value: string) {
   return byContainedText?.value ?? ''
 }
 
+// Quem não administra só consulta os próprios registros nos módulos que têm rota por usuário.
+export function moduleForSession(module: ModuleDef, session: AppSession, canManage: boolean): ModuleDef {
+  if (canManage || !session.userId) return module
+  const userId = encodeURIComponent(session.userId)
+  if (module.id === 'reservations') return { ...module, listEndpoint: `/api/reservations/user/${userId}` }
+  if (module.id === 'visitors') return { ...module, listEndpoint: `/api/Visitor/resident/${userId}` }
+  if (module.id === 'bills') return { ...module, listEndpoint: `/api/Bills/user/${userId}` }
+  return module
+}
+
 function filterRowsByMonth(rows: Record<string, unknown>[], month: Date, fieldName: string) {
   const monthKey = `${month.getFullYear()}-${String(month.getMonth() + 1).padStart(2, '0')}`
   return rows.filter(row => String(row[fieldName] ?? '').slice(0, 7) === monthKey)
@@ -947,11 +1051,7 @@ export default function App() {
   const selectedModule = modules.find(module => module.id === activeId) ?? modules[0]
   const fallbackModule = visibleModules[0] ?? modules.find(module => module.id === 'auth')!
   const activeModule = !isLoggedIn ? modules.find(module => module.id === 'auth')! : selectedModule.adminOnly && !canManage ? fallbackModule : selectedModule
-  const pageModule = activeModule.id === 'reservations' && !canManage && session.userId
-    ? { ...activeModule, listEndpoint: `/api/reservations/user/${encodeURIComponent(session.userId)}` }
-    : activeModule.id === 'visitors' && !canManage && session.userId
-      ? { ...activeModule, listEndpoint: `/api/Visitor/resident/${encodeURIComponent(session.userId)}` }
-      : activeModule
+  const pageModule = moduleForSession(activeModule, session, canManage)
 
   async function refreshLookups(currentSession = session) {
     if (!currentSession.token) {
@@ -1094,7 +1194,9 @@ export default function App() {
         {activeModule.id === 'pets' && <FilteredPage module={pageModule} filters={petFilters} canManage={canManage} lookups={lookups} />}
         {activeModule.id === 'occurrences' && <FilteredPage module={pageModule} filters={occurrenceFilters} canManage={canManage} lookups={lookups} />}
         {activeModule.id === 'votes' && <VotesPage module={pageModule} canManage={canManage} session={session} lookups={lookups} />}
-        {!['dashboard', 'auth', 'units', 'pets', 'occurrences', 'votes'].includes(activeModule.id) && (
+        {activeModule.id === 'bills' && <FilteredPage module={pageModule} filters={canManage ? billFilters : null} canManage={canManage} lookups={lookups} />}
+        {activeModule.id === 'payments' && <PaymentsPage module={pageModule} canManage={canManage} session={session} lookups={lookups} />}
+        {!['dashboard', 'auth', 'units', 'pets', 'occurrences', 'votes', 'bills', 'payments'].includes(activeModule.id) && (
           <ResourcePage
             key={activeModule.id}
             module={pageModule}
@@ -1372,6 +1474,7 @@ function ResourcePage({
     return new Date(now.getFullYear(), now.getMonth(), 1)
   })
   const formFields = withLookupOptions(fieldsForSession(module, canManage), lookups)
+  const editFields = module.editFields ? withLookupOptions(module.editFields, lookups) : formFields
   const canCreate = Boolean(formFields?.length && module.createEndpoint && (canManage || ['reservations', 'visitors'].includes(module.id)))
   const isReadOnly = !canCreate
   const visibleRows = module.id === 'reservations' ? filterRowsByMonth(rows, reservationMonth, 'date') : rows
@@ -1478,11 +1581,11 @@ function ResourcePage({
           successMessage=""
         />
       )}
-      {canManage && formFields && editingRow && (
+      {canManage && editFields && editingRow && (
         <JsonForm
           key={normalizeId(editingRow)}
           title="Editar registro"
-          fields={formFields}
+          fields={editFields}
           initialData={editingRow}
           submitLabel="Atualizar"
           onSubmit={update}
@@ -1519,8 +1622,8 @@ function ResourcePage({
           rows={visibleRows}
           columns={module.columns}
           lookups={lookups}
-          onEdit={canManage && formFields ? row => setEditingRow(row) : undefined}
-          onDelete={canManage && (module.listEndpoint || module.createEndpoint) ? remove : undefined}
+          onEdit={canManage && editFields ? row => setEditingRow(row) : undefined}
+          onDelete={canManage && (module.listEndpoint || module.createEndpoint) && !module.noDelete ? remove : undefined}
           deleteLabel={module.id === 'users' ? 'Desativar' : undefined}
         />
         {canManage && module.id === 'visitors' && <VisitorActions onDone={load} lookups={lookups} />}
@@ -1627,6 +1730,11 @@ const occurrenceFilters = [
   { label: 'Por usuário', lookupKey: 'users' as LookupKey, build: (value: string) => `/api/Occurrences/user/${encodeURIComponent(value)}` },
 ]
 
+// A API só lista cobranças por morador (GET /api/Bills/user/{userId}).
+const billFilters = [
+  { label: 'Por morador', lookupKey: 'users' as LookupKey, build: (value: string) => `/api/Bills/user/${encodeURIComponent(value)}` },
+]
+
 function FilteredPage({
   module,
   filters,
@@ -1644,6 +1752,7 @@ function FilteredPage({
   const [message, setMessage] = useState('')
   const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null)
   const formFields = withLookupOptions(module.fields, lookups)
+  const editFields = withLookupOptions(module.editFields ?? module.fields, lookups)
 
   const selectedFilter = Array.isArray(filters) ? filters[selected] : undefined
   const selectedOptions = selectedFilter ? lookups[selectedFilter.lookupKey] : []
@@ -1727,11 +1836,11 @@ function FilteredPage({
           successMessage=""
         />
       )}
-      {canManage && formFields && editingRow && (
+      {canManage && editFields && editingRow && (
         <JsonForm
           key={normalizeId(editingRow)}
           title="Editar registro"
-          fields={formFields}
+          fields={editFields}
           initialData={editingRow}
           submitLabel="Atualizar"
           onSubmit={update}
@@ -1747,8 +1856,8 @@ function FilteredPage({
           rows={rows}
           columns={module.columns}
           lookups={lookups}
-          onEdit={canManage && formFields ? row => setEditingRow(row) : undefined}
-          onDelete={canManage && module.createEndpoint ? remove : undefined}
+          onEdit={canManage && editFields ? row => setEditingRow(row) : undefined}
+          onDelete={canManage && module.createEndpoint && !module.noDelete ? remove : undefined}
         />
       </section>
     </div>
@@ -1910,6 +2019,142 @@ function VotesPage({ module, canManage, session, lookups }: { module: ModuleDef;
   )
 }
 
+
+function billOptionLabel(bill: Record<string, unknown>) {
+  const dueDate = typeof bill.dueDate === 'string' ? formatDateOnly(bill.dueDate) : '-'
+  return `${String(bill.description ?? 'Cobrança')} - ${formatCurrency(bill.amount)} - venc. ${dueDate} - ${formatValue(bill.status)}`
+}
+
+// A API só lista pagamentos por cobrança (GET /api/Payments/bill/{billId}) e cobranças por morador:
+// o administrador escolhe o morador e depois a cobrança; o morador já vê as próprias cobranças.
+function PaymentsPage({ module, canManage, session, lookups }: { module: ModuleDef; canManage: boolean; session: AppSession; lookups: LookupData }) {
+  const [userId, setUserId] = useState(canManage ? '' : session.userId)
+  const [bills, setBills] = useState<Record<string, unknown>[]>([])
+  const [billId, setBillId] = useState('')
+  const [rows, setRows] = useState<Record<string, unknown>[]>([])
+  const [message, setMessage] = useState('')
+  const [editingRow, setEditingRow] = useState<Record<string, unknown> | null>(null)
+  const fields = module.fields ?? []
+  const selectedBill = bills.find(bill => normalizeId(bill) === billId)
+
+  async function fetchBills(targetUserId: string) {
+    const data = await requestJson<Record<string, unknown>[]>(`/api/Bills/user/${encodeURIComponent(targetUserId)}`)
+    setBills(Array.isArray(data) ? data : [])
+  }
+
+  async function loadPayments(targetBillId: string) {
+    setRows([])
+    if (!targetBillId) return
+    try {
+      const data = await requestJson<Record<string, unknown>[]>(`/api/Payments/bill/${encodeURIComponent(targetBillId)}`)
+      setRows(Array.isArray(data) ? data : [])
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro ao carregar os pagamentos.')
+    }
+  }
+
+  async function selectUser(nextUserId: string) {
+    setUserId(nextUserId)
+    setBills([])
+    setBillId('')
+    setRows([])
+    setEditingRow(null)
+    setMessage('')
+    if (!nextUserId) return
+    try {
+      await fetchBills(nextUserId)
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : 'Erro ao carregar as cobranças.')
+    }
+  }
+
+  async function selectBill(nextBillId: string) {
+    setBillId(nextBillId)
+    setEditingRow(null)
+    setMessage('')
+    await loadPayments(nextBillId)
+  }
+
+  useEffect(() => {
+    if (!canManage && session.userId) selectUser(session.userId)
+  }, [canManage, session.userId])
+
+  async function create(payload: Record<string, unknown>) {
+    if (!module.createEndpoint || !billId) return
+    await requestJson(module.createEndpoint, {
+      method: 'POST',
+      body: JSON.stringify({ billId, ...payload }),
+    })
+    // A API marca a cobrança como paga ao registrar o pagamento: recarrega as duas listas.
+    await Promise.all([fetchBills(userId), loadPayments(billId)])
+    setMessage(createSuccessMessages.payments ?? 'Registro criado com sucesso.')
+  }
+
+  async function update(payload: Record<string, unknown>) {
+    const id = editingRow ? normalizeId(editingRow) : ''
+    if (!id || !module.createEndpoint) return
+    await requestJson(`${module.createEndpoint}/${id}`, {
+      method: 'PUT',
+      body: JSON.stringify(payload),
+    })
+    setEditingRow(null)
+    await loadPayments(billId)
+    setMessage(updateSuccessMessages.payments ?? 'Registro atualizado com sucesso.')
+  }
+
+  return (
+    <div className={canManage ? 'panel-grid' : 'panel-grid read-only'}>
+      {canManage && billId && (
+        <JsonForm title="Novo pagamento" fields={fields} onSubmit={create} submitLabel="Registrar pagamento" successMessage="" />
+      )}
+      {canManage && editingRow && (
+        <JsonForm
+          key={normalizeId(editingRow)}
+          title="Editar pagamento"
+          fields={fields}
+          initialData={editingRow}
+          submitLabel="Atualizar"
+          onSubmit={update}
+          successMessage=""
+          onCancel={() => setEditingRow(null)}
+        />
+      )}
+      <section className="panel">
+        <PanelHeader title="Pagamentos" onRefresh={billId ? () => loadPayments(billId) : undefined} />
+        <div className="form-grid">
+          {canManage && (
+            <label>
+              <span>Morador</span>
+              <select value={userId} onChange={event => selectUser(event.target.value)}>
+                <option value="">Selecione</option>
+                {lookups.users.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+              </select>
+            </label>
+          )}
+          <label>
+            <span>Cobrança</span>
+            <select value={billId} onChange={event => selectBill(event.target.value)} disabled={!bills.length}>
+              <option value="">{userId && !bills.length ? 'Nenhuma cobrança' : 'Selecione'}</option>
+              {bills.map(bill => <option key={normalizeId(bill)} value={normalizeId(bill)}>{billOptionLabel(bill)}</option>)}
+            </select>
+          </label>
+        </div>
+        {selectedBill && (
+          <div className="notice" style={{ marginTop: 8 }}>
+            <strong>Cobrança:</strong> {billOptionLabel(selectedBill)}
+          </div>
+        )}
+        {message && <div className={isSuccessMessage(message) ? 'notice' : 'notice error'}>{message}</div>}
+        <DataTable
+          rows={rows}
+          columns={module.columns}
+          lookups={lookups}
+          onEdit={canManage ? row => setEditingRow(row) : undefined}
+        />
+      </section>
+    </div>
+  )
+}
 
 function VisitorActions({ onDone, lookups }: { onDone: () => void; lookups: LookupData }) {
   const [visitorId, setVisitorId] = useState('')
@@ -2124,6 +2369,7 @@ function renderInput(field: FieldDef, value: unknown, onChange: (value: unknown)
   return (
     <input
       type={field.type ?? 'text'}
+      step={field.step}
       value={String(value ?? '')}
       onChange={event => onChange(event.target.value)}
       placeholder={field.placeholder}
