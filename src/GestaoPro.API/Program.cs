@@ -134,7 +134,8 @@ builder.Services.AddSingleton<ILegacyCondominiumStore, MongoLegacyCondominiumSto
 builder.Services.AddScoped<LegacyCondominiumBackfill>();
 builder.Services.AddHostedService<LegacyCondominiumBackfillInitializer>();
 
-builder.Services.AddControllers()
+// Id de rota malformado responde 400 em vez de 500 (MalformedIdFilter).
+builder.Services.AddControllers(options => options.Filters.Add<MalformedIdFilter>())
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
