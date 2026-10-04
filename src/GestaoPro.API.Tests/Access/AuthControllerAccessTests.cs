@@ -29,4 +29,32 @@ public class AuthControllerAccessTests
         Assert.Equal(404, StatusOf(deactivate));
         Assert.Equal(404, StatusOf(unknown));
     }
+
+    // Rotas anônimas: qualquer falha responde a mensagem única da rota, nunca o texto da exceção.
+    [Fact]
+    public async Task Autoatendimento_nunca_devolve_o_texto_da_excecao()
+    {
+        var accounts = new Mock<ISelfServiceAccounts>();
+        accounts.Setup(a => a.GetCondominiumCodeHashAsync(It.IsAny<string>()))
+            .ThrowsAsync(new Exception("detalhe interno do banco"));
+        accounts.Setup(a => a.GetCredentialAsync(It.IsAny<string>()))
+            .ThrowsAsync(new Exception("detalhe interno do banco"));
+        var controller = new AuthController(null!, _users.Object,
+            new SelfServiceAuthService(accounts.Object, new BcryptPasswordVerifier()));
+
+        var check = await controller.CheckCpf(new CheckCpfRequest("11111111111", CondominioA, "Jardim-Azul-2026"));
+        var register = await controller.SelfRegister(new SelfRegisterRequest("11111111111", CondominioA, "Jardim-Azul-2026", "senha", null, null, null));
+        var change = await controller.ChangePassword(new AuthChangePasswordRequest("joao", "x", "y"));
+
+        Assert.Equal(SelfServiceAuthService.CheckRefusedMessage, MessageOf(check));
+        Assert.Equal(SelfServiceAuthService.RegisterRefusedMessage, MessageOf(register));
+        Assert.Equal(SelfServiceAuthService.ChangePasswordRefusedMessage, MessageOf(change));
+        Assert.All(new[] { check, register, change }, result => Assert.Equal(400, StatusOf(result)));
+    }
+
+    private static string? MessageOf(Microsoft.AspNetCore.Mvc.IActionResult result)
+    {
+        var value = ValueOf<object>(result);
+        return value.GetType().GetProperty("message")?.GetValue(value) as string;
+    }
 }

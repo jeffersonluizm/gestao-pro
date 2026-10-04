@@ -77,9 +77,10 @@ public class AuthController : ControllerBase
             await _selfService.ChangePasswordOnFirstAccessAsync(request);
             return NoContent();
         }
-        catch (InvalidOperationException ex)
+        catch (Exception)
         {
-            return BadRequest(ex.Message);
+            // Rota anônima: só a mensagem única, nunca o texto da exceção.
+            return BadRequest(new { message = SelfServiceAuthService.ChangePasswordRefusedMessage });
         }
     }
 
@@ -108,9 +109,9 @@ public class AuthController : ControllerBase
             var result = await _selfService.CheckCpfAsync(request);
             return Ok(result);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BadRequest(new { message = ex.Message });
+            return BadRequest(new { message = SelfServiceAuthService.CheckRefusedMessage });
         }
     }
 
@@ -123,9 +124,10 @@ public class AuthController : ControllerBase
             var result = await _selfService.SelfRegisterAsync(request);
             return Ok(result);
         }
-        catch (InvalidOperationException ex)
+        catch (Exception)
         {
-            return BadRequest(new { message = ex.Message });
+            // Inclui e-mail já usado e falhas do banco: a resposta não diferencia os motivos.
+            return BadRequest(new { message = SelfServiceAuthService.RegisterRefusedMessage });
         }
     }
 
