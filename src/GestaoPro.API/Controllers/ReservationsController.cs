@@ -4,7 +4,6 @@ using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Security.Claims;
 
 namespace GestaoPro.API.Controllers;
 
@@ -124,13 +123,19 @@ public class ReservationsController : ControllerBase
 
         try
         {
-            if (!IsAdministrator())
-            {
-                var currentUserId = CurrentUserId();
-                if (string.IsNullOrWhiteSpace(currentUserId))
-                    return Unauthorized(new { message = "Login obrigatório para criar reserva." });
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-                dto.UserId = currentUserId;
+            if (caller.IsAdministrator)
+            {
+                // Admin/síndico reserva para morador, só no próprio condomínio.
+                if (this.DenyManage(caller, dto.CondominiumId, staff: true) is { } denied) return denied;
+            }
+            else
+            {
+                // Quem não administra reserva em nome próprio e no próprio condomínio.
+                dto.UserId = caller.UserId!;
+                dto.CondominiumId = caller.CondominiumId!;
             }
 
             var reservation = await _service.CreateAsync(dto);
@@ -150,6 +155,12 @@ public class ReservationsController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateReservationDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
+
+        // Aprovar, rejeitar ou alterar: só a administração do condomínio da reserva (outro: 404).
+        var caller = this.Caller();
+        var existing = await _service.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (this.DenyManage(caller, existing.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
 
         try
         {
@@ -186,13 +197,5 @@ public class ReservationsController : ControllerBase
         reservations
             .Where(reservation => ResourceAccess.CanSee(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator))
             .ToList();
-
-    private string? CurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
-
-    private bool IsAdministrator()
-    {
-        var role = User.FindFirstValue(ClaimTypes.Role);
-        return role is "admin" or "sindico";
-    }
 }
 

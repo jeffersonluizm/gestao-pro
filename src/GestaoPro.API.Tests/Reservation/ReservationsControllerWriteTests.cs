@@ -52,4 +52,31 @@ public class ReservationsControllerWriteTests
         Assert.Equal(404, StatusOf(other));
         _service.Verify(s => s.DeleteAsync("reserva-carlos"), Times.Never);
     }
+
+    [Fact]
+    public async Task Morador_cria_reserva_sempre_em_nome_proprio_e_no_proprio_condominio()
+    {
+        _service.Setup(s => s.CreateAsync(It.IsAny<CreateReservationDto>()))
+            .ReturnsAsync(new ReservationModel { Id = "nova", UserId = "joao", CondominiumId = CondominioA });
+        var dto = new CreateReservationDto { CommonAreaId = "area-1", UserId = "maria", CondominiumId = CondominioB, Date = "2026-10-10", StartTime = "10:00", EndTime = "12:00" };
+
+        var result = await _controller.As("joao", "morador").Create(dto);
+
+        Assert.Equal(201, StatusOf(result));
+        Assert.Equal("joao", dto.UserId);
+        Assert.Equal(CondominioA, dto.CondominiumId);
+    }
+
+    [Fact]
+    public async Task Admin_nao_cria_nem_altera_reserva_de_outro_condominio()
+    {
+        var create = await _controller.As("admin-a", "admin").Create(
+            new CreateReservationDto { CommonAreaId = "area-9", UserId = "carlos", CondominiumId = CondominioB, Date = "2026-10-10", StartTime = "10:00", EndTime = "12:00" });
+        var update = await _controller.As("admin-a", "admin").Update("reserva-carlos", new UpdateReservationDto { Status = "aprovada" });
+
+        Assert.Equal(404, StatusOf(create));
+        Assert.Equal(404, StatusOf(update));
+        _service.Verify(s => s.CreateAsync(It.IsAny<CreateReservationDto>()), Times.Never);
+        _service.Verify(s => s.UpdateAsync(It.IsAny<string>(), It.IsAny<UpdateReservationDto>()), Times.Never);
+    }
 }
