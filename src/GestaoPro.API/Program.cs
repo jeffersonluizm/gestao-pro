@@ -144,6 +144,8 @@ builder.Services.AddControllers(options => options.Filters.Add<MalformedIdFilter
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
+// Erro inesperado vira ProblemDetails (application/problem+json) sem mensagem nem stack da exceção.
+builder.Services.AddProblemDetails();
 
 // Limites das rotas anônimas de autenticação (por IP e por condomínio; ver AuthRateLimit).
 builder.Services.AddAuthRateLimits(builder.Configuration);
@@ -162,20 +164,25 @@ if (trustProxy)
     });
 }
 
+// CORS só para as origens do painel configuradas (Cors:AllowedOrigins). Sem configuração, em
+// desenvolvimento valem as portas locais do painel e do Expo web; em produção nenhuma origem é liberada.
+// O app nativo não envia Origin e não depende de CORS.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? (builder.Environment.IsDevelopment()
+        ? new[] { "http://localhost:3000", "http://localhost:8081", "http://localhost:19006" }
+        : Array.Empty<string>());
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .WithExposedHeaders("Retry-After");
     });
 });
 
 var app = builder.Build();
-
-app.UseSwagger();
-app.UseSwaggerUI();
 
 // A conta admin de demonstração tem senha conhecida: só existe em desenvolvimento.
 if (app.Environment.IsDevelopment())
@@ -186,6 +193,14 @@ if (app.Environment.IsDevelopment())
 }
 
 if (trustProxy) app.UseForwardedHeaders();
+app.UseExceptionHandler();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+// Documentação interativa só em desenvolvimento (ou com Swagger:Enabled=true explícito).
+if (app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment()))
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 app.UseCors();
 app.UseRateLimiter();
 app.UseAuthentication();
