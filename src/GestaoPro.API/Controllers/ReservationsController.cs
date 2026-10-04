@@ -1,6 +1,7 @@
 ﻿using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
@@ -20,19 +21,18 @@ public class ReservationsController : ControllerBase
         _service = service;
     }
 
-    /// <summary>Lista todas as reservas</summary>
+    /// <summary>Lista as reservas que o usuário pode ver (morador: as próprias; administração: as do condomínio)</summary>
     [HttpGet]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
-        if (!IsAdministrator() && CurrentUserId() is { Length: > 0 } currentUserId)
-        {
-            var userReservations = await _service.GetByUserAsync(currentUserId);
-            return Ok(userReservations);
-        }
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        var reservations = await _service.GetAllAsync();
-        return Ok(reservations);
+        var reservations = caller.IsAdministrator
+            ? await _service.GetAllAsync()
+            : await _service.GetByUserAsync(caller.UserId!);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Busca uma reserva pelo ID</summary>
@@ -41,38 +41,53 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetById(string id)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservation = await _service.GetByIdAsync(id);
-        return reservation is null ? NotFound() : Ok(reservation);
+        if (reservation is null) return NotFound();
+
+        return this.Deny(ResourceAccess.Decide(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator))
+            ?? Ok(reservation);
     }
 
-    /// <summary>Lista reservas por condomÃ­nio</summary>
+    /// <summary>Lista reservas por condomínio (só o próprio; morador vê as próprias)</summary>
     [HttpGet("condominium/{condominiumId}")]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCondominium(string condominiumId)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!string.Equals(caller.CondominiumId, condominiumId, StringComparison.Ordinal)) return NotFound();
+
         var reservations = await _service.GetByCondominiumAsync(condominiumId);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
-    /// <summary>Lista reservas por usuÃ¡rio</summary>
+    /// <summary>Lista reservas por usuário</summary>
     [HttpGet("user/{userId}")]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByUser(string userId)
     {
-        if (!IsAdministrator() && !string.Equals(CurrentUserId(), userId, StringComparison.Ordinal))
-            return Forbid();
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+        if (!caller.IsAdministrator && !string.Equals(caller.UserId, userId, StringComparison.Ordinal))
+            return this.Forbidden();
 
         var reservations = await _service.GetByUserAsync(userId);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
-    /// <summary>Lista reservas por Ã¡rea comum</summary>
+    /// <summary>Lista reservas por área comum</summary>
     [HttpGet("common-area/{commonAreaId}")]
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCommonArea(string commonAreaId)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservations = await _service.GetByCommonAreaAsync(commonAreaId);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Filtra reservas por status (pendente, aprovada, rejeitada, cancelada)</summary>
@@ -80,8 +95,11 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByStatus(string status)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservations = await _service.GetByStatusAsync(status);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Lista reservas por data (formato: yyyy-MM-dd)</summary>
@@ -89,8 +107,11 @@ public class ReservationsController : ControllerBase
     [ProducesResponseType(typeof(List<Reservation>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByDate(string date)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var reservations = await _service.GetByDateAsync(date);
-        return Ok(reservations);
+        return Ok(Visible(caller, reservations));
     }
 
     /// <summary>Cria uma nova reserva</summary>
@@ -150,6 +171,12 @@ public class ReservationsController : ControllerBase
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound();
     }
+
+    // Filtro das listas: morador fica com as próprias, administração com as do condomínio.
+    private static List<Reservation> Visible(Caller caller, IEnumerable<Reservation> reservations) =>
+        reservations
+            .Where(reservation => ResourceAccess.CanSee(caller, reservation.UserId, reservation.CondominiumId, caller.IsAdministrator))
+            .ToList();
 
     private string? CurrentUserId() => User.FindFirstValue(ClaimTypes.NameIdentifier);
 
