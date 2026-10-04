@@ -23,6 +23,9 @@ public class CondominiumsController : ControllerBase
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
+        // A lista (GET /api/condominiums) segue pública para a tela de cadastro; o detalhe é só do próprio condomínio.
+        if (this.DenyOtherCondominium(this.Caller(), id) is { } denied) return denied;
+
         var condominium = await _service.GetByIdAsync(id);
         return condominium is null ? NotFound() : Ok(condominium);
     }

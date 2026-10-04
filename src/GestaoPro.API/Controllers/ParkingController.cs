@@ -20,8 +20,10 @@ namespace GestaoPro.API.Controllers
         [HttpGet]
         public async Task<ActionResult<List<Parking>>> Get()
         {
-            var parkings = await _parkingService.GetAllAsync();
-            return Ok(parkings);
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+            return Ok(Visible(caller, await _parkingService.GetAllAsync()));
         }
 
         [HttpGet("{id}")]
@@ -32,14 +34,17 @@ namespace GestaoPro.API.Controllers
             if (parking == null)
                 return NotFound();
 
-            return Ok(parking);
+            var caller = this.Caller();
+            return this.DenyOtherCondominium(caller, parking.CondominiumId) ?? Ok(ForCaller(caller, parking));
         }
 
         [HttpGet("available")]
         public async Task<ActionResult<List<Parking>>> GetAvailable()
         {
-            var availableParkings = await _parkingService.GetAvailableAsync();
-            return Ok(availableParkings);
+            var caller = this.Caller();
+            if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
+            return Ok(Visible(caller, await _parkingService.GetAvailableAsync()));
         }
 
         [HttpPost]
@@ -113,6 +118,44 @@ namespace GestaoPro.API.Controllers
 
             await _parkingService.DeleteAsync(id);
             return NoContent();
+        }
+
+        // Vagas do condomínio do token; quem não administra não recebe quem usa ou reservou as vagas dos outros.
+        private static List<Parking> Visible(Caller caller, IEnumerable<Parking> parkings) =>
+            caller.InCondominium(parkings, parking => parking.CondominiumId)
+                .Select(parking => ForCaller(caller, parking))
+                .ToList();
+
+        private static Parking ForCaller(Caller caller, Parking parking)
+        {
+            if (caller.IsAdministrator) return parking;
+
+            string? OnlyOwn(string? userId) =>
+                string.Equals(userId, caller.UserId, StringComparison.Ordinal) ? userId : null;
+
+            return new Parking
+            {
+                Id = parking.Id,
+                Number = parking.Number,
+                Type = parking.Type,
+                CondominiumId = parking.CondominiumId,
+                Status = parking.Status,
+                IsShared = parking.IsShared,
+                ResidentId = OnlyOwn(parking.ResidentId),
+                UnitId = parking.UnitId,
+                ReservedByUserId = OnlyOwn(parking.ReservedByUserId),
+                ReservedAt = parking.ReservedAt,
+                CreatedAt = parking.CreatedAt,
+                History = parking.History
+                    .Select(entry => new ParkingHistory
+                    {
+                        Action = entry.Action,
+                        Status = entry.Status,
+                        UserId = OnlyOwn(entry.UserId),
+                        Date = entry.Date,
+                    })
+                    .ToList(),
+            };
         }
 
         // Escrita da administração só em vaga do próprio condomínio (outro ou sem condomínio gravado: 404).

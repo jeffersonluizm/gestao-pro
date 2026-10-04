@@ -24,8 +24,11 @@ public class AnnouncementsController : ControllerBase
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var announcements = await _service.GetAllAsync();
-        return Ok(announcements);
+        return Ok(caller.InCondominium(announcements, announcement => announcement.CondominiumId));
     }
 
     /// <summary>Lista apenas os avisos ativos</summary>
@@ -33,8 +36,11 @@ public class AnnouncementsController : ControllerBase
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetActive()
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var announcements = await _service.GetActiveAsync();
-        return Ok(announcements);
+        return Ok(caller.InCondominium(announcements, announcement => announcement.CondominiumId));
     }
 
     /// <summary>Busca um aviso pelo ID</summary>
@@ -44,7 +50,8 @@ public class AnnouncementsController : ControllerBase
     public async Task<IActionResult> GetById(string id)
     {
         var announcement = await _service.GetByIdAsync(id);
-        return announcement is null ? NotFound() : Ok(announcement);
+        if (announcement is null) return NotFound();
+        return this.DenyOtherCondominium(this.Caller(), announcement.CondominiumId) ?? Ok(announcement);
     }
 
     /// <summary>Lista avisos por condomÃ­nio</summary>
@@ -52,6 +59,8 @@ public class AnnouncementsController : ControllerBase
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCondominium(string condominiumId)
     {
+        if (this.DenyOtherCondominium(this.Caller(), condominiumId) is { } denied) return denied;
+
         var announcements = await _service.GetByCondominiumAsync(condominiumId);
         return Ok(announcements);
     }
@@ -61,8 +70,11 @@ public class AnnouncementsController : ControllerBase
     [ProducesResponseType(typeof(List<Announcement>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCategory(string category)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var announcements = await _service.GetByCategoryAsync(category);
-        return Ok(announcements);
+        return Ok(caller.InCondominium(announcements, announcement => announcement.CondominiumId));
     }
 
     /// <summary>Cria um novo aviso ou comunicado</summary>

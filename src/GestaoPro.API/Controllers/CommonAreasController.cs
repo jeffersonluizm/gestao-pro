@@ -22,8 +22,11 @@ public class CommonAreasController : ControllerBase
     [ProducesResponseType(typeof(List<CommonArea>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetAll()
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var commonAreas = await _service.GetAllAsync();
-        return Ok(commonAreas);
+        return Ok(caller.InCondominium(commonAreas, area => area.CondominiumId));
     }
 
     [HttpGet("{id}")]
@@ -32,13 +35,19 @@ public class CommonAreasController : ControllerBase
     public async Task<IActionResult> GetById(string id)
     {
         var commonArea = await _service.GetByIdAsync(id);
-        return commonArea is null ? NotFound("Área comum não encontrada.") : Ok(commonArea);
+        if (commonArea is null) return NotFound("Área comum não encontrada.");
+        // De outro condomínio: a mesma resposta de inexistente.
+        return this.DenyOtherCondominium(this.Caller(), commonArea.CondominiumId) is null
+            ? Ok(commonArea)
+            : NotFound("Área comum não encontrada.");
     }
 
     [HttpGet("condominium/{condominiumId}")]
     [ProducesResponseType(typeof(List<CommonArea>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetByCondominium(string condominiumId)
     {
+        if (this.DenyOtherCondominium(this.Caller(), condominiumId) is { } denied) return denied;
+
         var commonAreas = await _service.GetByCondominiumAsync(condominiumId);
         return Ok(commonAreas);
     }

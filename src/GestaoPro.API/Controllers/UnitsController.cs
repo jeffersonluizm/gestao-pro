@@ -19,14 +19,23 @@ public class UnitsController : ControllerBase
     }
 
     [HttpGet("condominium/{condominiumId}")]
-    public async Task<IActionResult> GetAllByCondominium(string condominiumId) =>
-        Ok(await _service.GetAllByCondominiumAsync(condominiumId));
+    public async Task<IActionResult> GetAllByCondominium(string condominiumId)
+    {
+        var caller = this.Caller();
+        if (this.DenyOtherCondominium(caller, condominiumId) is { } denied) return denied;
+
+        var units = await _service.GetAllByCondominiumAsync(condominiumId);
+        return Ok(units.Select(unit => ForCaller(caller, unit)).ToList());
+    }
 
     [HttpGet("{id}")]
     public async Task<IActionResult> GetById(string id)
     {
         var unit = await _service.GetByIdAsync(id);
-        return unit is null ? NotFound() : Ok(unit);
+        if (unit is null) return NotFound();
+
+        var caller = this.Caller();
+        return this.DenyOtherCondominium(caller, unit.CondominiumId) ?? Ok(ForCaller(caller, unit));
     }
 
     [HttpPost]
@@ -102,6 +111,12 @@ public class UnitsController : ControllerBase
             return BadRequest(ex.Message);
         }
     }
+
+    // Quem não administra não recebe os ids dos moradores das unidades (só o próprio, se morar nela).
+    private static UnitResponse ForCaller(Caller caller, UnitResponse unit) =>
+        caller.IsAdministrator
+            ? unit
+            : unit with { ResidentIds = unit.ResidentIds.Where(id => string.Equals(id, caller.UserId, StringComparison.Ordinal)).ToList() };
 
     // Vínculo só entre unidade e morador do próprio condomínio.
     private async Task<ActionResult?> DenyResidentLinkAsync(string id, string residentId)

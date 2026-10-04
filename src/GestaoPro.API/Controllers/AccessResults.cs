@@ -26,6 +26,17 @@ public static class AccessResults
     public static ActionResult? DenyManage(this ControllerBase controller, Caller caller, string? condominiumId, bool staff) =>
         controller.Deny(ResourceAccess.DecideManage(caller, condominiumId, staff));
 
+    // Leitura de dado do condomínio (área, aviso, assembleia, unidade, vaga): só o do token; outro ou sem condomínio: 404.
+    public static ActionResult? DenyOtherCondominium(this ControllerBase controller, Caller caller, string? condominiumId)
+    {
+        if (!caller.HasSession) return controller.Deny(AccessDecision.InvalidSession);
+        return string.Equals(condominiumId, caller.CondominiumId, StringComparison.Ordinal) ? null : controller.NotFound();
+    }
+
+    // Filtro das listas de dados do condomínio: só os do condomínio do token.
+    public static List<T> InCondominium<T>(this Caller caller, IEnumerable<T> items, Func<T, string?> condominiumOf) =>
+        items.Where(item => string.Equals(condominiumOf(item), caller.CondominiumId, StringComparison.Ordinal)).ToList();
+
     public static ActionResult Forbidden(this ControllerBase controller) =>
         controller.StatusCode(StatusCodes.Status403Forbidden, new { message = ForbiddenMessage });
 }

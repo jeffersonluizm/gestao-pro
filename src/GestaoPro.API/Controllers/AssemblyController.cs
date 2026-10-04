@@ -22,8 +22,11 @@ public class AssemblyController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAll([FromQuery] bool history = false)
     {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
+
         var assemblies = history ? await _service.GetHistoryAsync() : await _service.GetAllAsync();
-        return Ok(assemblies);
+        return Ok(caller.InCondominium(assemblies, assembly => assembly.CondominiumId));
     }
 
     [HttpGet("{id}")]
@@ -32,12 +35,14 @@ public class AssemblyController : ControllerBase
         var assembly = await _service.GetByIdAsync(id);
         if (assembly is null) return NotFound();
 
-        return Ok(assembly);
+        return this.DenyOtherCondominium(this.Caller(), assembly.CondominiumId) ?? Ok(assembly);
     }
 
     [HttpGet("condominium/{condominiumId}")]
     public async Task<IActionResult> GetByCondominium(string condominiumId, [FromQuery] bool history = false)
     {
+        if (this.DenyOtherCondominium(this.Caller(), condominiumId) is { } denied) return denied;
+
         var assemblies = history
             ? await _service.GetHistoryByCondominiumAsync(condominiumId)
             : await _service.GetByCondominiumAsync(condominiumId);
