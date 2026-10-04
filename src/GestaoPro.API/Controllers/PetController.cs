@@ -12,11 +12,13 @@ public class PetsController : ControllerBase
 {
     private readonly IPetService _service;
     private readonly IUserDirectory _users;
+    private readonly IUnitService _units;
 
-    public PetsController(IPetService service, IUserDirectory users)
+    public PetsController(IPetService service, IUserDirectory users, IUnitService units)
     {
         _service = service;
         _users = users;
+        _units = units;
     }
 
     [HttpGet("condominium/{condominiumId}")]
@@ -70,6 +72,8 @@ public class PetsController : ControllerBase
     {
         var caller = this.Caller();
         if (this.DenyManage(caller, request.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
+        if (!await OwnerAndUnitBelongToAsync(request))
+            return BadRequest(new { message = InvalidOwnerOrUnitMessage });
 
         try
         {
@@ -105,6 +109,21 @@ public class PetsController : ControllerBase
 
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();
+    }
+
+    // Mesma mensagem para tutor inexistente, tutor de outro condomínio e unidade de outro condomínio:
+    // a resposta não revela o que existe em outro condomínio.
+    private const string InvalidOwnerOrUnitMessage = "Tutor ou unidade inválidos para este condomínio.";
+
+    private async Task<bool> OwnerAndUnitBelongToAsync(CreatePetRequest request)
+    {
+        var owner = await _users.GetByIdAsync(request.OwnerId);
+        if (!string.Equals(owner?.CondominiumId, request.CondominiumId, StringComparison.Ordinal)) return false;
+
+        // Unidade por id: precisa ser do condomínio. Por rótulo ("201"), o PetAppService já procura só no condomínio.
+        if (!MongoDB.Bson.ObjectId.TryParse(request.UnitId, out _)) return true;
+        var unit = await _units.GetByIdAsync(request.UnitId);
+        return string.Equals(unit?.CondominiumId, request.CondominiumId, StringComparison.Ordinal);
     }
 
     private async Task<ActionResult?> DenyManageAsync(string id)

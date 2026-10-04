@@ -11,6 +11,7 @@ public class PetsControllerAccessTests
 {
     private readonly Mock<IPetService> _service = new();
     private readonly Mock<IUserDirectory> _users = new();
+    private readonly Mock<IUnitService> _units = new();
     private readonly PetsController _controller;
 
     private static readonly PetResponse RexDoJoao = Make("pet-joao", "joao", "unidade-101", CondominioA);
@@ -20,7 +21,13 @@ public class PetsControllerAccessTests
 
     public PetsControllerAccessTests()
     {
-        _controller = new PetsController(_service.Object, _users.Object);
+        _controller = new PetsController(_service.Object, _users.Object, _units.Object);
+        _users.Setup(u => u.GetByIdAsync("maria")).ReturnsAsync(new UserResponse { Id = "maria", CondominiumId = CondominioA });
+        _users.Setup(u => u.GetByIdAsync("carlos")).ReturnsAsync(new UserResponse { Id = "carlos", CondominiumId = CondominioB });
+        _units.Setup(u => u.GetByIdAsync(UnidadeA))
+            .ReturnsAsync(new UnitResponse(UnidadeA, CondominioA, "202", null, 2, default, new List<string> { "maria" }, 1, null, null, DateTime.UtcNow));
+        _units.Setup(u => u.GetByIdAsync(UnidadeB))
+            .ReturnsAsync(new UnitResponse(UnidadeB, CondominioB, "901", null, 9, default, new List<string> { "carlos" }, 1, null, null, DateTime.UtcNow));
         var all = new List<PetResponse> { RexDoJoao, MiaDaAna, BobDaMaria, ThorDoCarlos };
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>()))
             .ReturnsAsync((string id) => all.FirstOrDefault(p => p.Id == id));
@@ -101,4 +108,27 @@ public class PetsControllerAccessTests
         CondominiumId = condominiumId,
         Name = id,
     };
+
+    private const string UnidadeA = "665f1c2e9b1e8a0000000a21";
+    private const string UnidadeB = "665f1c2e9b1e8a0000000b21";
+
+    // Tutor e unidade precisam ser do condomínio do pet. A resposta é a mesma para tutor inexistente,
+    // tutor de outro condomínio e unidade de outro condomínio, para não revelar o que existe lá.
+    [Fact]
+    public async Task Cadastro_de_pet_recusa_tutor_ou_unidade_de_outro_condominio_com_a_mesma_mensagem()
+    {
+        var controller = _controller.As("admin-a", "admin");
+
+        var otherOwner = await controller.Create(new CreatePetRequest("carlos", UnidadeA, CondominioA, "Rex", default, null, null, true, null));
+        var missingOwner = await controller.Create(new CreatePetRequest("sumiu", UnidadeA, CondominioA, "Rex", default, null, null, true, null));
+        var otherUnit = await controller.Create(new CreatePetRequest("maria", UnidadeB, CondominioA, "Rex", default, null, null, true, null));
+
+        var messages = new[] { otherOwner, missingOwner, otherUnit }.Select(result =>
+        {
+            Assert.Equal(400, StatusOf(result));
+            return ValueOf<object>(result).GetType().GetProperty("message")!.GetValue(ValueOf<object>(result));
+        }).Distinct();
+        Assert.Single(messages);
+        _service.Verify(s => s.CreateAsync(It.IsAny<CreatePetRequest>()), Times.Never);
+    }
 }
