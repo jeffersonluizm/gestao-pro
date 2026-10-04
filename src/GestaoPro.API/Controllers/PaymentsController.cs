@@ -21,6 +21,9 @@ public class PaymentsController : ControllerBase
     [HttpPost]
     public async Task<IActionResult> PostPayment([FromBody] CreatePaymentDto dto)
     {
+        // Só registra pagamento de cobrança do próprio condomínio.
+        if (await DenyManageBillAsync(dto.BillId) is { } denied) return denied;
+
         try 
         {
             var result = await _paymentService.ProcessPaymentAsync(dto);
@@ -58,8 +61,25 @@ public class PaymentsController : ControllerBase
     [HttpPut("{id}")]
     public async Task<IActionResult> Update(string id, [FromBody] UpdatePaymentDto dto)
     {
+        var existing = await _paymentService.GetByIdAsync(id);
+        if (existing is null) return NotFound();
+        if (await DenyManageBillAsync(existing.BillId) is { } denied) return denied;
+        // Não move o pagamento para cobrança de outro condomínio.
+        if (dto.BillId is not null && await DenyManageBillAsync(dto.BillId) is { } moved) return moved;
+
         var payment = await _paymentService.UpdateAsync(id, dto);
         return payment is null ? NotFound() : Ok(payment);
+    }
+
+    // Escrita: só admin/síndico e só em cobrança do próprio condomínio.
+    private async Task<ActionResult?> DenyManageBillAsync(string billId)
+    {
+        var caller = this.Caller();
+        if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession);
+        if (!caller.IsAdministrator) return this.Forbidden();
+
+        var bill = await _billService.GetBillByIdAsync(billId);
+        return this.DenyManage(caller, bill?.CondominiumId, staff: true);
     }
 
     // Pagamento não guarda dono nem condomínio: vale a regra da cobrança. Sem cobrança, 404.
