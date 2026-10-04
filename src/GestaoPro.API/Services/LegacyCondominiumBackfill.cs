@@ -1,35 +1,113 @@
-using GestaoPro.API.Repositories;
+using GestaoPro.API.Settings;
+using Microsoft.Extensions.Options;
+using MongoDB.Bson;
+using MongoDB.Driver;
 
 namespace GestaoPro.API.Services;
 
 public sealed record LegacyCondominiumBackfillResult(int VisitorsUpdated, int VisitorsLeft, int ParkingsUpdated, int ParkingsLeft);
 
+// Registros antigos sem condomínio: só o _id (como está no banco, mesmo que não seja ObjectId) e os vínculos.
+public sealed record LegacyVisitor(BsonValue Id, string? ResidentId);
+
+public sealed record LegacyParking(BsonValue Id, string? ResidentId, string? ReservedByUserId, string? UnitId);
+
+// Acesso ao banco do preenchimento: lê só quem está sem condomínio e grava só o campo condominiumId,
+// e só se ele continuar vazio (UpdateOne com filtro). Devolve false quando o filtro não casou.
+public interface ILegacyCondominiumStore
+{
+    Task<List<LegacyVisitor>> GetVisitorsWithoutCondominiumAsync();
+    Task<List<LegacyParking>> GetParkingsWithoutCondominiumAsync();
+    Task<bool> SetVisitorCondominiumAsync(BsonValue id, string condominiumId);
+    Task<bool> SetParkingCondominiumAsync(BsonValue id, string condominiumId);
+}
+
+// Trabalha com BsonDocument para não depender do mapeamento dos modelos: _id legado que não é ObjectId
+// não quebra a leitura da lista nem a escrita.
+public class MongoLegacyCondominiumStore : ILegacyCondominiumStore
+{
+    private readonly IMongoCollection<BsonDocument> _visitors;
+    private readonly IMongoCollection<BsonDocument> _parkings;
+
+    public MongoLegacyCondominiumStore(IMongoDatabase database, IOptions<MongoDBSettings> settings)
+    {
+        _visitors = database.GetCollection<BsonDocument>(settings.Value.VisitorsCollection);
+        _parkings = database.GetCollection<BsonDocument>(settings.Value.ParkingCollection);
+    }
+
+    // condominiumId ausente, nulo ou vazio ($in com null também casa campo ausente).
+    public static BsonDocument MissingCondominium() =>
+        new("condominiumId", new BsonDocument("$in", new BsonArray { BsonNull.Value, "" }));
+
+    public static BsonDocument WithoutCondominium(BsonValue id) =>
+        new BsonDocument("_id", id).AddRange(MissingCondominium());
+
+    // Os modelos guardam condominiumId como ObjectId; valor que não é ObjectId vai como texto.
+    public static BsonValue CondominiumValue(string condominiumId) =>
+        ObjectId.TryParse(condominiumId, out var objectId) ? new BsonObjectId(objectId) : new BsonString(condominiumId);
+
+    public async Task<List<LegacyVisitor>> GetVisitorsWithoutCondominiumAsync()
+    {
+        var documents = await _visitors.Find(MissingCondominium())
+            .Project(Builders<BsonDocument>.Projection.Include("residentId"))
+            .ToListAsync();
+        return documents.Select(d => new LegacyVisitor(d["_id"], Text(d, "residentId"))).ToList();
+    }
+
+    public async Task<List<LegacyParking>> GetParkingsWithoutCondominiumAsync()
+    {
+        var documents = await _parkings.Find(MissingCondominium())
+            .Project(Builders<BsonDocument>.Projection.Include("residentId").Include("reservedByUserId").Include("unitId"))
+            .ToListAsync();
+        return documents
+            .Select(d => new LegacyParking(d["_id"], Text(d, "residentId"), Text(d, "reservedByUserId"), Text(d, "unitId")))
+            .ToList();
+    }
+
+    public Task<bool> SetVisitorCondominiumAsync(BsonValue id, string condominiumId) =>
+        SetCondominiumAsync(_visitors, id, condominiumId);
+
+    public Task<bool> SetParkingCondominiumAsync(BsonValue id, string condominiumId) =>
+        SetCondominiumAsync(_parkings, id, condominiumId);
+
+    private static async Task<bool> SetCondominiumAsync(IMongoCollection<BsonDocument> collection, BsonValue id, string condominiumId)
+    {
+        var result = await collection.UpdateOneAsync(
+            WithoutCondominium(id),
+            new BsonDocument("$set", new BsonDocument("condominiumId", CondominiumValue(condominiumId))));
+        return result.ModifiedCount > 0;
+    }
+
+    private static string? Text(BsonDocument document, string field) =>
+        document.TryGetValue(field, out var value) && !value.IsBsonNull ? value.ToString() : null;
+}
+
 // Preenche o condominiumId de visitantes e vagas antigos, gravados antes de a API exigir o campo.
 // Sem ele, o controle de acesso não prova o condomínio e a administração recebe 404 ao editar.
-// Idempotente: só olha registros sem condomínio e nunca altera um já preenchido.
+// Idempotente: só lê quem está sem condomínio e só grava se o campo continuar vazio.
 // - Visitante: condomínio do morador (residentId).
 // - Vaga: condomínio do morador, de quem reservou ou da unidade; sem vínculo, o único condomínio do sistema
 //   (se houver mais de um, a vaga fica sem e entra na contagem do log).
+// Cada registro é tratado à parte: erro em um (id legado, falha do banco) só conta como "ficou sem".
 public class LegacyCondominiumBackfill
 {
-    private readonly IVisitorRepository _visitors;
-    private readonly IParkingRepository _parkings;
+    private readonly ILegacyCondominiumStore _store;
     private readonly IUserDirectory _users;
     private readonly IUnitService _units;
     private readonly ICondominiumService _condominiums;
     private readonly ILogger<LegacyCondominiumBackfill> _logger;
     private readonly Dictionary<string, string?> _userCondominiums = new();
+    private string? _singleCondominium;
+    private bool _singleCondominiumChecked;
 
     public LegacyCondominiumBackfill(
-        IVisitorRepository visitors,
-        IParkingRepository parkings,
+        ILegacyCondominiumStore store,
         IUserDirectory users,
         IUnitService units,
         ICondominiumService condominiums,
         ILogger<LegacyCondominiumBackfill> logger)
     {
-        _visitors = visitors;
-        _parkings = parkings;
+        _store = store;
         _users = users;
         _units = units;
         _condominiums = condominiums;
@@ -38,75 +116,72 @@ public class LegacyCondominiumBackfill
 
     public async Task<LegacyCondominiumBackfillResult> RunAsync()
     {
-        var (visitorsUpdated, visitorsLeft) = await BackfillVisitorsAsync();
-        var (parkingsUpdated, parkingsLeft) = await BackfillParkingsAsync();
+        int visitorsUpdated = 0, visitorsLeft = 0, parkingsUpdated = 0, parkingsLeft = 0;
 
-        var result = new LegacyCondominiumBackfillResult(visitorsUpdated, visitorsLeft, parkingsUpdated, parkingsLeft);
+        foreach (var visitor in await _store.GetVisitorsWithoutCondominiumAsync())
+        {
+            var outcome = await TryFillAsync("visitante", visitor.Id,
+                () => CondominiumOfUserAsync(visitor.ResidentId),
+                condominiumId => _store.SetVisitorCondominiumAsync(visitor.Id, condominiumId));
+            if (outcome == Outcome.Updated) visitorsUpdated++;
+            else if (outcome == Outcome.Left) visitorsLeft++;
+        }
+
+        foreach (var parking in await _store.GetParkingsWithoutCondominiumAsync())
+        {
+            var outcome = await TryFillAsync("vaga", parking.Id,
+                () => CondominiumOfParkingAsync(parking),
+                condominiumId => _store.SetParkingCondominiumAsync(parking.Id, condominiumId));
+            if (outcome == Outcome.Updated) parkingsUpdated++;
+            else if (outcome == Outcome.Left) parkingsLeft++;
+        }
+
         if (visitorsUpdated + parkingsUpdated > 0)
             _logger.LogInformation(
                 "Condomínio preenchido em {Visitors} visitante(s) e {Parkings} vaga(s) antigos.", visitorsUpdated, parkingsUpdated);
         if (visitorsLeft + parkingsLeft > 0)
             _logger.LogWarning(
-                "Ficaram sem condomínio {Visitors} visitante(s) e {Parkings} vaga(s): não foi possível derivar. " +
+                "Ficaram sem condomínio {Visitors} visitante(s) e {Parkings} vaga(s): não foi possível derivar ou gravar. " +
                 "A administração recebe 404 ao editá-los até que o campo condominiumId seja preenchido.",
                 visitorsLeft, parkingsLeft);
-        return result;
+
+        return new LegacyCondominiumBackfillResult(visitorsUpdated, visitorsLeft, parkingsUpdated, parkingsLeft);
     }
 
-    private async Task<(int Updated, int Left)> BackfillVisitorsAsync()
-    {
-        int updated = 0, left = 0;
-        foreach (var visitor in (await _visitors.GetAllAsync()).Where(v => IsMissing(v.CondominiumId)))
-        {
-            var condominiumId = await CondominiumOfUserAsync(visitor.ResidentId);
-            if (condominiumId is null)
-            {
-                left++;
-                continue;
-            }
+    private enum Outcome { Updated, Left, AlreadyFilled }
 
-            visitor.CondominiumId = condominiumId;
-            await _visitors.UpdateAsync(visitor.Id!, visitor);
-            updated++;
+    private async Task<Outcome> TryFillAsync(string kind, BsonValue id, Func<Task<string?>> derive, Func<string, Task<bool>> save)
+    {
+        try
+        {
+            var condominiumId = await derive();
+            if (condominiumId is null) return Outcome.Left;
+
+            // false: outro processo preencheu o campo entre a leitura e a escrita.
+            return await save(condominiumId) ? Outcome.Updated : Outcome.AlreadyFilled;
         }
-        return (updated, left);
+        catch (Exception exception)
+        {
+            _logger.LogWarning(exception, "Não foi possível preencher o condomínio do(a) {Kind} {Id}.", kind, id.ToString());
+            return Outcome.Left;
+        }
     }
 
-    private async Task<(int Updated, int Left)> BackfillParkingsAsync()
+    private async Task<string?> CondominiumOfParkingAsync(LegacyParking parking) =>
+        await CondominiumOfUserAsync(parking.ResidentId) ??
+        await CondominiumOfUserAsync(parking.ReservedByUserId) ??
+        await CondominiumOfUnitAsync(parking.UnitId) ??
+        await SingleCondominiumAsync();
+
+    private async Task<string?> SingleCondominiumAsync()
     {
-        int updated = 0, left = 0;
-        string? singleCondominium = null;
-        var singleCondominiumChecked = false;
-
-        foreach (var parking in (await _parkings.GetAllAsync()).Where(p => IsMissing(p.CondominiumId)))
+        if (!_singleCondominiumChecked)
         {
-            var condominiumId =
-                await CondominiumOfUserAsync(parking.ResidentId) ??
-                await CondominiumOfUserAsync(parking.ReservedByUserId) ??
-                await CondominiumOfUnitAsync(parking.UnitId);
-
-            if (condominiumId is null)
-            {
-                if (!singleCondominiumChecked)
-                {
-                    var all = await _condominiums.GetAllAsync();
-                    singleCondominium = all.Count == 1 ? all[0].Id : null;
-                    singleCondominiumChecked = true;
-                }
-                condominiumId = singleCondominium;
-            }
-
-            if (condominiumId is null)
-            {
-                left++;
-                continue;
-            }
-
-            parking.CondominiumId = condominiumId;
-            await _parkings.UpdateAsync(parking.Id!, parking);
-            updated++;
+            var all = await _condominiums.GetAllAsync();
+            _singleCondominium = all.Count == 1 ? all[0].Id : null;
+            _singleCondominiumChecked = true;
         }
-        return (updated, left);
+        return _singleCondominium;
     }
 
     private async Task<string?> CondominiumOfUserAsync(string? userId)

@@ -125,6 +125,7 @@ builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredSer
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddHostedService<VoteIndexInitializer>();
 // Preenche o condomínio de visitantes e vagas antigos (em segundo plano; falha só gera log).
+builder.Services.AddSingleton<ILegacyCondominiumStore, MongoLegacyCondominiumStore>();
 builder.Services.AddScoped<LegacyCondominiumBackfill>();
 builder.Services.AddHostedService<LegacyCondominiumBackfillInitializer>();
 
