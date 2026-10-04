@@ -156,6 +156,8 @@ app.UseAuthentication();
 app.UseMiddleware<ApiAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
-app.MapHub<NotificacaoHub>("/notificacaoHub").RequireAuthorization();
+// Conexão aberta não sobrevive ao JWT: ao expirar, o cliente precisa reconectar com token novo.
+app.MapHub<NotificacaoHub>("/notificacaoHub", options => options.CloseOnAuthenticationExpiration = true)
+    .RequireAuthorization();
 
 app.Run();

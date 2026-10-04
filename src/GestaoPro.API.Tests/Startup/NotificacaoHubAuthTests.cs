@@ -2,6 +2,9 @@ using System.Net;
 using System.Net.Http.Headers;
 using GestaoPro.API.Settings;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http.Connections;
+using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
@@ -134,5 +137,22 @@ public class NotificacaoHubAuthTests : IDisposable
         var response = await client.GetAsync($"/api/Bills/user/x?access_token={TokenFor("admin")}");
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    // Sem isso, uma conexão WebSocket aberta segue recebendo notificações depois que o JWT expira.
+    [Fact]
+    public async Task Hub_fecha_a_conexao_quando_o_token_expira()
+    {
+        await using var factory = CreateFactory();
+        factory.CreateClient();
+
+        // As opções do MapHub ficam nos metadados do endpoint de negotiate do hub.
+        var options = factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .Where(endpoint => endpoint.Metadata.GetMetadata<HubMetadata>()?.HubType == typeof(NotificacaoHub))
+            .Select(endpoint => endpoint.Metadata.GetMetadata<HttpConnectionDispatcherOptions>())
+            .FirstOrDefault(found => found is not null);
+
+        Assert.NotNull(options);
+        Assert.True(options.CloseOnAuthenticationExpiration);
     }
 }
