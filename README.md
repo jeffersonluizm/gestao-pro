@@ -41,7 +41,7 @@ Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__Co
 
 ### Executando o projeto
 
-**Opção rápida (Windows):** execute o arquivo `iniciar.bat` na raiz do repositório. Ele inicia a API, o painel web e o app mobile simultaneamente.
+**Opção rápida (Windows):** execute o arquivo `iniciar.bat` na raiz do repositório. Ele inicia a API, o painel web e o app mobile simultaneamente. Para o celular encontrar a API, o script usa, nesta ordem: a variável `EXPO_PUBLIC_API_URL` já definida, o arquivo `src/GestaoPro.Mobile/.env` ou o IP desta máquina na rede local, detectado automaticamente.
 
 **Manualmente:**
 
@@ -50,7 +50,7 @@ Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__Co
    cd src/GestaoPro.API
    dotnet run
    ```
-   A API estará disponível em `http://localhost:5000` com Swagger em `/swagger`.
+   A API estará disponível em `http://localhost:5088` (porta definida em `src/GestaoPro.API/Properties/launchSettings.json`) com Swagger em `/swagger`.
 
 2. **Painel Web:**
    ```bash
@@ -58,15 +58,29 @@ Em produção (Render), configure as variáveis de ambiente `MongoDbSettings__Co
    npm install
    npm run dev
    ```
-   O painel estará disponível em `http://localhost:3000`.
+   O painel estará disponível em `http://localhost:3000`. Em desenvolvimento, as chamadas a `/api` e `/notificacaoHub` passam por um proxy que aponta para a API local (`http://localhost:5088`). Os testes do painel rodam com `npm test`.
 
 3. **App Mobile:**
    ```bash
    cd src/GestaoPro.Mobile
    npm install
+   cp .env.example .env   # e troque pelo IP do seu PC na rede
    npx expo start
    ```
-   Escaneie o QR Code com o app Expo Go ou execute em emulador.
+   Escaneie o QR Code com o app Expo Go ou execute em emulador. No celular, `localhost` é o próprio aparelho: por isso o app precisa do IP do PC em `EXPO_PUBLIC_API_URL`.
+
+### Variáveis de ambiente
+
+Os arquivos `.env` não vão para o Git; cada pasta tem um `.env.example` para copiar.
+
+| Variável | Onde | Para que serve | Padrão |
+|---|---|---|---|
+| `VITE_API_PROXY_TARGET` | `src/GestaoPro.Web/.env` | Destino do proxy do `npm run dev`. Use a URL do Render só para testar o painel contra a API de produção. | `http://localhost:5088` |
+| `VITE_API_BASE_URL` | `src/GestaoPro.Web/.env` | URL da API no build de produção (`npm run build`). | API do Render |
+| `EXPO_PUBLIC_API_URL` | `src/GestaoPro.Mobile/.env` | Endereço da API usado pelo app, por exemplo `http://192.168.0.10:5088`. | `http://localhost:5088` (só funciona no navegador do mesmo PC) |
+| `MongoDbSettings__ConnectionString`, `JwtSettings__SecretKey` | ambiente da API | Segredos da API (alternativa ao `appsettings.Local.json`). | nenhum: a API não sobe sem eles |
+
+O hub de notificações em tempo real (`/notificacaoHub`, SignalR) exige login: envie o mesmo token JWT da API (cabeçalho `Authorization` ou parâmetro `access_token`).
 
 # Documentação
 
