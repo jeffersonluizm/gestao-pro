@@ -11,10 +11,12 @@ namespace GestaoPro.API.Controllers
     public class ParkingController : ControllerBase
     {
         private readonly ParkingAppService _parkingService;
+        private readonly IUserDirectory _users;
 
-        public ParkingController(ParkingAppService parkingService)
+        public ParkingController(ParkingAppService parkingService, IUserDirectory users)
         {
             _parkingService = parkingService;
+            _users = users;
         }
 
         [HttpGet]
@@ -72,8 +74,12 @@ namespace GestaoPro.API.Controllers
         {
             if (await DenyManageAsync(id) is { } denied) return denied;
 
+            // A administração reserva para um morador (X-User-Id), que precisa ser do próprio condomínio.
             var userId = Request.Headers["X-User-Id"].ToString();
-            if (string.IsNullOrEmpty(userId)) return Unauthorized();
+            if (string.IsNullOrWhiteSpace(userId))
+                return BadRequest(new { message = "Informe o morador da reserva no cabeçalho X-User-Id." });
+            var resident = await _users.GetByIdAsync(userId);
+            if (this.DenyManage(this.Caller(), resident?.CondominiumId, staff: true) is { } otherResident) return otherResident;
 
             await _parkingService.ReserveAsync(id, userId);
             return NoContent();

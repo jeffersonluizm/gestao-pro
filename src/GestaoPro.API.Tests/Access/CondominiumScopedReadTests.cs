@@ -17,7 +17,7 @@ public class ParkingControllerReadTests
 
     public ParkingControllerReadTests()
     {
-        _controller = new ParkingController(new ParkingAppService(_repository.Object));
+        _controller = new ParkingController(new ParkingAppService(_repository.Object), new Mock<IUserDirectory>().Object);
         var all = new List<ParkingModel>
         {
             new()

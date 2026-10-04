@@ -11,11 +11,15 @@ using ParkingModel = GestaoPro.API.Models.Parking;
 public class ParkingControllerTests
 {
     private readonly Mock<IParkingRepository> _repoMock = new();
+    private readonly Mock<IUserDirectory> _users = new();
     private readonly ParkingController _controller;
 
     public ParkingControllerTests()
     {
-        _controller = new ParkingController(new ParkingAppService(_repoMock.Object)).As("admin-a", "admin");
+        _controller = new ParkingController(new ParkingAppService(_repoMock.Object), _users.Object).As("admin-a", "admin");
+        foreach (var (userId, condominiumId) in new[] { ("joao", CondominioA), ("maria", CondominioA), ("carlos", CondominioB) })
+            _users.Setup(u => u.GetByIdAsync(userId)).ReturnsAsync(new UserResponse { Id = userId, CondominiumId = condominiumId });
+
         _repoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<ParkingModel>
         {
             new() { Id = "vaga-1", Number = "A-01", Type = "carro", CondominiumId = CondominioA },
@@ -100,4 +104,21 @@ public class ParkingControllerTests
 
     private static string? MessageOf(ObjectResult result) =>
         result.Value?.GetType().GetProperty("message")?.GetValue(result.Value) as string;
+
+    // Reserva em nome de outro (X-User-Id): o cabeçalho é obrigatório (400) e o alvo precisa ser do condomínio (404).
+    [Fact]
+    public async Task Reserva_exige_morador_alvo_do_proprio_condominio()
+    {
+        var missing = await _controller.Reserve("vaga-2");
+        _controller.Request.Headers["X-User-Id"] = "carlos";
+        var otherResident = await _controller.Reserve("vaga-2");
+        _controller.Request.Headers["X-User-Id"] = "maria";
+        var own = await _controller.Reserve("vaga-2");
+
+        Assert.Equal(400, StatusOf(missing));
+        Assert.Equal(404, StatusOf(otherResident));
+        Assert.Equal(204, StatusOf(own));
+        _repoMock.Verify(r => r.ReserveAsync("vaga-2", "carlos"), Times.Never);
+        _repoMock.Verify(r => r.ReserveAsync("vaga-2", "maria"), Times.Once);
+    }
 }
