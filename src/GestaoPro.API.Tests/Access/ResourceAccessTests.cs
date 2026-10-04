@@ -97,4 +97,26 @@ public class ResourceAccessTests
         Assert.Equal(isAdministrator, caller.IsAdministrator);
         Assert.Equal(isDoorman, caller.IsDoorman);
     }
+
+    // Escritas: só a equipe (administração; porteiro onde o fluxo dele permite) e só no próprio condomínio.
+    [Fact]
+    public void Equipe_altera_recurso_do_proprio_condominio()
+    {
+        Assert.Equal(AccessDecision.Allowed, ResourceAccess.DecideManage(Admin(), CondominioA, staff: true));
+    }
+
+    [Fact]
+    public void Equipe_recebe_404_ao_alterar_recurso_de_outro_condominio_ou_sem_condominio()
+    {
+        Assert.Equal(AccessDecision.NotFound, ResourceAccess.DecideManage(Admin(), CondominioB, staff: true));
+        Assert.Equal(AccessDecision.NotFound, ResourceAccess.DecideManage(Admin(), null, staff: true));
+        Assert.Equal(AccessDecision.NotFound, ResourceAccess.DecideManage(Admin(), "", staff: true));
+    }
+
+    [Fact]
+    public void Quem_nao_e_da_equipe_recebe_403_e_token_sem_condominio_e_sessao_invalida()
+    {
+        Assert.Equal(AccessDecision.Forbidden, ResourceAccess.DecideManage(Morador(), CondominioA, staff: false));
+        Assert.Equal(AccessDecision.InvalidSession, ResourceAccess.DecideManage(Admin(condominiumId: null), CondominioA, staff: true));
+    }
 }

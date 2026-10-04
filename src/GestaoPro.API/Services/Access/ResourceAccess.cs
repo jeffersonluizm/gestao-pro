@@ -48,6 +48,18 @@ public static class ResourceAccess
         return condominiumWide && hasCondominium ? AccessDecision.Allowed : AccessDecision.Forbidden;
     }
 
+    // Escrita da equipe (staff: administração, ou porteiro onde o fluxo de portaria permite): só no próprio condomínio.
+    // Recurso sem condomínio gravado não tem como ser provado do condomínio do token: 404.
+    public static AccessDecision DecideManage(Caller caller, string? condominiumId, bool staff)
+    {
+        if (!caller.HasSession) return AccessDecision.InvalidSession;
+        if (!staff) return AccessDecision.Forbidden;
+
+        return string.Equals(condominiumId, caller.CondominiumId, StringComparison.Ordinal)
+            ? AccessDecision.Allowed
+            : AccessDecision.NotFound;
+    }
+
     public static bool CanSee(Caller caller, string? ownerId, string? condominiumId, bool condominiumWide) =>
         Decide(caller, ownerId, condominiumId, condominiumWide) == AccessDecision.Allowed;
 }

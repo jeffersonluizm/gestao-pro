@@ -22,6 +22,10 @@ public static class AccessResults
         _ => controller.Forbidden(),
     };
 
+    // Escrita da equipe só no próprio condomínio: null quando permitido.
+    public static ActionResult? DenyManage(this ControllerBase controller, Caller caller, string? condominiumId, bool staff) =>
+        controller.Deny(ResourceAccess.DecideManage(caller, condominiumId, staff));
+
     public static ActionResult Forbidden(this ControllerBase controller) =>
         controller.StatusCode(StatusCodes.Status403Forbidden, new { message = ForbiddenMessage });
 }
