@@ -13,9 +13,15 @@ Avisos, reservas de áreas comuns, portaria, encomendas, assembleias e financeir
 
 ![Início do painel](docs/img/prints/painel-inicio.jpg)
 
-| Explore a demonstração | Painel da gestão | Mural no celular | App: financeiro |
+| Entrar (com a demonstração) | Painel da gestão | Reservas com calendário |
+|---|---|---|
+| ![Entrar](docs/img/prints/painel-entrar.jpg) | ![Painel da gestão](docs/img/prints/painel-gestao.jpg) | ![Reservas](docs/img/prints/painel-reservas.jpg) |
+
+| Morador no celular | Portaria no celular | App: entrar | App: financeiro |
 |---|---|---|---|
-| ![Cartão de demonstração](docs/img/prints/painel-demo.jpg) | ![Painel da gestão](docs/img/prints/painel-gestao.jpg) | ![Avisos no celular](docs/img/prints/painel-avisos-celular.jpg) | ![Financeiro no app](docs/img/prints/app-financeiro.jpg) |
+| ![Morador](docs/img/prints/painel-morador-celular.jpg) | ![Portaria](docs/img/prints/painel-portaria-celular.jpg) | ![App: entrar](docs/img/prints/app-login.jpg) | ![App: financeiro](docs/img/prints/app-financeiro.jpg) |
+
+Prints reais, tirados no Chrome headless por `ferramentas/capturar-telas.mjs` (que também confere erro de console e rolagem horizontal).
 
 ## O que dá para fazer
 

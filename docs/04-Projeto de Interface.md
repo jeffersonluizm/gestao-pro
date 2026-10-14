@@ -42,14 +42,20 @@ Onboarding de 3 telas no primeiro uso, login (com "Explore a demonstração" qua
 
 ## Prints (versão atual)
 
+Tirados no Chrome headless com `ferramentas/capturar-telas.mjs`, entrando pela demonstração.
+
 | | |
 |---|---|
-| ![Início do painel](img/prints/painel-inicio.jpg) | ![Explore a demonstração](img/prints/painel-demo.jpg) |
-| Início: proposta e acesso à demonstração | "Entrar como" síndico, morador ou porteiro |
-| ![Painel da gestão](img/prints/painel-gestao.jpg) | ![Avisos no celular](img/prints/painel-avisos-celular.jpg) |
-| Painel da gestão: o que precisa de atenção | Mural de avisos do morador (375 px) |
-| ![Onboarding do app](img/prints/app-onboarding.jpg) | ![Financeiro do app](img/prints/app-financeiro.jpg) |
-| App: apresentação no primeiro uso | App: cobranças e pagamentos do morador |
+| ![Início](img/prints/painel-inicio.jpg) | ![Entrar](img/prints/painel-entrar.jpg) |
+| Início: proposta e "Explore a demonstração" | Entrar, com "Entrar como" síndico, morador ou porteiro |
+| ![Painel da gestão](img/prints/painel-gestao.jpg) | ![Reservas](img/prints/painel-reservas.jpg) |
+| Painel da gestão: o que precisa de atenção | Reservas com calendário mensal |
+| ![Sobre](img/prints/painel-sobre.jpg) | ![404](img/prints/painel-404.jpg) |
+| Como foi feito (arquitetura e decisões) | Página não encontrada |
+| ![Morador no celular](img/prints/painel-morador-celular.jpg) | ![Portaria no celular](img/prints/painel-portaria-celular.jpg) |
+| Resumo do morador (375 px) | Portaria (375 px) |
+| ![App: entrar](img/prints/app-login.jpg) | ![App: financeiro](img/prints/app-financeiro.jpg) |
+| App: entrar com a demonstração | App: cobranças e pagamentos |
 
 ## Estados e mensagens
 
