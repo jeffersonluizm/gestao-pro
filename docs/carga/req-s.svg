@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" role="img" aria-labelledby="t d" font-family="Inter, Segoe UI, Arial, sans-serif">
+<title id="t">Requisições por segundo (maior é melhor)</title><desc id="d">Barras agrupadas por cenário: antes (dourado) e depois (azul). Valores escritos ao lado de cada barra.</desc>
+<rect width="760" height="470" fill="#FFFFFF"/>
+<text x="24" y="30" font-size="17" font-weight="700" fill="#17212B">Requisições por segundo (maior é melhor)</text>
+<rect x="24" y="44" width="12" height="12" rx="2" fill="#B07A28"/><text x="42" y="54" font-size="12" fill="#55626F">antes (main)</text>
+<rect x="140" y="44" width="12" height="12" rx="2" fill="#1A7FA3"/><text x="158" y="54" font-size="12" fill="#55626F">depois (feat/portfolio-ui-ux)</text>
+<text x="240" y="92" font-size="12" text-anchor="end" fill="#17212B">H1 login, 50 VUs</text>
+<rect x="250" y="70" width="2.0449261256919513" height="18" rx="4" fill="#B07A28"><title>H1 login, 50 VUs, antes: 75,4 req/s</title></rect>
+<text x="258.044926125692" y="83" font-size="11" fill="#55626F">75,4 req/s</text>
+<rect x="250" y="90" width="2.112919508473153" height="18" rx="4" fill="#1A7FA3"><title>H1 login, 50 VUs, depois: 78,0 req/s</title></rect>
+<text x="258.11291950847317" y="103" font-size="11" fill="#55626F">78,0 req/s</text>
+<text x="240" y="152" font-size="12" text-anchor="end" fill="#17212B">H2 avisos, 50 VUs</text>
+<rect x="250" y="130" width="105.178226442745" height="18" rx="4" fill="#B07A28"><title>H2 avisos, 50 VUs, antes: 3.880,3 req/s</title></rect>
+<text x="361.178226442745" y="143" font-size="11" fill="#55626F">3.880,3 req/s</text>
+<rect x="250" y="150" width="82.30319624982556" height="18" rx="4" fill="#1A7FA3"><title>H2 avisos, 50 VUs, depois: 3.036,4 req/s</title></rect>
+<text x="338.30319624982553" y="163" font-size="11" fill="#55626F">3.036,4 req/s</text>
+<text x="240" y="212" font-size="12" text-anchor="end" fill="#17212B">H3 avisos + ruído, 50 VUs</text>
+<rect x="250" y="190" width="2" height="18" rx="4" fill="#B07A28"><title>H3 avisos + ruído, 50 VUs, antes: 42,5 req/s</title></rect>
+<text x="258" y="203" font-size="11" fill="#55626F">42,5 req/s</text>
+<rect x="250" y="210" width="80.98322066924565" height="18" rx="4" fill="#1A7FA3"><title>H3 avisos + ruído, 50 VUs, depois: 2.987,7 req/s</title></rect>
+<text x="336.98322066924567" y="223" font-size="11" fill="#55626F">2.987,7 req/s</text>
+<text x="240" y="272" font-size="12" text-anchor="end" fill="#17212B">H4 lista de condomínios, 20 VUs</text>
+<rect x="250" y="250" width="2.163620940089812" height="18" rx="4" fill="#B07A28"><title>H4 lista de condomínios, 20 VUs, antes: 79,8 req/s</title></rect>
+<text x="258.1636209400898" y="263" font-size="11" fill="#55626F">79,8 req/s</text>
+<rect x="250" y="270" width="128.1557420233836" height="18" rx="4" fill="#1A7FA3"><title>H4 lista de condomínios, 20 VUs, depois: 4.728,1 req/s</title></rect>
+<text x="384.1557420233836" y="283" font-size="11" fill="#55626F">4.728,1 req/s</text>
+<text x="240" y="332" font-size="12" text-anchor="end" fill="#17212B">H5 publicar aviso, 50 VUs</text>
+<rect x="250" y="310" width="124.02757421669092" height="18" rx="4" fill="#B07A28"><title>H5 publicar aviso, 50 VUs, antes: 4.575,8 req/s</title></rect>
+<text x="380.02757421669094" y="323" font-size="11" fill="#55626F">4.575,8 req/s</text>
+<rect x="250" y="330" width="204.88576910671068" height="18" rx="4" fill="#1A7FA3"><title>H5 publicar aviso, 50 VUs, depois: 7.558,9 req/s</title></rect>
+<text x="460.88576910671065" y="343" font-size="11" fill="#55626F">7.558,9 req/s</text>
+<text x="240" y="392" font-size="12" text-anchor="end" fill="#17212B">H8 health, 50 VUs</text>
+<rect x="250" y="370" width="341.2104077346483" height="18" rx="4" fill="#B07A28"><title>H8 health, 50 VUs, antes: 12.588,3 req/s</title></rect>
+<text x="597.2104077346482" y="383" font-size="11" fill="#55626F">12.588,3 req/s</text>
+<rect x="250" y="390" width="420" height="18" rx="4" fill="#1A7FA3"><title>H8 health, 50 VUs, depois: 15.495,1 req/s</title></rect>
+<text x="676" y="403" font-size="11" fill="#55626F">15.495,1 req/s</text>
+<line x1="250" y1="64" x2="250" y2="440" stroke="#DCE4EA"/>
+<text x="24" y="460" font-size="11" fill="#55626F">Mesma máquina para gerador (k6), API e banco: compare antes x depois, não leia como capacidade de produção.</text>
+</svg>

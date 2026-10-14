@@ -67,7 +67,19 @@ Lint (ESLint) sem avisos no painel e no app; GitHub Actions em [`.github/workflo
 ## Teste de estresse
 
 <!-- carga:inicio -->
-Hipóteses escritas antes de medir em [docs/carga/2026-10-04-hipoteses.md](docs/carga/2026-10-04-hipoteses.md); resultados em [docs/carga](docs/carga).
+Hipóteses escritas antes de medir ([hipóteses](docs/carga/2026-10-04-hipoteses.md)), depois medidas com k6 contra um banco descartável, comparando a `main` com esta versão ([resultados completos](docs/carga/2026-10-04-resultados.md)).
+
+| Cenário (50 VUs, mesma máquina) | Antes | Depois |
+|---|---:|---:|
+| Avisos com 20 mil avisos de outro condomínio no banco | 43 req/s, p95 2,6 s | 2.988 req/s, p95 45 ms |
+| Lista de condomínios do cadastro (20 VUs) | 80 req/s, p95 296 ms | 4.728 req/s, p95 10,5 ms |
+| Publicar aviso | 4.576 req/s | 7.559 req/s |
+| 50 reservas simultâneas no mesmo horário | 50 aceitas | 1 aceita, 49 recusadas |
+| Login: e-mail inexistente x senha errada (mediana) | 9 ms x 114 ms (dá para descobrir contas) | 119 ms x 112 ms |
+
+Também há o que piorou: a lista simples de avisos (100 avisos, sem outro condomínio) ficou de 19% a 32% mais lenta, e a causa provável está no banco, não na API. Das 10 hipóteses, 7 se confirmaram, 2 só em parte (H4 e H8) e 1 ficou inconclusiva (H9, o soak de 10 minutos).
+
+<img src="docs/carga/req-s.svg" alt="Requisições por segundo antes e depois, por cenário" width="640">
 <!-- carga:fim -->
 
 ## Limitações conhecidas
@@ -84,7 +96,7 @@ Hipóteses escritas antes de medir em [docs/carga/2026-10-04-hipoteses.md](docs/
 1. Cookie `httpOnly` e revogação de token.
 2. Notificações no painel e push no app (SignalR e Expo Notifications).
 3. Calendário de eventos e atas de assembleia.
-4. Paginação nas demais listas (avisos já paginam).
+4. Paginação nas demais listas (avisos já paginam) e contagem com limite no total de avisos (o teste de estresse mostrou o custo num condomínio com centenas de milhares de avisos).
 
 ## Rodar na sua máquina
 

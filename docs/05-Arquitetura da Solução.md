@@ -85,4 +85,4 @@ API no Render (Docker), painel e app web na Vercel, MongoDB Atlas só de demonst
 - Testes: API com xUnit (unidade e integração com `WebApplicationFactory`), painel com Vitest e Testing Library, utilitários do app com Vitest. Registro em [08-Registro de Testes Unitários](08-Registro%20de%20Testes%20Unitários.md).
 - Lint: ESLint no painel e no app; `.editorconfig` para o C#.
 - CI: GitHub Actions (`.github/workflows/ci.yml`).
-- Estresse: k6 com hipóteses escritas antes, em [carga/](carga/).
+- Estresse: k6 com hipóteses escritas antes de medir, em [carga/](carga/). Os [resultados](carga/2026-10-04-resultados.md) comparam a `main` com esta versão: leitura de avisos com outro condomínio no banco de 43 para 2.988 req/s, lista do cadastro de 80 para 4.728 req/s e corrida de reservas resolvida.
