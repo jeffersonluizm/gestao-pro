@@ -10,6 +10,7 @@ A versão anterior criava uma conta administradora com senha fixa e fraca sempre
 - Senhas e código do condomínio vêm de `Demo:Senha` e `Demo:CodigoCondominio` (validados pela política de senha; valor fraco impede a partida) ou são sorteados na partida.
 - `GET /api/demo` (anônimo) é a fonte única das contas (síndico, morador, porteiro) e do código; painel e app mostram "Entrar como ..." com um clique a partir dele.
 - Contas e condomínio demo são protegidos: não trocam senha, não são desativados, rebaixados ou excluídos (403 com mensagem). O `DemoResetService` restaura tudo a cada `Demo:IntervaloResetHoras`.
+- Bancos que passaram pelas versões antigas: na partida, `LegacySeedRetirement` desativa `admin@gestaopro.local` se a senha ainda for a antiga e troca o código público do condomínio antigo (CNPJ `00.000.000/0001-00`) por um aleatório. Nada é criado com esses valores; eles só servem para reconhecer o que precisa ser desativado.
 
 ## Consequências
 - Produção real fica com a flag desligada; a demonstração hospedada usa um banco só dela.

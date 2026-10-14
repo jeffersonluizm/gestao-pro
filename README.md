@@ -58,7 +58,7 @@ flowchart LR
 
 | Suíte | Testes | Comando |
 |---|---|---|
-| API (xUnit, unidade e integração) | 496 | `dotnet test src/GestaoPro.API.Tests` |
+| API (xUnit, unidade e integração) | 508 | `dotnet test src/GestaoPro.API.Tests` |
 | Painel (Vitest + Testing Library) | 68 | `npm test` em `src/GestaoPro.Web` |
 | App (Vitest) | 18 | `npm test` em `src/GestaoPro.Mobile` |
 
