@@ -6,6 +6,8 @@ import { check } from 'k6';
 export const options = {
   vus: Number(__ENV.VUS || 10),
   duration: __ENV.DURACAO || '60s',
+  // RPS (opcional): teto de pedidos por segundo, usado no soak (H9) para ficar perto de 50% da capacidade.
+  ...(__ENV.RPS ? { rps: Number(__ENV.RPS) } : {}),
   summaryTrendStats: ['avg', 'min', 'med', 'p(90)', 'p(95)', 'p(99)', 'max'],
 };
 

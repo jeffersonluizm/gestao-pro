@@ -67,14 +67,15 @@ curl -s -H "Authorization: Bearer $TOKEN" "$API/api/vote/assembly/$ASSEMBLEIA" \
 API="$API" node "$AQUI/semear.mjs" ruido 20000
 for v in 10 50 100; do rodar "h3-avisos-com-ruido-$v" get.js -e TOKEN="$TOKEN" -e CAMINHO=/api/announcements -e VUS=$v -e DURACAO=30s; done
 
-# H5 por último entre as medições de avisos: cada escrita cria um aviso no condomínio lido em H2 e H3.
-rodar h5-escrita-50 escrita.js -e TOKEN="$TOKEN" -e CONDOMINIO="$CONDOMINIO" -e USUARIO="$USUARIO" -e VUS=50 -e DURACAO=30s
-
+# H9 (opcional) antes de H5: o soak precisa do condomínio com os 100 avisos da massa, não com as escritas de H5.
 if [ "${SOAK:-0}" = "1" ]; then
   : > "$SAIDA/h9-memoria.txt"
   ( for i in $(seq 1 21); do echo "$(date +%s) $(amostra)" >> "$SAIDA/h9-memoria.txt"; sleep 30; done ) &
-  rodar h9-soak get.js -e TOKEN="$TOKEN" -e CAMINHO="${SOAK_CAMINHO:-/api/announcements?page=1&pageSize=20}" -e VUS="${SOAK_VUS:-25}" -e DURACAO=10m
+  rodar h9-soak get.js -e TOKEN="$TOKEN" -e CAMINHO="${SOAK_CAMINHO:-/api/announcements?page=1&pageSize=20}" -e VUS="${SOAK_VUS:-25}" -e RPS="${SOAK_RPS:-1500}" -e DURACAO=10m
   wait
 fi
+
+# H5 por último entre as medições de avisos: cada escrita cria um aviso no condomínio lido em H2 e H3.
+rodar h5-escrita-50 escrita.js -e TOKEN="$TOKEN" -e CONDOMINIO="$CONDOMINIO" -e USUARIO="$USUARIO" -e VUS=50 -e DURACAO=30s
 
 echo "[carga] $VARIANTE concluída em $SAIDA"
