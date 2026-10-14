@@ -40,7 +40,8 @@ amostra() { powershell -NoProfile -Command "\$p=Get-Process -Id $API_PID; '{0:F2
 rodar() { # nome script [args k6...]
   local nome="$1" script="$2"; shift 2
   local antes; antes="$(amostra)"
-  "$K6" run --quiet --summary-export "$(cygpath -w "$SAIDA/$nome.json")" -e API="$API" "$@" "$(cygpath -w "$AQUI/k6/$script")" > "$SAIDA/$nome.txt" 2>&1 || true
+  # MSYS_NO_PATHCONV: sem ele o Git Bash troca "-e CAMINHO=/api/..." por um caminho do Windows.
+  MSYS_NO_PATHCONV=1 "$K6" run --quiet --summary-export "$(cygpath -w "$SAIDA/$nome.json")" -e API="$API" "$@" "$(cygpath -w "$AQUI/k6/$script")" > "$SAIDA/$nome.txt" 2>&1 || true
   echo "$nome $antes $(amostra)" >> "$SAIDA/recursos.txt"
   echo "[carga] $nome ok"
 }
@@ -53,7 +54,6 @@ for v in 10 20 50; do rodar "h4-lista-publica-$v" get.js -e ANONIMO=1 -e CAMINHO
 rodar h8-health-50 get.js -e ANONIMO=1 -e CAMINHO=/api/health/mongodb -e VUS=50 -e DURACAO=30s
 for v in 10 50; do rodar "h1-login-$v" login.js -e EMAIL="$EMAIL" -e SENHA="$SENHA" -e VUS=$v -e DURACAO=30s; done
 rodar h1b-tempo-login tempo-login.js -e EMAIL="$EMAIL" -e SENHA="$SENHA" -e ITERACOES=200
-rodar h5-escrita-50 escrita.js -e TOKEN="$TOKEN" -e CONDOMINIO="$CONDOMINIO" -e USUARIO="$USUARIO" -e VUS=50 -e DURACAO=30s
 
 DATA="$(date -d '+3 day' +%Y-%m-%d)"
 rodar h6-reserva simultaneos.js -e TIPO=reserva -e N=50 -e TOKEN="$TOKEN" -e AREA="$AREA" -e USUARIO="$USUARIO" -e CONDOMINIO="$CONDOMINIO" -e DATA="$DATA"
@@ -66,6 +66,9 @@ curl -s -H "Authorization: Bearer $TOKEN" "$API/api/vote/assembly/$ASSEMBLEIA" \
 
 API="$API" node "$AQUI/semear.mjs" ruido 20000
 for v in 10 50 100; do rodar "h3-avisos-com-ruido-$v" get.js -e TOKEN="$TOKEN" -e CAMINHO=/api/announcements -e VUS=$v -e DURACAO=30s; done
+
+# H5 por último entre as medições de avisos: cada escrita cria um aviso no condomínio lido em H2 e H3.
+rodar h5-escrita-50 escrita.js -e TOKEN="$TOKEN" -e CONDOMINIO="$CONDOMINIO" -e USUARIO="$USUARIO" -e VUS=50 -e DURACAO=30s
 
 if [ "${SOAK:-0}" = "1" ]; then
   : > "$SAIDA/h9-memoria.txt"
