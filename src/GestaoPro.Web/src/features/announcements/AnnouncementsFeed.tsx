@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react'
 import { requestJson } from '../../api/http'
 import { EmptyState, ErrorState, LoadingState } from '../../components/ui/States'
 import { Announcement } from '../../domain/types'
-import { formatDateOnly } from '../../lib/format'
 
 // Avisos para quem mora e para a portaria: um mural (cartões), mais recentes primeiro.
 export function AnnouncementsFeed({ limit }: { limit?: number }) {
@@ -36,7 +35,8 @@ export function AnnouncementsFeed({ limit }: { limit?: number }) {
         <article key={item.id} className="card feed-card" aria-labelledby={`aviso-${item.id}`}>
           <div className="feed-meta">
             <span className="badge badge-accent">{item.category || 'Geral'}</span>
-            <time dateTime={item.createdAt}>{formatDateOnly(item.createdAt)}</time>
+            {/* createdAt é um instante (UTC): mostra o dia no fuso de quem lê. */}
+            <time dateTime={item.createdAt}>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</time>
           </div>
           <h2 id={`aviso-${item.id}`}>{item.title}</h2>
           <p>{item.content}</p>

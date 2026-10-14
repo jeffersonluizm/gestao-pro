@@ -70,18 +70,18 @@ export function AppShell() {
               aria-expanded={menuOpen}
               onClick={() => setMenuOpen(open => !open)}
             >
-              <IoMenuOutline aria-hidden size={20} /> Menu
+              <IoMenuOutline aria-hidden size={20} /> <span className="topbar-label">Menu</span>
             </button>
             <div className="topbar-user">
               <span className="hello-user">{session.userName || session.registrationNumber}</span>
-              <span className="badge badge-accent">{canManage ? roleLabels[session.role] : isManagerRole ? 'Vendo como morador' : roleLabels[session.role] ?? 'Morador'}</span>
+              <span className="badge badge-accent topbar-badge">{canManage ? roleLabels[session.role] : isManagerRole ? 'Vendo como morador' : roleLabels[session.role] ?? 'Morador'}</span>
               {session.role === 'sindico' && (
                 <button type="button" className="secondary-button" onClick={toggleView}>
                   {canManage ? 'Ver como morador' : 'Voltar à gestão'}
                 </button>
               )}
-              <NavLink to="/painel/perfil" className="btn btn-secondary"><IoPersonCircleOutline aria-hidden size={18} />Perfil</NavLink>
-              <button type="button" className="secondary-button" onClick={logout}><IoLogOutOutline aria-hidden size={18} />Sair</button>
+              <NavLink to="/painel/perfil" className="btn btn-secondary" aria-label="Perfil"><IoPersonCircleOutline aria-hidden size={18} /><span className="topbar-label">Perfil</span></NavLink>
+              <button type="button" className="secondary-button" onClick={logout} aria-label="Sair"><IoLogOutOutline aria-hidden size={18} /><span className="topbar-label">Sair</span></button>
             </div>
           </header>
           <main className="workspace-main" id="conteudo" tabIndex={-1}>
