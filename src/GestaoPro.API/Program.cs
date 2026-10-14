@@ -135,6 +135,10 @@ builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredSer
 builder.Services.AddSingleton(DemoCatalog.FromConfiguration(builder.Configuration));
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddScoped<DemoDataCleaner>();
+// Desativa a conta e o código públicos das versões antigas, se ainda existirem no banco.
+builder.Services.AddScoped<ILegacySeedStore, MongoLegacySeedStore>();
+builder.Services.AddScoped<LegacySeedRetirement>();
+builder.Services.AddHostedService<LegacySeedRetirementInitializer>();
 builder.Services.AddHostedService<DemoResetService>();
 builder.Services.AddHostedService<VoteIndexInitializer>();
 // Preenche o condomínio de visitantes e vagas antigos (em segundo plano; falha só gera log).
