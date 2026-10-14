@@ -92,9 +92,10 @@ public class AnnouncementsController : ControllerBase
             var announcement = await _service.CreateAsync(dto);
             return CreatedAtAction(nameof(GetById), new { id = announcement.Id }, announcement);
         }
-        catch (Exception ex)
+        catch (Exception)
         {
-            return BadRequest(new { message = ex.Message });
+            // Detalhe da exceção não vai para o cliente (o tratamento global registra o que for inesperado).
+            return BadRequest(new { message = "Não foi possível publicar o aviso. Confira os campos e tente de novo." });
         }
     }
 

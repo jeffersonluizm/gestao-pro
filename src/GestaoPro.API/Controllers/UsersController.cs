@@ -17,6 +17,8 @@ public class UsersController : ControllerBase
 
     private readonly DemoGuard _demo;
 
+    public const string UnexpectedErrorMessage = "Não foi possível concluir a operação agora. Tente de novo em instantes.";
+
     public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger, DemoCatalog? demo = null)
     {
         _service = service;
@@ -122,7 +124,8 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            _logger.LogError(ex, "Falha inesperada em {Acao}", nameof(UsersController));
+            return BadRequest(new { message = UnexpectedErrorMessage });
         }
     }
 
@@ -251,7 +254,8 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            _logger.LogError(ex, "Falha inesperada em {Acao}", nameof(UsersController));
+            return BadRequest(new { message = UnexpectedErrorMessage });
         }
     }
 
