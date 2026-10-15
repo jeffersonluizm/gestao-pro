@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using GestaoPro.API.Services;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using GestaoPro.API.Models;
 using GestaoPro.API.Settings;
@@ -36,7 +37,7 @@ public class ParkingRepository : IParkingRepository
 
     public async Task ReserveAsync(string id, string userId)
     {
-        var now = BrasiliaNow();
+        var now = BrazilTime.Now();
         var update = Builders<Parking>.Update
             .Set(x => x.Status, "reserved")
             .Set(x => x.ReservedByUserId, userId)
@@ -53,7 +54,7 @@ public class ParkingRepository : IParkingRepository
 
     public async Task UpdateStatusAsync(string id, string status)
     {
-        var now = BrasiliaNow();
+        var now = BrazilTime.Now();
         var action = status == "available" ? "saida" : "entrada";
         var update = Builders<Parking>.Update
             .Set(x => x.Status, status)
@@ -77,17 +78,5 @@ public class ParkingRepository : IParkingRepository
     public async Task DeleteAsync(string id) =>
         await _collection.DeleteOneAsync(x => x.Id == id);
 
-    private static DateTime BrasiliaNow()
-    {
-        try
-        {
-            var zone = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);
-        }
-        catch
-        {
-            return DateTime.UtcNow.AddHours(-3);
-        }
-    }
 }
 

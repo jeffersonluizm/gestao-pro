@@ -12,6 +12,9 @@ services:
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production
+      # Horário de Brasília nos logs (as regras de data já usam Brasília no código).
+      - key: TZ
+        value: America/Sao_Paulo
       # MongoDB Atlas gratuito com um banco SÓ de demonstração (nunca dados reais).
       - key: MongoDbSettings__ConnectionString
         sync: false

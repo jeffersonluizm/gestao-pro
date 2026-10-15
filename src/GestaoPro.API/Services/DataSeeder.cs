@@ -236,7 +236,7 @@ public class DataSeeder
         await _reservations.CreateAsync(new Reservation
         {
             CommonAreaId = salao.Id!, UserId = moradorId, CondominiumId = condominiumId,
-            Date = DateTime.Today.AddDays(6).ToString("yyyy-MM-dd"), StartTime = "14:00", EndTime = "18:00",
+            Date = BrazilTime.Today().AddDays(6).ToString("yyyy-MM-dd"), StartTime = "14:00", EndTime = "18:00",
             Status = ReservationStatus.Pendente, Observations = "Aniversário da Laura",
         });
 

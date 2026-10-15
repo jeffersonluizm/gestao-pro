@@ -10,15 +10,18 @@ public class ReservationService : IReservationService
     private readonly IReservationRepository _repository;
     private readonly ICommonAreaRepository _commonAreaRepository;
     private readonly IReservationSlotLock _slotLock;
+    private readonly TimeProvider _clock;
 
     public ReservationService(
         IReservationRepository repository,
         ICommonAreaRepository commonAreaRepository,
-        IReservationSlotLock? slotLock = null)
+        IReservationSlotLock? slotLock = null,
+        TimeProvider? clock = null)
     {
         _repository = repository;
         _commonAreaRepository = commonAreaRepository;
         _slotLock = slotLock ?? new InProcessReservationSlotLock();
+        _clock = clock ?? TimeProvider.System;
     }
 
     public Task<List<Reservation>> GetAllAsync() => _repository.GetAllAsync();
@@ -78,11 +81,20 @@ public class ReservationService : IReservationService
         var reservation = await _repository.GetByIdAsync(id);
         if (reservation is null) return null;
 
+        // Mudança só de status (aprovar, cancelar) não confere data nem conflito de novo.
+        var scheduleChanged = dto.Date is not null || dto.StartTime is not null || dto.EndTime is not null;
         if (dto.Date is not null) reservation.Date = NormalizeDate(dto.Date);
         if (dto.StartTime is not null) reservation.StartTime = NormalizeTime(dto.StartTime);
         if (dto.EndTime is not null) reservation.EndTime = NormalizeTime(dto.EndTime);
         if (dto.Status is not null) reservation.Status = dto.Status;
         if (dto.Observations is not null) reservation.Observations = dto.Observations;
+
+        reservation.UpdatedAt = DateTime.UtcNow;
+        if (!scheduleChanged)
+        {
+            await _repository.UpdateAsync(id, reservation);
+            return reservation;
+        }
 
         var commonArea = await _commonAreaRepository.GetByIdAsync(reservation.CommonAreaId);
         if (commonArea is null || !commonArea.IsActive)
@@ -98,8 +110,6 @@ public class ReservationService : IReservationService
             reservation.StartTime,
             reservation.EndTime,
             reservation.Id);
-
-        reservation.UpdatedAt = DateTime.UtcNow;
 
         await _repository.UpdateAsync(id, reservation);
         return reservation;
@@ -140,12 +150,13 @@ public class ReservationService : IReservationService
             throw new InvalidOperationException($"Esta área só funciona das {commonArea.OpenTime} às {commonArea.CloseTime}.");
     }
 
-    private static void EnsureDateIsNotPast(string date)
+    // "Hoje" é o dia de Brasília, não o do relógio do servidor (UTC no Render).
+    private void EnsureDateIsNotPast(string date)
     {
-        if (!DateOnly.TryParse(date, out var reservationDate))
+        if (!DateOnly.TryParseExact(date, "yyyy-MM-dd", CultureInfo.InvariantCulture, DateTimeStyles.None, out var reservationDate))
             throw new InvalidOperationException("Data inválida.");
 
-        if (reservationDate < DateOnly.FromDateTime(DateTime.Today))
+        if (reservationDate < BrazilTime.Today(_clock))
             throw new InvalidOperationException("Não é permitido registrar evento em data anterior a hoje.");
     }
 
