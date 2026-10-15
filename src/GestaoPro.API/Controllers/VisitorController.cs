@@ -4,6 +4,7 @@ using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using MongoDB.Bson;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers
 {
@@ -84,7 +85,8 @@ namespace GestaoPro.API.Controllers
                 .ToList();
 
         [HttpPost("register")]
-        public async Task<ActionResult> Register([FromBody] CreateVisitorDto dto)
+        [DemoQuota("visitors")]
+    public async Task<ActionResult> Register([FromBody] CreateVisitorDto dto)
         {
             // Morador registra visitante só para si; portaria e administração, para morador do próprio condomínio
             // (indicado em X-User-Id, como o painel e o app mandam, ou no corpo). O condomínio é sempre o do token.

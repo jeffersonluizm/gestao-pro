@@ -3,6 +3,7 @@ using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers
 {
@@ -50,7 +51,8 @@ namespace GestaoPro.API.Controllers
         }
 
         [HttpPost]
-        public async Task<ActionResult> Create([FromBody] CreateParkingDto dto)
+        [DemoQuota("parking")]
+    public async Task<ActionResult> Create([FromBody] CreateParkingDto dto)
         {
             // Sem condomínio no cadastro (o painel não manda), vale o do token; outro condomínio: 404.
             var caller = this.Caller();

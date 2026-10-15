@@ -4,16 +4,16 @@ using System.ComponentModel.DataAnnotations;
 namespace GestaoPro.API.DTOs;
 
 public record CreateUnitRequest(
-    [Required] string CondominiumId,
-    [Required] string Number,
-    string? Block,
+    [StringLength(100)][Required] string CondominiumId,
+    [StringLength(40)][Required] string Number,
+    [StringLength(40)] string? Block,
     int? Floor,
     [Required] UnitType Type
 );
 
 public record UpdateUnitRequest(
-    string? Number,
-    string? Block,
+    [StringLength(40)] string? Number,
+    [StringLength(40)] string? Block,
     int? Floor,
     UnitType? Type
 );

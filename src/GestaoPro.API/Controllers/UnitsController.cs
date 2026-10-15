@@ -42,6 +42,7 @@ public class UnitsController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("units")]
     public async Task<IActionResult> Create([FromBody] CreateUnitRequest request)
     {
         var caller = this.Caller();

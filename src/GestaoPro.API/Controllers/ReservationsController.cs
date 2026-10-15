@@ -4,6 +4,7 @@ using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -121,6 +122,7 @@ public class ReservationsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(Reservation), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [DemoQuota("reservations")]
     public async Task<IActionResult> Create([FromBody] CreateReservationDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);

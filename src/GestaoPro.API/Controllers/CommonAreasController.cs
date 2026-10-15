@@ -58,6 +58,7 @@ public class CommonAreasController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(CommonArea), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [DemoQuota("commonareas")]
     public async Task<IActionResult> Create([FromBody] CreateCommonAreaDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);

@@ -4,24 +4,24 @@ using System.ComponentModel.DataAnnotations;
 namespace GestaoPro.API.DTOs;
 
 public record CreatePetRequest(
-    [Required] string OwnerId,
-    [Required] string UnitId,
-    [Required] string CondominiumId,
-    [Required] string Name,
+    [StringLength(100)][Required] string OwnerId,
+    [StringLength(100)][Required] string UnitId,
+    [StringLength(100)][Required] string CondominiumId,
+    [StringLength(200)][Required] string Name,
     [Required] PetSpecies Species,
-    string? Breed,
-    string? Color,
+    [StringLength(200)] string? Breed,
+    [StringLength(200)] string? Color,
     bool Vaccination,
-    string? Observations
+    [StringLength(4000)] string? Observations
 );
 
 public record UpdatePetRequest(
-    string? Name,
+    [StringLength(200)] string? Name,
     PetSpecies? Species,
-    string? Breed,
-    string? Color,
+    [StringLength(200)] string? Breed,
+    [StringLength(200)] string? Color,
     bool? Vaccination,
-    string? Observations,
+    [StringLength(4000)] string? Observations,
     bool? IsActive
 );
 

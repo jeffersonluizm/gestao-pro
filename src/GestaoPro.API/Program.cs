@@ -15,6 +15,11 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Corpo de requisição pequeno em toda a API (nada aqui envia arquivo): o Kestrel corta no mesmo limite do
+// RequestBodyLimitMiddleware, que responde 413 com mensagem legível.
+builder.WebHost.ConfigureKestrel(options =>
+    options.Limits.MaxRequestBodySize = RequestBodyLimitMiddleware.MaxBytes(builder.Configuration));
+
 // Segredos locais com prioridade abaixo das variáveis de ambiente e da linha de comando (ver LocalSettings).
 builder.Configuration.AddLocalSettingsFile(builder.Environment.ContentRootPath);
 
@@ -147,6 +152,7 @@ builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddScoped<DemoDataCleaner>();
 builder.Services.AddScoped<IDemoReset, DemoResetRunner>();
 builder.Services.AddScoped<IDemoSessions, DemoSessions>();
+builder.Services.AddSingleton<IDemoRecordCounter, MongoDemoRecordCounter>();
 // Desativa a conta e o código públicos das versões antigas, se ainda existirem no banco.
 builder.Services.AddScoped<ILegacySeedStore, MongoLegacySeedStore>();
 builder.Services.AddScoped<LegacySeedRetirement>();
@@ -172,6 +178,8 @@ builder.Services.AddProblemDetails();
 
 // Limites das rotas anônimas de autenticação (por IP e por condomínio; ver AuthRateLimit).
 builder.Services.AddAuthRateLimits(builder.Configuration);
+// Modo demonstração: teto de escritas por usuário e por IP (ver DemoWriteLimit).
+builder.Services.AddDemoWriteLimits(builder.Configuration);
 
 // Atrás de proxy (Render), o IP do cliente vem no X-Forwarded-For. Só é lido com Proxy:ConfiarNoProxy=true:
 // sem proxy na frente, qualquer cliente poderia forjar o cabeçalho e escapar dos limites por IP.
@@ -218,6 +226,7 @@ if (app.Services.GetRequiredService<DemoCatalog>().Enabled)
 
 if (trustProxy) app.UseForwardedHeaders();
 app.UseExceptionHandler();
+app.UseMiddleware<RequestBodyLimitMiddleware>();
 app.UseMiddleware<SecurityHeadersMiddleware>();
 // Documentação interativa só em desenvolvimento (ou com Swagger:Enabled=true explícito).
 if (app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment()))
@@ -226,8 +235,9 @@ if (app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment(
     app.UseSwaggerUI();
 }
 app.UseCors();
-app.UseRateLimiter();
+// Autenticação antes do limitador: o teto de escritas da demonstração é por usuário (claim do token).
 app.UseAuthentication();
+app.UseRateLimiter();
 app.UseMiddleware<ApiAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();

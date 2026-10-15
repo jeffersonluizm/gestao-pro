@@ -3,32 +3,32 @@
 namespace GestaoPro.API.DTOs;
 
 public record CreateCondominiumRequest(
-    [Required] string Name,
-    [Required][RegularExpression(@"^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$",
+    [StringLength(200)][Required] string Name,
+    [StringLength(40)][Required][RegularExpression(@"^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$",
         ErrorMessage = "CNPJ deve seguir o formato 00.000.000/0000-00")] string Cnpj,
-    [Required] string Street,
-    [Required] string Number,
-    [Required] string Neighborhood,
-    [Required] string City,
-    [Required] string State,
-    [Required][RegularExpression(@"^\d{5}-\d{3}$",
+    [StringLength(200)][Required] string Street,
+    [StringLength(40)][Required] string Number,
+    [StringLength(200)][Required] string Neighborhood,
+    [StringLength(200)][Required] string City,
+    [StringLength(40)][Required] string State,
+    [StringLength(40)][Required][RegularExpression(@"^\d{5}-\d{3}$",
         ErrorMessage = "CEP deve seguir o formato 00000-000")] string ZipCode,
-    string? DefaultPassword,
-    string? Rules,
-    string? Regulations
+    [StringLength(128)] string? DefaultPassword,
+    [StringLength(4000)] string? Rules,
+    [StringLength(4000)] string? Regulations
 );
 
 public record UpdateCondominiumRequest(
-    string? Name,
-    string? Street,
-    string? Number,
-    string? Neighborhood,
-    string? City,
-    string? State,
-    string? ZipCode,
-    string? DefaultPassword,
-    string? Rules,
-    string? Regulations
+    [StringLength(200)] string? Name,
+    [StringLength(200)] string? Street,
+    [StringLength(40)] string? Number,
+    [StringLength(200)] string? Neighborhood,
+    [StringLength(200)] string? City,
+    [StringLength(40)] string? State,
+    [StringLength(40)] string? ZipCode,
+    [StringLength(128)] string? DefaultPassword,
+    [StringLength(4000)] string? Rules,
+    [StringLength(4000)] string? Regulations
 );
 
 // Lista pública (tela de cadastro, sem login): só o necessário para escolher o condomínio.

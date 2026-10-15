@@ -1,20 +1,21 @@
-﻿namespace GestaoPro.API.DTOs;
+﻿using System.ComponentModel.DataAnnotations;
+namespace GestaoPro.API.DTOs;
 
 public record CreateBillDto(
-    string CondominiumId,
-    string UserId,
-    string Description,
+    [StringLength(100)] string CondominiumId,
+    [StringLength(100)] string UserId,
+    [StringLength(4000)] string Description,
     decimal Amount,
     DateTime DueDate,
-    string? Barcode = null
+    [StringLength(100)] string? Barcode = null
 );
 
 public record UpdateBillDto(
-    string? CondominiumId,
-    string? UserId,
-    string? Description,
+    [StringLength(100)] string? CondominiumId,
+    [StringLength(100)] string? UserId,
+    [StringLength(4000)] string? Description,
     decimal? Amount,
     DateTime? DueDate,
-    string? Barcode,
-    string? Status
+    [StringLength(100)] string? Barcode,
+    [StringLength(50)] string? Status
 );

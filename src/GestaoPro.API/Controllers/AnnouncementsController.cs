@@ -4,6 +4,7 @@ using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -77,6 +78,7 @@ public class AnnouncementsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(Announcement), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [DemoQuota("announcements")]
     public async Task<IActionResult> Create([FromBody] CreateAnnouncementDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);

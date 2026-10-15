@@ -2,6 +2,7 @@
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -19,6 +20,7 @@ public class PaymentsController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("payments", byCondominium: false)]
     public async Task<IActionResult> PostPayment([FromBody] CreatePaymentDto dto)
     {
         // Só registra pagamento de cobrança do próprio condomínio.

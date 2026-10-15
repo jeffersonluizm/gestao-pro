@@ -104,6 +104,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("users")]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
         // Sem login só chega aqui o cadastro inicial (antes de existir administrador; ver ApiAccessMiddleware).

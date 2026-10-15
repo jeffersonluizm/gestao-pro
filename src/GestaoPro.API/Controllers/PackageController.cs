@@ -3,6 +3,7 @@ using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -60,6 +61,7 @@ public class PackageController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("packages")]
     public async Task<IActionResult> Register([FromBody] CreatePackageDto dto)
     {
         // Sem o cabeçalho X-Condominium-Id, vale o condomínio do token.

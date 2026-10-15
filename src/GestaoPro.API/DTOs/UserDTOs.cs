@@ -4,26 +4,26 @@ using System.ComponentModel.DataAnnotations;
 namespace GestaoPro.API.DTOs;
 
 public record CreateUserRequest(
-    [Required] string CondominiumId,
-    string? UnitId,
-    string? UnitLabel,
-    [Required] string Name,
-    [Required][EmailAddress] string Email,
+    [StringLength(100)][Required] string CondominiumId,
+    [StringLength(100)] string? UnitId,
+    [StringLength(200)] string? UnitLabel,
+    [StringLength(200)][Required] string Name,
+    [StringLength(254)][Required][EmailAddress] string Email,
     // Opcional: sem senha, a conta nasce com o código do condomínio e troca no primeiro acesso.
-    string? Password,
-    [Required][Phone] string Phone,
-    [Required][RegularExpression(@"^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$",
+    [StringLength(128)] string? Password,
+    [StringLength(40)][Required][Phone] string Phone,
+    [StringLength(40)][Required][RegularExpression(@"^(\d{11}|\d{3}\.\d{3}\.\d{3}-\d{2})$",
         ErrorMessage = "CPF deve ter 11 números ou seguir o formato 000.000.000-00")] string Cpf,
     [Required] UserRole Role,
     DateTime? BirthDate
 );
 
 public record UpdateUserRequest(
-    string? Name,
-    string? Phone,
-    string? UnitId,
-    string? UnitLabel,
-    [EmailAddress] string? Email,
+    [StringLength(200)] string? Name,
+    [StringLength(40)] string? Phone,
+    [StringLength(100)] string? UnitId,
+    [StringLength(200)] string? UnitLabel,
+    [StringLength(254)][EmailAddress] string? Email,
     UserRole? Role,
     DateTime? BirthDate,
     bool? IsActive,
@@ -91,15 +91,15 @@ public class UserSummaryResponse
 }
 
 public record ChangePasswordRequest(
-    [Required] string CurrentPassword,
-    [Required] string NewPassword
+    [StringLength(128)][Required] string CurrentPassword,
+    [StringLength(128)][Required] string NewPassword
 );
 
 public record ResetPasswordRequest(
-    [Required] string NewPassword
+    [StringLength(128)][Required] string NewPassword
 );
 
 public record CreateUserCredentialRequest(
-    [Required] string Password
+    [StringLength(128)][Required] string Password
 );
 

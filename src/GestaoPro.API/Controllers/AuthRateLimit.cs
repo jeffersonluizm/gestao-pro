@@ -41,7 +41,8 @@ public static class AuthRateLimit
             {
                 var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var value) ? value : window;
                 SetRetryAfter(context.HttpContext.Response, retryAfter);
-                await context.HttpContext.Response.WriteAsJsonAsync(new { message = TooManyAttemptsMessage }, cancellationToken);
+                var message = DemoWriteLimit.IsLimitedWrite(context.HttpContext) ? DemoWriteLimit.TooManyWritesMessage : TooManyAttemptsMessage;
+                await context.HttpContext.Response.WriteAsJsonAsync(new { message }, cancellationToken);
             };
         });
     }
