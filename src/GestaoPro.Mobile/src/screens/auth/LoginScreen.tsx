@@ -6,7 +6,8 @@ import {
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 
-import { login, changePasswordOnFirstLogin, getFriendlyErrorMessage } from '../../api/client';
+import { login, changePasswordOnFirstLogin, enterDemo, getFriendlyErrorMessage } from '../../api/client';
+import { enterDemoWithRetry, forgetDemoRole, rememberDemoRole } from '../../utils/demoSession';
 import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 import { useAuth } from '../../context/AuthContext';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
@@ -30,10 +31,11 @@ export default function LoginScreen({ navigation }: Props) {
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Entrada com um clique pela demonstração (mesmo fluxo do login normal).
-  async function enterWith(demoEmail: string, demoPassword: string) {
+  // Entrada com um clique pela demonstração: a API devolve a sessão do papel, sem senha.
+  async function enterWith(role: string) {
     try {
-      const res = await login(demoEmail, demoPassword);
+      const res = await enterDemoWithRetry(enterDemo, role);
+      rememberDemoRole(role);
       await signIn({
         token: res.token, userId: res.userId, userName: res.userName, role: res.role,
         condominiumId: res.condominiumId, registrationNumber: res.registrationNumber,
@@ -51,6 +53,7 @@ export default function LoginScreen({ navigation }: Props) {
     setLoading(true);
     try {
       const res = await login(email.trim().toLowerCase(), password);
+      forgetDemoRole();
       if (res.mustChangePassword) {
         setPendingUserId(res.userId);
         setMustChange(true);

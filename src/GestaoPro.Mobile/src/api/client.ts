@@ -176,7 +176,29 @@ export interface Pet {
   updatedAt: string;
 }
 
+// Erro de chamada à API com o status HTTP (0 quando a resposta não veio no formato da API).
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export const UNEXPECTED_FORMAT_MESSAGE =
+  'O servidor respondeu num formato inesperado. Tente de novo em instantes; se persistir, o endereço da API do app precisa ser conferido.';
+
+function serverMessage(text: string) {
+  try {
+    const data = JSON.parse(text) as { message?: unknown };
+    return typeof data.message === 'string' && isSafeMessage(data.message) ? data.message.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function friendlyApiError(text: string, status: number) {
+  // 503 da API traz mensagem própria (por exemplo, "a demonstração está sendo preparada").
+  if (status === 503) return serverMessage(text) ?? 'O servidor está indisponível no momento. Tente novamente.';
   if (status >= 500) return 'Erro interno no servidor. Tente novamente mais tarde.';
 
   const validationMessage = validationErrorMessage(text);
@@ -330,13 +352,18 @@ async function request<T>(
     if (response.status === 401) {
       _authToken = null;
       _onUnauthorized?.();
-      throw new Error('Sua sessão expirou. Faça login novamente.');
+      throw new ApiError('Sua sessão expirou. Faça login novamente.', 401);
     }
     const text = await response.text();
-    throw new Error(friendlyApiError(text, response.status));
+    throw new ApiError(friendlyApiError(text, response.status), response.status);
   }
 
   if (response.status === 204) return undefined as T;
+  // Página HTML no lugar de JSON (endereço da API errado no build): mensagem legível, sem "Unexpected token".
+  if (!(response.headers.get('Content-Type') ?? '').toLowerCase().includes('json')) {
+    console.error(`[api] ${path} não respondeu JSON. Confira EXPO_PUBLIC_API_URL.`);
+    throw new ApiError(UNEXPECTED_FORMAT_MESSAGE, 0);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -380,15 +407,19 @@ export const changeUserPassword = (userId: string, currentPassword: string, newP
   });
 
 // ─── Demonstração ─────────────────────────────────────────────────────────────
-// GET /api/demo só existe com o modo demonstração ligado no servidor (404 desligado).
+// GET /api/demo só existe com o modo demonstração ligado no servidor (404 desligado). Sem e-mail nem senha:
+// a entrada é por POST /api/demo/entrar com o papel.
 export interface DemoInfo {
   condominiumName: string;
   condominiumCode: string;
-  accounts: { role: string; name: string; email: string; password: string }[];
+  accounts: { role: string; name: string }[];
   preRegistered: { cpf: string; name: string }[];
 }
 
 export const getDemoInfo = () => request<DemoInfo>('/api/demo', {}, false);
+
+export const enterDemo = (role: string) =>
+  request<LoginResponse>('/api/demo/entrar', { method: 'POST', body: JSON.stringify({ papel: role }) }, false);
 
 // ─── Condomínios ──────────────────────────────────────────────────────────────
 // Com login: só o condomínio do próprio token (lista de um item).
