@@ -6,7 +6,7 @@ para cada hipótese, se ela se confirmou ou não.
 
 ## Como foi medido
 
-- **Antes:** build da `main` (`047b9bd`). **Depois:** build da `feat/portfolio-ui-ux` (código da API de `38cdb1c`).
+- **Antes:** build da `main` (`047b9bd`). **Depois:** build da `feat/portfolio-ui-ux` (código da API de `38cdb1c`; a 2ª rodada foi publicada de `ac0fde3`, com o mesmo código da API).
   Os dois foram publicados com `dotnet publish -c Release` numa pasta temporária, **sem** `appsettings.Local.json`.
 - **Banco descartável:** `mongod` 8.2.6 local, porta 27100, base `GestaoProStress`, pasta de dados temporária apagada
   no fim, preso a 2 threads da CPU. O Docker não respondia no começo da sessão, por isso o banco não rodou em
@@ -23,7 +23,8 @@ para cada hipótese, se ela se confirmou ou não.
 | Rodada | Início | Fim | Uso |
 |---|---|---|---|
 | antes | 13/10 23:04:55 | 13/10 23:13:02 | H1 a H8 |
-| depois | 13/10 23:55:05 | 14/10 00:14:05 | H1 a H8 (tabela e gráficos) e H9 |
+| depois, 1ª rodada | 13/10 23:55:05 | 14/10 00:14:05 | H1 a H8 (tabela e gráficos) |
+| depois, 2ª rodada | 15/10 00:04:49 | 15/10 00:24:28 | H9 (soak de 00:13:10 a 00:23:11) e repetição de H1 a H8 |
 
 Descobrimos depois que o roteiro de carga de outro projeto (Cineclube) não respeitava a trava. As janelas dele
 (04/10 18:26 a 18:47 e 13/10 21:39 a 22:06) não cruzam nenhuma das janelas acima. A rodada "antes" foi repetida às
@@ -79,11 +80,11 @@ Memória da API no fim de H3 (100 VUs): antes 810 MB, depois 210 MB. A CPU foi m
 | H6 | **Confirmada** | Antes, as 50 reservas simultâneas para o mesmo horário e a mesma área foram **todas aceitas**. Depois, 1 aceita, 49 recusadas com 4xx e nenhum 5xx. Uma reserva gravada no banco. |
 | H7 | **Confirmada** | Antes e depois: 1 voto gravado, 49 recusados com 4xx e nenhum 5xx. |
 | H8 | **Em parte**: refutada no antes, confirmada no depois | O antes não sofreu com o "cliente novo por chamada": 12.588 req/s e p95 de 8,1 ms, sem erros. O driver do MongoDB reaproveita o cluster quando a configuração é a mesma. Depois: 15.495 req/s e p95 de 7,5 ms, ou seja, 23% a mais. A troca continua certa (um cliente só, timeout de 5 s, sem detalhe de erro na resposta), mas o ganho foi pequeno e não o previsto. |
-| H9 | **Inconclusiva** | Nos 10 minutos de soak não houve nenhum erro, e a memória não cresceu: 173 MB no minuto 2 e 166 MB no minuto 10, uma queda de 4%. Mas a carga não foi a planejada. O soak rodou depois de H5, com o condomínio já cheio de avisos (veja o achado abaixo), e fez 24 req/s em vez de cerca de 50% da capacidade de H2. O roteiro já foi corrigido (`6d51965`), mas a nova rodada não aconteceu: a trava ficou ocupada por outro projeto por mais de 1 hora. |
+| H9 | **Confirmada** (2ª rodada) | 10 minutos a 1.498 req/s (teto de 1.500, cerca de 50% da capacidade de H2): 898.964 requisições, p95 de 2,1 ms e nenhum erro. A memória da API foi de 154 MB no minuto 2 para 141 MB no minuto 10, uma queda de 8%. A 1ª rodada foi inconclusiva: também sem erros e sem crescimento de memória, mas o soak rodou depois de H5, com o condomínio cheio de avisos, e só fez 24 req/s (veja o achado abaixo). |
 
 ## Achado fora das hipóteses: contagem de avisos num condomínio enorme
 
-Na rodada "depois", o soak rodou depois de H5. Cada escrita de H5 cria um aviso no condomínio lido em H2 e H3, e
+Na 1ª rodada "depois", o soak rodou depois de H5. Cada escrita de H5 cria um aviso no condomínio lido em H2 e H3, e
 assim o condomínio chegou a cerca de 227 mil avisos. Com 25 VUs em `GET /api/announcements?page=1&pageSize=20`, a API
 fez só 24 req/s, com p50 de 0,9 s e p95 de 2 s. Mesmo assim não houve nenhum erro, e a memória ficou estável (de 191 MB
 para 166 MB). A CPU da API quase não trabalhou nessa fase (17 s em 10 min), então o gargalo estava no banco.
@@ -92,7 +93,28 @@ A suspeita é o `CountDocuments` do total (`X-Total-Count`), que conta todos os 
 Isso não foi medido em separado. Um condomínio real não chega perto de 227 mil avisos, mas a correção é simples:
 contar com limite (por exemplo, "10.000 ou mais") ou só na primeira página. Ficou registrada no roadmap.
 
-O roteiro foi ajustado em seguida: H9 agora roda antes de H5 e tem um teto de req/s (`6d51965`).
+O roteiro foi ajustado em seguida: H9 agora roda antes de H5 e tem um teto de req/s (`6d51965`). Foi assim que a 2ª
+rodada mediu H9.
+
+## Repetição: a 2ª rodada "depois"
+
+A 2ª rodada repetiu H1 a H8 com o mesmo build, na mesma máquina, para dar uma ideia da variação entre rodadas iguais.
+
+| Cenário | 1ª rodada | 2ª rodada | Diferença |
+|---|---:|---:|---:|
+| H1 login, 50 VUs | 78 req/s | 78 req/s | 0% |
+| H2 avisos, 50 VUs | 3.036 req/s | 2.971 req/s | -2% |
+| H3 avisos + ruído, 50 VUs | 2.988 req/s | 2.974 req/s | 0% |
+| H4 lista de condomínios, 20 VUs | 4.728 req/s | 3.682 req/s | -22% |
+| H5 publicar aviso, 50 VUs | 7.559 req/s | 10.076 req/s | +33% |
+| H8 health, 50 VUs | 15.495 req/s | 14.496 req/s | -6% |
+| H6, H7 | 1 aceito, 49 com 4xx | 1 aceito, 49 com 4xx | igual |
+| H1b (inexistente x senha errada) | 119,4 x 111,7 ms | 121,9 x 113,9 ms | diferença de 8 ms |
+
+Os cenários de leitura e o login se repetiram quase iguais. H4 e H5 variaram 22% e 33% de uma rodada para a outra,
+então diferenças desse tamanho não provam nada sozinhas. As conclusões continuam valendo, porque os efeitos são bem
+maiores que essa variação: H3 (70 vezes), H4 (46 a 59 vezes), H5 (65% a 120% acima do antes) e H6. Já o ganho de H8
+(23% na 1ª rodada, 15% na 2ª) fica dentro da variação, e a perda de H2 se repetiu (23% abaixo do antes na 2ª rodada).
 
 ## Limitações
 
@@ -102,6 +124,6 @@ O roteiro foi ajustado em seguida: H9 agora roda antes de H5 e tem um teto de re
   outra carga ao mesmo tempo.
 - O banco rodou como `mongod` direto, sem Docker, preso a 2 threads. Com mais threads para o banco, a perda de H2
   pode diminuir ou sumir.
-- Cada cenário durou 30 s e foi medido uma vez. Não houve repetição para estimar a variação entre rodadas. Por isso, diferenças pequenas, como os 23% de H8, pedem cautela. As grandes, de H3, H4 e H6, não dependem disso.
+- Cada cenário durou 30 s. O antes foi medido uma vez, e o depois duas. A variação entre rodadas iguais chegou a 33% (veja a repetição acima).
 - Os dados brutos (resumos do k6, logs e uso de CPU e memória) ficaram fora do Git, na pasta temporária da sessão.
   A tabela e os gráficos acima foram gerados a partir deles.
