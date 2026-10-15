@@ -1,8 +1,9 @@
 # Teste de estresse do GestaoPro: resultados
 
 As hipóteses foram escritas e versionadas antes da primeira medição, em
-[2026-10-04-hipoteses.md](2026-10-04-hipoteses.md). Este arquivo mostra o que foi medido em 13 e 14/10/2026 e diz,
-para cada hipótese, se ela se confirmou ou não.
+[2026-10-04-hipoteses.md](2026-10-04-hipoteses.md). Este arquivo mostra o que foi medido de 13 a 15/10/2026 e diz,
+para cada hipótese, se ela se confirmou ou não. A seção "Remedição de 15/10" repete o "depois" com os tetos da
+demonstração pública já no código.
 
 ## Como foi medido
 
@@ -25,6 +26,8 @@ para cada hipótese, se ela se confirmou ou não.
 | antes | 13/10 23:04:55 | 13/10 23:13:02 | H1 a H8 |
 | depois, 1ª rodada | 13/10 23:55:05 | 14/10 00:14:05 | H1 a H8 (tabela e gráficos) |
 | depois, 2ª rodada | 15/10 00:04:49 | 15/10 00:24:28 | H9 (soak de 00:13:10 a 00:23:11) e repetição de H1 a H8 |
+| depois, 3ª rodada (`fa9ec28`) | 15/10 03:31:44 | 15/10 03:51:42 | remedição com os tetos da demo; H9 (soak de 03:40:15 a 03:50:16) |
+| depois, 4ª rodada (`f9e8286`) | 15/10 03:57:20 | 15/10 04:06:17 | remedição de H1 a H8 depois da correção de H5 |
 
 Descobrimos depois que o roteiro de carga de outro projeto (Cineclube) não respeitava a trava. As janelas dele
 (04/10 18:26 a 18:47 e 13/10 21:39 a 22:06) não cruzam nenhuma das janelas acima. A rodada "antes" foi repetida às
@@ -82,6 +85,36 @@ Memória da API no fim de H3 (100 VUs): antes 810 MB, depois 210 MB. A CPU foi m
 | H8 | **Em parte**: refutada no antes, confirmada no depois | O antes não sofreu com o "cliente novo por chamada": 12.588 req/s e p95 de 8,1 ms, sem erros. O driver do MongoDB reaproveita o cluster quando a configuração é a mesma. Depois: 15.495 req/s e p95 de 7,5 ms, ou seja, 23% a mais. A troca continua certa (um cliente só, timeout de 5 s, sem detalhe de erro na resposta), mas o ganho foi pequeno e não o previsto. |
 | H9 | **Confirmada** (2ª rodada) | 10 minutos a 1.498 req/s (teto de 1.500, cerca de 50% da capacidade de H2): 898.964 requisições, p95 de 2,1 ms e nenhum erro. A memória da API foi de 154 MB no minuto 2 para 141 MB no minuto 10, uma queda de 8%. A 1ª rodada foi inconclusiva: também sem erros e sem crescimento de memória, mas o soak rodou depois de H5, com o condomínio cheio de avisos, e só fez 24 req/s (veja o achado abaixo). |
 
+## Remedição de 15/10 (tetos da demonstração no código)
+
+O endurecimento da demonstração pública (ADR 0004) passou pelo caminho medido: o limitador global de escritas e o teto
+de documentos por coleção valem com `Demo:Enabled`, que a bateria liga, e o limite de 64 KB vale em toda requisição.
+O roteiro sobe os tetos da demonstração por variável de ambiente (`tests/carga/subir-ambiente.ps1`), para medir a API e
+não o limitador. A 3ª e a 4ª rodadas usaram a trava compartilhada da oficina (`com-trava.sh`), sem outra carga na
+máquina.
+
+| Cenário (req/s; p95 em ms) | Antes | Depois, 1ª | Depois, 3ª | Depois, 4ª |
+|---|---:|---:|---:|---:|
+| H1 login, 50 VUs | 75; 1.053 | 78; 991 | 76; 1.034 | 77; 1.034 |
+| H2 avisos, 50 VUs | 3.880; 37 | 3.036; 44 | 2.950; 45 | 2.977; 45 |
+| H3 avisos + ruído, 50 VUs | 43; 2.579 | 2.988; 45 | 2.886; 46 | 2.953; 46 |
+| H4 lista de condomínios, 20 VUs | 80; 296 | 4.728; 10,5 | 3.521; 13,9 | 3.613; 13,8 |
+| H5 publicar aviso, 50 VUs | 4.576; 29 | 7.559; 14 | **130; 756** | 5.935; 14 |
+| H8 health, 50 VUs | 12.588; 8,1 | 15.495; 7,5 | 13.467; 8,5 | 14.411; 8,1 |
+| H1b inexistente x senha errada (ms) | 9,5 x 113,9 | 119,4 x 111,7 | 122,3 x 115,5 | 122,3 x 115,4 |
+| H6 e H7 | 50 reservas aceitas; 1 voto | 1 e 1 (49 com 4xx) | 1 e 1 | 1 e 1 |
+
+- **H5 caiu na 3ª rodada e foi corrigido.** O teto de documentos por coleção contava os avisos do condomínio no banco
+  a cada criação: 130 req/s e p95 de 756 ms. A contagem passou a ficar guardada por 5 s, por coleção e condomínio, e o
+  banco conta só até o teto (`95c0a7f`). Na 4ª rodada, H5 voltou a 5.935 req/s com p95 de 14 ms, 30% acima do antes.
+  Fica abaixo da 1ª rodada (7.559), mas dentro da variação já vista entre rodadas iguais (7.559 a 10.076). A CPU por
+  requisição da API ficou igual: 0,42 ms na 1ª rodada e 0,45 ms na 4ª.
+- **H9 na 3ª rodada**, com o limitador global ligado: 1.496 req/s por 10 minutos, p95 de 2,1 ms, nenhum erro. A memória
+  foi de 159 MB no minuto 2 para 149 MB no minuto 10.
+- **As outras hipóteses não mudam de resultado.** H4 ficou em cerca de 3.600 req/s nas 2ª, 3ª e 4ª rodadas, contra
+  4.728 na 1ª. A 1ª parece ter sido a exceção, porque a CPU por requisição é a mesma (0,79 e 0,83 ms). Mesmo assim,
+  o ganho sobre o antes continua em cerca de 45 vezes.
+
 ## Achado fora das hipóteses: contagem de avisos num condomínio enorme
 
 Na 1ª rodada "depois", o soak rodou depois de H5. Cada escrita de H5 cria um aviso no condomínio lido em H2 e H3, e
@@ -124,6 +157,7 @@ maiores que essa variação: H3 (70 vezes), H4 (46 a 59 vezes), H5 (65% a 120% a
   outra carga ao mesmo tempo.
 - O banco rodou como `mongod` direto, sem Docker, preso a 2 threads. Com mais threads para o banco, a perda de H2
   pode diminuir ou sumir.
-- Cada cenário durou 30 s. O antes foi medido uma vez, e o depois duas. A variação entre rodadas iguais chegou a 33% (veja a repetição acima).
+- Cada cenário durou 30 s. O antes foi medido uma vez, e o depois quatro vezes (a 3ª e a 4ª já com os tetos da
+  demonstração). A variação entre rodadas iguais chegou a 33% (veja a repetição acima).
 - Os dados brutos (resumos do k6, logs e uso de CPU e memória) ficaram fora do Git, na pasta temporária da sessão.
   A tabela e os gráficos acima foram gerados a partir deles.

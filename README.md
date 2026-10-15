@@ -77,7 +77,7 @@ Hipóteses escritas antes de medir ([hipóteses](docs/carga/2026-10-04-hipoteses
 | 50 reservas simultâneas no mesmo horário | 50 aceitas | 1 aceita, 49 recusadas |
 | Login: e-mail inexistente x senha errada (mediana) | 9 ms x 114 ms (dá para descobrir contas) | 119 ms x 112 ms |
 
-Também há o que piorou: a lista simples de avisos (100 avisos, sem outro condomínio) ficou de 19% a 32% mais lenta, e a causa provável está no banco, não na API. Das 10 hipóteses, 8 se confirmaram e 2 só em parte (H4 e H8). O soak de 10 minutos a 1.500 req/s terminou sem erros e sem crescimento de memória.
+Também há o que piorou: a lista simples de avisos (100 avisos, sem outro condomínio) ficou de 19% a 32% mais lenta, e a causa provável está no banco, não na API. A remedição de 15/10, já com os tetos da demonstração pública, achou e corrigiu uma queda em "publicar aviso" e manteve as conclusões ([detalhes](docs/carga/2026-10-04-resultados.md#remedição-de-1510-tetos-da-demonstração-no-código)). Das 10 hipóteses, 8 se confirmaram e 2 só em parte (H4 e H8). O soak de 10 minutos a 1.500 req/s terminou sem erros e sem crescimento de memória.
 
 <img src="docs/carga/req-s.svg" alt="Requisições por segundo antes e depois, por cenário" width="640">
 <!-- carga:fim -->
