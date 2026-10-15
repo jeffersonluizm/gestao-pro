@@ -2,14 +2,18 @@ using System.Security.Cryptography;
 
 namespace GestaoPro.API.Services.Demo;
 
-// Conta de demonstração publicada em GET /api/demo (fonte única para o painel e o app).
-public sealed record DemoAccount(string Role, string Name, string Email, string Password);
+// Conta de demonstração. Não tem senha publicada: a entrada é por POST /api/demo/entrar com o papel.
+public sealed record DemoAccount(string Role, string Name, string Email);
 
 // Modo demonstração: liga com Demo:Enabled=true (desligado por padrão, independente do ambiente).
-// Nada de senha no código: Demo:Senha e Demo:CodigoCondominio vêm da configuração (fortes) ou são
-// sorteados na partida; quem explora a demo descobre as credenciais pelo endpoint, não pelo código-fonte.
+// As contas demo guardam o hash de um valor aleatório (login por senha nelas falha); quem explora a demo entra
+// pelo papel. Demo:CodigoCondominio vem da configuração (forte) ou é sorteado na partida e fica visível em
+// GET /api/demo, porque serve para demonstrar a ativação de acesso por CPF.
 public sealed class DemoCatalog
 {
+    // Claim com a época da demonstração. Cada reset troca a época; token de outra época vira 401.
+    public const string EpochClaim = "demoEpoch";
+
     public const string EmailDomain = "@demo.gestaopro.local";
     public const string CondominiumName = "Residencial Demonstração";
     public const string CondominiumCnpj = "11.222.333/0001-81";
@@ -29,6 +33,11 @@ public sealed class DemoCatalog
     // Preenchido pelo seeder depois de criar o condomínio (para proteger o condomínio da demonstração).
     public string? CondominiumId { get; set; }
 
+    public string Epoch { get; private set; } = NewEpoch();
+
+    // Ids gravados pelo seeder (contas, áreas, unidade, pré-cadastrados): não podem ser removidos nem trocados.
+    private volatile HashSet<string> _seededRecords = new(StringComparer.Ordinal);
+
     private DemoCatalog(bool enabled, string code, IReadOnlyList<DemoAccount> accounts)
     {
         Enabled = enabled;
@@ -43,16 +52,33 @@ public sealed class DemoCatalog
         if (!configuration.GetValue("Demo:Enabled", false))
             return Disabled;
 
-        var password = Configured(configuration, "Demo:Senha", PasswordPolicy.IsStrong) ?? RandomSecret("Demo");
         var code = Configured(configuration, "Demo:CodigoCondominio", CondominiumCodePolicy.IsStrong) ?? RandomSecret("Codigo");
 
         return new DemoCatalog(true, code, new[]
         {
-            new DemoAccount("sindico", "Ana Ribeiro", $"sindico{EmailDomain}", password),
-            new DemoAccount("morador", "Maria Souza", $"morador{EmailDomain}", password),
-            new DemoAccount("porteiro", "Carlos Pereira", $"porteiro{EmailDomain}", password),
+            new DemoAccount("sindico", "Ana Ribeiro", $"sindico{EmailDomain}"),
+            new DemoAccount("morador", "Maria Souza", $"morador{EmailDomain}"),
+            new DemoAccount("porteiro", "Carlos Pereira", $"porteiro{EmailDomain}"),
         });
     }
+
+    public DemoAccount? AccountFor(string? role) =>
+        Accounts.FirstOrDefault(account => string.Equals(account.Role, role?.Trim(), StringComparison.OrdinalIgnoreCase));
+
+    public void RenewEpoch() => Epoch = NewEpoch();
+
+    public bool IsCurrentEpoch(string? epoch) => !Enabled || string.Equals(epoch, Epoch, StringComparison.Ordinal);
+
+    public void SetSeededRecords(IEnumerable<string> ids) =>
+        _seededRecords = new HashSet<string>(ids.Where(id => !string.IsNullOrWhiteSpace(id)), StringComparer.Ordinal);
+
+    public bool IsSeededRecord(string? id) => Enabled && id is not null && _seededRecords.Contains(id);
+
+    // Hash de um valor aleatório que ninguém conhece: a conta existe, mas não entra por senha.
+    public static string UnusablePasswordHash() =>
+        BCrypt.Net.BCrypt.HashPassword(Convert.ToBase64String(RandomNumberGenerator.GetBytes(32)));
+
+    private static string NewEpoch() => Convert.ToHexString(RandomNumberGenerator.GetBytes(8));
 
     // Só as contas publicadas em GET /api/demo são protegidas.
     public bool IsDemoEmail(string? email) =>

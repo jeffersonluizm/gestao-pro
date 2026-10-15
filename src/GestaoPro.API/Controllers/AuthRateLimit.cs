@@ -11,6 +11,7 @@ public static class AuthRateLimit
     public const string Login = "auth-login";
     public const string Register = "auth-register";
     public const string ChangePassword = "auth-password";
+    public const string DemoEnter = "demo-entrar";
 
     public const string TooManyAttemptsMessage = "Muitas tentativas. Aguarde e tente de novo.";
 
@@ -31,6 +32,11 @@ public static class AuthRateLimit
                     context.Connection.RemoteIpAddress?.ToString() ?? "sem-ip",
                     _ => new FixedWindowRateLimiterOptions { PermitLimit = permitLimit, Window = window, QueueLimit = 0 }));
             }
+            // Entrada na demonstração (POST /api/demo/entrar): balde próprio por IP.
+            var demoLimit = configuration.GetValue("RateLimiting:DemoEntrar:PermitLimit", 20);
+            options.AddPolicy(DemoEnter, context => RateLimitPartition.GetFixedWindowLimiter(
+                context.Connection.RemoteIpAddress?.ToString() ?? "sem-ip",
+                _ => new FixedWindowRateLimiterOptions { PermitLimit = demoLimit, Window = TimeSpan.FromMinutes(1), QueueLimit = 0 }));
             options.OnRejected = async (context, cancellationToken) =>
             {
                 var retryAfter = context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var value) ? value : window;

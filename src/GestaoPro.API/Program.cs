@@ -75,6 +75,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     context.Token = accessToken;
                 }
                 return Task.CompletedTask;
+            },
+            // Modo demonstração: token de outra época (antes do último reset ou de o servidor reiniciar) vira 401.
+            OnTokenValidated = context =>
+            {
+                var demo = context.HttpContext.RequestServices.GetRequiredService<DemoCatalog>();
+                if (!demo.IsCurrentEpoch(context.Principal?.FindFirst(DemoCatalog.EpochClaim)?.Value))
+                    context.Fail("Sessão da demonstração encerrada: os dados foram restaurados.");
+                return Task.CompletedTask;
             }
         };
     });
@@ -133,8 +141,12 @@ builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<DeliveryService>();
 builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredService<DeliveryService>());
 builder.Services.AddSingleton(DemoCatalog.FromConfiguration(builder.Configuration));
+builder.Services.AddScoped<IDemoResidentStore, MongoDemoResidentStore>();
+builder.Services.AddScoped<DemoPreRegisteredResidents>();
 builder.Services.AddScoped<DataSeeder>();
 builder.Services.AddScoped<DemoDataCleaner>();
+builder.Services.AddScoped<IDemoReset, DemoResetRunner>();
+builder.Services.AddScoped<IDemoSessions, DemoSessions>();
 // Desativa a conta e o código públicos das versões antigas, se ainda existirem no banco.
 builder.Services.AddScoped<ILegacySeedStore, MongoLegacySeedStore>();
 builder.Services.AddScoped<LegacySeedRetirement>();
@@ -201,8 +213,7 @@ if (app.Services.GetRequiredService<DemoCatalog>().Enabled)
 {
     // A cada partida a demonstração volta ao estado inicial (apaga o que visitantes criaram e recria).
     using var scope = app.Services.CreateScope();
-    await scope.ServiceProvider.GetRequiredService<DemoDataCleaner>().ResetAsync();
-    await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
+    await scope.ServiceProvider.GetRequiredService<IDemoReset>().ResetAsync();
 }
 
 if (trustProxy) app.UseForwardedHeaders();

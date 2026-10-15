@@ -5,8 +5,8 @@ using GestaoPro.API.Services.Demo;
 namespace GestaoPro.API.Services;
 
 // Dados do modo demonstração (só com Demo:Enabled=true; ver DemoCatalog). Idempotente: a cada execução
-// recria o que falta e devolve as contas demo ao estado conhecido (senha da configuração, ativas, papel certo).
-// Nenhuma senha fica no código nem vai para o log: elas vêm do DemoCatalog e são publicadas em GET /api/demo.
+// recria o que falta e devolve as contas demo ao estado conhecido (ativas, papel certo, senha inutilizável).
+// As contas demo não têm senha: a entrada é por POST /api/demo/entrar. Os ids gravados aqui ficam protegidos.
 public class DataSeeder
 {
     private static readonly (string Name, string Description, int Capacity, string Open, string Close)[] CommonAreas =
@@ -36,6 +36,7 @@ public class DataSeeder
     private readonly OccurrenceRepository _occurrences;
     private readonly IAssemblyRepository _assemblies;
     private readonly IDeliveryService _deliveries;
+    private readonly DemoPreRegisteredResidents _preRegistered;
     private readonly ILogger<DataSeeder> _logger;
 
     public DataSeeder(
@@ -52,6 +53,7 @@ public class DataSeeder
         OccurrenceRepository occurrences,
         IAssemblyRepository assemblies,
         IDeliveryService deliveries,
+        DemoPreRegisteredResidents preRegistered,
         ILogger<DataSeeder> logger)
     {
         _catalog = catalog;
@@ -67,6 +69,7 @@ public class DataSeeder
         _occurrences = occurrences;
         _assemblies = assemblies;
         _deliveries = deliveries;
+        _preRegistered = preRegistered;
         _logger = logger;
     }
 
@@ -77,18 +80,20 @@ public class DataSeeder
         var condominium = await EnsureCondominiumAsync();
         _catalog.CondominiumId = condominium.Id;
 
-        await EnsureCommonAreasAsync(condominium.Id!);
+        var areaIds = await EnsureCommonAreasAsync(condominium.Id!);
         var unit = await EnsureUnitAsync(condominium.Id!, "101");
         var accounts = new Dictionary<string, User>();
         foreach (var account in _catalog.Accounts)
             accounts[account.Role] = await EnsureAccountAsync(condominium.Id!, account, account.Role == "morador" ? unit.Id : null);
 
-        await EnsurePreRegisteredResidentsAsync(condominium.Id!);
+        var preRegisteredIds = await _preRegistered.EnsureAsync(condominium.Id!);
+        // Registros de exemplo que os visitantes não podem remover (nem trocar, no caso das contas).
+        _catalog.SetSeededRecords(areaIds.Append(unit.Id!).Concat(accounts.Values.Select(user => user.Id!)).Concat(preRegisteredIds));
         await EnsureAnnouncementsAsync(condominium.Id!, accounts["sindico"].Id!);
         await EnsureBillAsync(condominium.Id!, accounts["morador"].Id!);
         await EnsureActivityAsync(condominium.Id!, unit.Id!, accounts["sindico"].Id!, accounts["morador"].Id!);
 
-        _logger.LogInformation("Modo demonstração pronto: condomínio {Name} com {Count} contas (credenciais em GET /api/demo).",
+        _logger.LogInformation("Modo demonstração pronto: condomínio {Name} com {Count} contas (entrada em POST /api/demo/entrar).",
             DemoCatalog.CondominiumName, _catalog.Accounts.Count);
     }
 
@@ -119,29 +124,31 @@ public class DataSeeder
         return condominium;
     }
 
-    private async Task EnsureCommonAreasAsync(string condominiumId)
+    private async Task<List<string>> EnsureCommonAreasAsync(string condominiumId)
     {
         var existing = await _commonAreas.GetByCondominiumAsync(condominiumId);
+        var ids = new List<string>();
         foreach (var (name, description, capacity, open, close) in CommonAreas)
         {
-            if (existing.Any(area => area.Name == name)) continue;
-            await _commonAreas.CreateAsync(new CommonArea
+            var area = existing.FirstOrDefault(item => item.Name == name) ?? await _commonAreas.CreateAsync(new CommonArea
             {
                 CondominiumId = condominiumId, Name = name, Description = description, Capacity = capacity,
                 OpenTime = open, CloseTime = close, Rules = "Deixe o espaço limpo ao final do uso.", IsActive = true,
             });
+            if (area?.Id is not null) ids.Add(area.Id);
         }
+        return ids;
     }
 
     private async Task<Unit> EnsureUnitAsync(string condominiumId, string number) =>
         await _units.GetByNumberAndBlockAsync(condominiumId, number, "A")
         ?? await _units.CreateAsync(new Unit { CondominiumId = condominiumId, Number = number, Block = "A", Floor = 1, Type = UnitType.apt });
 
-    // Conta demo: senha da configuração, ativa, sem troca obrigatória, papel e condomínio certos.
+    // Conta demo: senha inutilizável (hash aleatório), ativa, sem troca obrigatória, papel e condomínio certos.
     private async Task<User> EnsureAccountAsync(string condominiumId, DemoAccount account, string? unitId)
     {
         var role = Enum.Parse<UserRole>(account.Role);
-        var hash = BCrypt.Net.BCrypt.HashPassword(account.Password);
+        var hash = DemoCatalog.UnusablePasswordHash();
         var user = await _users.GetByEmailAsync(account.Email);
         if (user is null)
         {
@@ -187,31 +194,6 @@ public class DataSeeder
         "morador" => "90000000002",
         _ => "90000000003",
     };
-
-    // CPFs pré-cadastrados (sem acesso) para experimentar o "Ative o seu acesso" com o código do condomínio.
-    private async Task EnsurePreRegisteredResidentsAsync(string condominiumId)
-    {
-        foreach (var (cpf, name) in DemoCatalog.PreRegisteredResidents)
-        {
-            var existing = await _users.GetByCpfAsync(cpf);
-            if (existing is not null)
-            {
-                if (existing.CondominiumId != condominiumId)
-                {
-                    existing.CondominiumId = condominiumId;
-                    await _users.UpdateAsync(existing.Id!, existing);
-                }
-                continue;
-            }
-            await _users.CreateAsync(new User
-            {
-                CondominiumId = condominiumId, Name = name, Email = $"{cpf}@pending.gestaopro.local", Phone = "3133330000",
-                Cpf = cpf, RegistrationNumber = $"PENDING-{cpf}",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword(Guid.NewGuid().ToString()),
-                Role = UserRole.morador, MustChangePassword = true, IsActive = true,
-            });
-        }
-    }
 
     private async Task EnsureAnnouncementsAsync(string condominiumId, string authorId)
     {

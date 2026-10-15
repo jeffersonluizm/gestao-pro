@@ -46,6 +46,13 @@ public class ApiAccessMiddleware
             return;
         }
 
+        // Entrada na demonstração sem senha (o controller responde 404 quando o modo demo está desligado).
+        if (HttpMethods.IsPost(context.Request.Method) && path == "/api/demo/entrar")
+        {
+            await _next(context);
+            return;
+        }
+
         var hasAdministratorCredential =
             await context.RequestServices.GetRequiredService<IAdministratorLookup>().HasAnyAdministratorAsync();
         var isInitialCredentialCreation =

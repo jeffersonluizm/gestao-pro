@@ -8,6 +8,8 @@ public sealed class DemoGuard
 {
     public const string ProtectedAccountMessage =
         "Esta é uma conta de demonstração compartilhada: senha, perfil e acesso não podem ser alterados.";
+    public const string SeededRecordMessage =
+        "Este é um registro de exemplo da demonstração: ele não pode ser removido. Crie outro para testar.";
     public const string ProtectedCondominiumMessage =
         "Este é o condomínio de demonstração: ele não pode ser excluído nem ter o nome ou o código trocados.";
 
@@ -28,6 +30,9 @@ public sealed class DemoGuard
     public bool IsReservedDomain(string? email) => _catalog.IsReservedDomain(email);
 
     public bool IsProtectedCondominium(string? condominiumId) => _catalog.IsDemoCondominium(condominiumId);
+
+    // Gravado pelo seeder (contas, áreas, unidade 101, CPFs pré-cadastrados).
+    public bool IsSeededRecord(string? id) => _catalog.IsSeededRecord(id);
 
     public static ObjectResult Forbidden(string message) =>
         new(new { message }) { StatusCode = StatusCodes.Status403Forbidden };

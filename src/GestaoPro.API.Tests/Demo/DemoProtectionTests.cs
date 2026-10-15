@@ -105,6 +105,64 @@ public class DemoProtectionTests
         Assert.Equal(403, StatusOf(condominium));
     }
 
+    // Nome, telefone e unidade da conta demo também não mudam: ela é a mesma para todos os visitantes.
+    [Fact]
+    public async Task Conta_demo_nao_tem_nome_telefone_nem_unidade_trocados()
+    {
+        var admin = Users("sindico-demo", "sindico");
+
+        var name = await admin.Update("665f1c2e9b1e8a00000000d1", new UpdateUserRequest("Outro nome", null, null, null, null, null, null, null, null));
+        var phone = await admin.Update("665f1c2e9b1e8a00000000d1", new UpdateUserRequest(null, null, "31999990000", null, null, null, null, null, null));
+
+        Assert.Equal(403, StatusOf(name));
+        Assert.Equal(403, StatusOf(phone));
+    }
+
+    // Registros de exemplo semeados (áreas, unidade 101, CPFs pré-cadastrados) não são removidos durante a demo.
+    [Fact]
+    public async Task Registros_semeados_nao_sao_removidos()
+    {
+        const string area = "665f1c2e9b1e8a0000000a01";
+        const string unidade = "665f1c2e9b1e8a0000000101";
+        const string preCadastrado = "665f1c2e9b1e8a00000000e1";
+        _catalog.SetSeededRecords(new[] { area, unidade, preCadastrado, "665f1c2e9b1e8a00000000d1" });
+        _directory.Setup(d => d.GetByIdAsync(preCadastrado))
+            .ReturnsAsync(new UserResponse { Id = preCadastrado, CondominiumId = CondominioA, Email = "11111111111@pending.gestaopro.local", Role = UserRole.morador });
+
+        var areas = new Mock<ICommonAreaService>();
+        areas.Setup(s => s.GetByIdAsync(area)).ReturnsAsync(new CommonArea { Id = area, CondominiumId = CondominioA, Name = "Salão de festas" });
+        var units = new Mock<IUnitService>();
+        units.Setup(s => s.GetByIdAsync(unidade)).ReturnsAsync(new UnitResponse(unidade, CondominioA, "101", "A", 1, UnitType.apt, new List<string>(), 0, null, null, DateTime.UtcNow));
+
+        var deleteArea = await new CommonAreasController(areas.Object, _catalog).As("sindico-demo", "sindico").Delete(area);
+        var deactivateArea = await new CommonAreasController(areas.Object, _catalog).As("sindico-demo", "sindico")
+            .Update(area, new UpdateCommonAreaDto { IsActive = false });
+        var deleteUnit = await new UnitsController(units.Object, _directory.Object, _catalog).As("sindico-demo", "sindico").Delete(unidade);
+        var deactivateResident = await Users("sindico-demo", "sindico").Deactivate(preCadastrado);
+
+        Assert.Equal(403, StatusOf(deleteArea));
+        Assert.Equal(403, StatusOf(deactivateArea));
+        Assert.Equal(403, StatusOf(deleteUnit));
+        Assert.Equal(403, StatusOf(deactivateResident));
+        Assert.Equal(DemoGuard.SeededRecordMessage, MessageOf(deleteArea));
+        areas.Verify(s => s.DeleteAsync(It.IsAny<string>()), Times.Never);
+        units.Verify(s => s.DeleteAsync(It.IsAny<string>()), Times.Never);
+    }
+
+    // O que o visitante criou continua podendo ser removido.
+    [Fact]
+    public async Task Area_criada_pelo_visitante_pode_ser_removida()
+    {
+        const string area = "665f1c2e9b1e8a0000000a99";
+        var areas = new Mock<ICommonAreaService>();
+        areas.Setup(s => s.GetByIdAsync(area)).ReturnsAsync(new CommonArea { Id = area, CondominiumId = CondominioA, Name = "Sauna" });
+        areas.Setup(s => s.DeleteAsync(area)).ReturnsAsync(true);
+
+        var result = await new CommonAreasController(areas.Object, _catalog).As("sindico-demo", "sindico").Delete(area);
+
+        Assert.Equal(204, StatusOf(result));
+    }
+
     [Fact]
     public void Sem_o_modo_demo_nada_e_bloqueado_pela_protecao()
     {

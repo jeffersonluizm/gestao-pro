@@ -165,4 +165,25 @@ public class ApiAccessMiddlewareTests
         Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
         Assert.False(nextCalled);
     }
+
+    // Entrada na demonstração sem senha: anônima por definição (o controller responde 404 sem a flag).
+    [Fact]
+    public async Task Entrar_na_demonstracao_e_liberado_sem_login()
+    {
+        var (_, nextCalled) = await InvokeAsync("POST", "/api/demo/entrar");
+
+        Assert.True(nextCalled);
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/demo")]
+    [InlineData("POST", "/api/demo/entrar/outro")]
+    [InlineData("DELETE", "/api/demo/entrar")]
+    public async Task Outras_escritas_em_demo_continuam_exigindo_login(string method, string path)
+    {
+        var (statusCode, nextCalled) = await InvokeAsync(method, path);
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
+        Assert.False(nextCalled);
+    }
 }

@@ -1,7 +1,7 @@
 namespace GestaoPro.API.Services.Demo;
 
-// Modo demonstração: de tempos em tempos (Demo:IntervaloResetHoras, padrão 6 h) apaga o que os visitantes
-// criaram no condomínio de demonstração e recria contas e dados de exemplo do zero.
+// Modo demonstração: de tempos em tempos (Demo:IntervaloResetMinutos, padrão 90, entre 15 e 1440) apaga o que
+// os visitantes criaram no condomínio de demonstração e recria contas e dados de exemplo do zero.
 // Desligado quando Demo:Enabled=false. A primeira execução é a da partida (Program.cs).
 public sealed class DemoResetService : BackgroundService
 {
@@ -15,8 +15,11 @@ public sealed class DemoResetService : BackgroundService
         _catalog = catalog;
         _scopes = scopes;
         _logger = logger;
-        _interval = TimeSpan.FromHours(Math.Max(1, configuration.GetValue("Demo:IntervaloResetHoras", 6)));
+        _interval = Interval(configuration);
     }
+
+    public static TimeSpan Interval(IConfiguration configuration) =>
+        TimeSpan.FromMinutes(Math.Clamp(configuration.GetValue("Demo:IntervaloResetMinutos", 90), 15, 1440));
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
@@ -27,8 +30,7 @@ public sealed class DemoResetService : BackgroundService
             try
             {
                 using var scope = _scopes.CreateScope();
-                await scope.ServiceProvider.GetRequiredService<DemoDataCleaner>().ResetAsync(stoppingToken);
-                await scope.ServiceProvider.GetRequiredService<DataSeeder>().SeedAsync();
+                await scope.ServiceProvider.GetRequiredService<IDemoReset>().ResetAsync(stoppingToken);
                 _logger.LogInformation("Modo demonstração restaurado.");
             }
             catch (Exception ex)

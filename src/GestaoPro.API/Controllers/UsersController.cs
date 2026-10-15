@@ -27,11 +27,13 @@ public class UsersController : ControllerBase
         _demo = new DemoGuard(demo);
     }
 
-    // Conta de demonstração compartilhada: senha, perfil e acesso não mudam (403).
+    // Conta de demonstração compartilhada: nada nela muda (403). Pré-cadastrados de exemplo também não.
     private async Task<ActionResult?> DenyDemoAccountAsync(string id)
     {
+        if (!_demo.Enabled) return null;
         var user = await _directory.GetByIdAsync(id);
-        return _demo.IsProtectedEmail(user?.Email) ? DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage) : null;
+        if (_demo.IsProtectedEmail(user?.Email)) return DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage);
+        return _demo.IsSeededRecord(id) ? DemoGuard.Forbidden(DemoGuard.SeededRecordMessage) : null;
     }
 
     // Leituras: só usuários do condomínio do token. Administração recebe os dados completos;
@@ -133,8 +135,7 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateUserRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
-        if ((request.Role is not null || request.IsActive is not null || request.Email is not null || request.MustChangePassword is not null) &&
-            await DenyDemoAccountAsync(id) is { } demo) return demo;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
         if (_demo.IsReservedDomain(request.Email)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
 
         try
