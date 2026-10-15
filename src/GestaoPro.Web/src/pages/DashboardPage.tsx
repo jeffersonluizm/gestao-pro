@@ -30,7 +30,7 @@ function MetricCard({ to, label, value, failed, hint }: { to: string; label: str
   return (
     <Link className="metric-card" to={to} aria-label={`${label}: ${failed ? 'indisponível' : value ?? 'carregando'}`}>
       <span>{label}</span>
-      {failed ? <strong aria-hidden>—</strong> : value === null ? <div className="skeleton" style={{ height: 32, width: 64 }} /> : <strong>{value}</strong>}
+      {failed ? <strong aria-hidden>-</strong> : value === null ? <div className="skeleton" style={{ height: 32, width: 64 }} /> : <strong>{value}</strong>}
       {hint && <span>{hint}</span>}
     </Link>
   )

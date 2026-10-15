@@ -141,17 +141,17 @@ export default function ProfileScreen() {
           <View style={styles.card}>
             <AppText style={styles.sectionTitle}>Informações</AppText>
 
-            <InfoRow icon="mail-outline" label="E-mail" value={displayEmail || '—'} />
-            <InfoRow icon="call-outline" label="Telefone" value={user?.phone || '—'} />
+            <InfoRow icon="mail-outline" label="E-mail" value={displayEmail || 'Não informado'} />
+            <InfoRow icon="call-outline" label="Telefone" value={user?.phone || 'Não informado'} />
             <InfoRow
               icon="card-outline"
               label="CPF"
-              value={user?.cpf ? maskCpf(user.cpf) : '—'}
+              value={user?.cpf ? maskCpf(user.cpf) : 'Não informado'}
             />
             <InfoRow
               icon="home-outline"
               label="Matrícula / E-mail"
-              value={user?.registrationNumber || session?.registrationNumber || '—'}
+              value={user?.registrationNumber || session?.registrationNumber || 'Não informado'}
             />
           </View>
 
