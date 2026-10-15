@@ -48,42 +48,19 @@ const joao = await api('POST', '/api/Users', T, {
 await api('PATCH', '/api/Auth/change-password', null, { userId: joao.id, currentPassword: INICIAL, newPassword: SENHA })
 pessoas.joao = { ...joao, token: (await api('POST', '/api/Auth/login', null, { registrationNumber: 'joao@exemplo.gestaopro.local', password: SENHA })).token }
 
+// O seeder da API já cria: 3 avisos, a reserva da Maria no salão, 2 encomendas, o visitante, a ocorrência,
+// a cobrança do mês e a assembleia. Aqui entra só o que ele não cria.
 for (const [title, content, category] of [
-  ['Manutenção do elevador social', 'Na sexta-feira, das 9h às 12h, o elevador social fica parado para manutenção preventiva. Use o elevador de serviço.', 'Manutenção'],
-  ['Assembleia geral ordinária', 'Dia 20, às 19h, no salão de festas. Pauta: previsão orçamentária e troca do portão da garagem. A votação também fica aberta no sistema.', 'Assembleia'],
   ['Coleta seletiva', 'Os novos contêineres de recicláveis estão ao lado da portaria. Papel, plástico e metal separados, por favor.', 'Geral'],
   ['Festa junina do condomínio', 'Sábado, a partir das 16h, na área da churrasqueira. Cada família leva um prato típico.', 'Evento'],
 ]) {
   await api('POST', '/api/announcements', T, { condominiumId, authorId: admin.userId, title, content, category })
 }
 
-await api('POST', '/api/reservations', pessoas.maria.token, { commonAreaId: areas['Salão de festas'].id, userId: pessoas.maria.id, condominiumId, date: dia(6), startTime: '14:00', endTime: '18:00', observations: 'Aniversário da Laura' })
 await api('POST', '/api/reservations', pessoas.joao.token, { commonAreaId: areas['Churrasqueira'].id, userId: pessoas.joao.id, condominiumId, date: dia(9), startTime: '12:00', endTime: '16:00' })
 
-for (const [trackingCode, description] of [['BR123456789', 'Caixa média, Loja Online'], ['LX998877', 'Envelope de documentos']]) {
-  await api('POST', '/api/Delivery', pessoas.portaria.token, { trackingCode, type: 'encomenda', description, residentId: pessoas.maria.id, unitId: unit101.id, status: 'pending' })
-}
+// Cobrança do mês passado, já paga (o histórico do financeiro).
+const anterior = await api('POST', '/api/Bills', T, { condominiumId, userId: pessoas.maria.id, description: 'Taxa condominial do mês anterior', amount: 620.0, dueDate: `${dia(-20)}T00:00:00Z` })
+await api('POST', '/api/Payments', T, { billId: anterior.id, amountPaid: 620.0, paymentMethod: 'pix' })
 
-const visitante = await api('POST', '/api/Visitor/register', pessoas.portaria.token, {
-  fullName: 'Paulo Mendes', document: '12.345.678-9', phone: '3199998888', residentId: pessoas.maria.id, condominiumId, unitId: unit101.id, reason: 'Visita',
-})
-await api('POST', `/api/Visitor/check-in/${visitante.id}`, pessoas.portaria.token)
-
-await api('POST', '/api/Occurrences', pessoas.maria.token, { condominiumId, userId: pessoas.maria.id, title: 'Vazamento na garagem', description: 'Goteira perto da vaga 12, no subsolo.', category: 'Maintenance', priority: 'Medium' })
-
-await api('POST', '/api/Bills', T, { condominiumId, userId: pessoas.maria.id, description: 'Taxa condominial 10/2026', amount: 620.0, dueDate: `${dia(10)}T00:00:00Z` })
-const setembro = await api('POST', '/api/Bills', T, { condominiumId, userId: pessoas.maria.id, description: 'Taxa condominial 09/2026', amount: 620.0, dueDate: `${dia(-20)}T00:00:00Z` })
-await api('POST', '/api/Payments', T, { billId: setembro.id, amountPaid: 620.0, paymentMethod: 'pix' })
-
-const inicio = new Date()
-const assembleia = await api('POST', '/api/assembly', T, {
-  condominiumId, createdBy: admin.userId, title: 'Assembleia geral ordinária', description: 'Previsão orçamentária e obras.',
-  startDate: inicio.toISOString(), endDate: new Date(Date.now() + 14 * 86400000).toISOString(), scheduledDate: inicio.toISOString(),
-  topics: [
-    { title: 'Aprovar a previsão orçamentária de 2027', desc: '', voteOptions: ['sim', 'não'] },
-    { title: 'Trocar o portão da garagem', desc: '', voteOptions: ['sim', 'não'] },
-  ],
-})
-await api('POST', '/api/vote', pessoas.maria.token, { assemblyId: assembleia.id, topicIndex: 0, vote: 'sim' })
-
-console.log('[demo] pronto: reservas, encomendas, visitante, ocorrência, cobranças e assembleia criadas.')
+console.log('[demo] pronto: morador extra, avisos, reserva e cobrança paga criados.')
