@@ -87,7 +87,8 @@ public class UserAppService : IUserDirectory
             }
         }
 
-        var registrationNumber = $"COND-{DateTime.UtcNow.Year}-{Random.Shared.Next(1000, 9999)}";
+        var registrationNumber = await RegistrationNumber.NextAsync(async candidate =>
+            await _userRepository.GetByRegistrationNumberAsync(candidate) is not null);
         // Sem senha informada, gera uma senha temporária (mostrada uma vez para quem administra); troca no primeiro acesso.
         var temporaryPassword = string.IsNullOrWhiteSpace(request.Password) ? TemporaryPassword.Generate() : null;
         var passwordHash = BCrypt.Net.BCrypt.HashPassword(temporaryPassword ?? request.Password);
