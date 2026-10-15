@@ -1,5 +1,5 @@
 // Dados extras de demonstração (para tirar prints e deixar os fluxos "vivos"), criados pela própria API.
-// Roda contra uma API local com o modo demonstração ligado (Demo__Enabled=true): as credenciais vêm de GET /api/demo.
+// Roda contra uma API local com o modo demonstração ligado (Demo__Enabled=true): entra pelo papel em POST /api/demo/entrar.
 //
 //   API=http://127.0.0.1:5088 node tests/demo/semear-demo.mjs
 const API = process.env.API ?? 'http://127.0.0.1:5088'
