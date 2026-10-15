@@ -37,7 +37,10 @@ jobs:
       - run: npm ci
       - run: npm run lint -- --max-warnings 0
       - run: npm test
+      # O build de produção exige a URL https da API (ver docs/deploy.md); no CI vale um endereço de exemplo.
       - run: npm run build
+        env:
+          VITE_API_BASE_URL: https://api.exemplo.test
 
   mobile:
     name: App (Expo)
