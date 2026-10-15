@@ -37,6 +37,12 @@ $env:Logging__LogLevel__Default = 'Warning'
 $env:Demo__Enabled = 'true'
 $env:RateLimiting__Auth__PermitLimit = '1000000'
 $env:RateLimiting__Auth__PerCondominiumPermitLimit = '1000000'
+# Tetos da demonstração pública (escritas por minuto, documentos por coleção) fora do caminho da medição.
+$env:RateLimiting__DemoEntrar__PermitLimit = '1000000'
+$env:Demo__LimiteEscrita__PorUsuarioPorMinuto = '100000000'
+$env:Demo__LimiteEscrita__PorIpPorMinuto = '100000000'
+$env:Demo__LimitePorColecao = '100000000'
+$env:Demo__IntervaloResetMinutos = '1440'
 
 Start-Process -FilePath 'dotnet' -WindowStyle Hidden -WorkingDirectory $Api `
     -ArgumentList @('GestaoPro.API.dll', '--contentRoot', "`"$Api`"") `

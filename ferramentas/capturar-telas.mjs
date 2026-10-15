@@ -4,7 +4,7 @@
 //   node ferramentas/capturar-telas.mjs <url-do-painel> <pasta-destino> [url-do-app]
 //   ex.: node ferramentas/capturar-telas.mjs http://localhost:5111 docs/img/prints http://localhost:5112
 //
-// Entra pelas contas de demonstração com o botão "Entrar como ..." (as credenciais vêm de GET /api/demo).
+// Entra pelas contas de demonstração com o botão "Entrar como ..." (POST /api/demo/entrar, sem senha).
 // Também confere cada tela: sem erro de JavaScript no console e sem rolagem horizontal no celular.
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';

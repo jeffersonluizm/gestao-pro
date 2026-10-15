@@ -4,7 +4,7 @@
 //   API=http://127.0.0.1:5101 MONGO=mongodb://127.0.0.1:27100 SAIDA=estado.json node semear.mjs base
 //   API=... MONGO=... node semear.mjs ruido 20000      (avisos de OUTRO condomínio, para H3)
 //
-// "base": usa a API (conta de síndico do modo demonstração, lida de GET /api/demo) para criar área comum,
+// "base": usa a API (síndico do modo demonstração, por POST /api/demo/entrar) para criar área comum,
 // 100 avisos e uma assembleia; depois, direto no MongoDB, clona o condomínio de demonstração e os
 // moradores mock para chegar a 50 condomínios x 100 usuários (H4). O banco PRECISA ser GestaoProStress
 // em 127.0.0.1:27100: qualquer outra coisa aborta.
@@ -41,15 +41,34 @@ async function api(method, path, token, body) {
 }
 
 async function base() {
-  // Credenciais: as do modo demonstração (GET /api/demo). Builds antigos (linha de base, sem o modo demo)
-  // recebem a conta pelo ambiente: CONTA_CARGA_EMAIL e CONTA_CARGA_SENHA (nada fixo no código).
-  const demo = await fetch(`${API}/api/demo`).then(r => (r.ok ? r.json() : null))
-  const sindico = demo?.accounts.find(account => account.role === 'sindico')
-    ?? { email: process.env.CONTA_CARGA_EMAIL, password: process.env.CONTA_CARGA_SENHA };
-  if (!sindico.email || !sindico.password) throw new Error('Sem /api/demo: defina CONTA_CARGA_EMAIL e CONTA_CARGA_SENHA.');
-  const login = await api('POST', '/api/Auth/login', null, { registrationNumber: sindico.email, password: sindico.password });
+  // Sessão do síndico: builds novos entram pela demonstração (POST /api/demo/entrar, sem senha). Builds antigos
+  // (sem essa rota) recebem a conta pelo ambiente: CONTA_CARGA_EMAIL e CONTA_CARGA_SENHA (nada fixo no código).
+  const entrada = await fetch(`${API}/api/demo/entrar`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ papel: 'sindico' }),
+  });
+  let login;
+  if (entrada.ok) {
+    login = await entrada.json();
+  } else {
+    const conta = { email: process.env.CONTA_CARGA_EMAIL, password: process.env.CONTA_CARGA_SENHA };
+    if (!conta.email || !conta.password) throw new Error('Sem /api/demo/entrar: defina CONTA_CARGA_EMAIL e CONTA_CARGA_SENHA.');
+    login = await api('POST', '/api/Auth/login', null, { registrationNumber: conta.email, password: conta.password });
+  }
   const token = login.token;
   const condominiumId = login.condominiumId;
+
+  // Conta com senha para os cenários de login (H1, H1b): as contas demo não entram por senha.
+  let credencial = { email: process.env.CONTA_CARGA_EMAIL, senha: process.env.CONTA_CARGA_SENHA };
+  if (entrada.ok) {
+    credencial = { email: 'carga@exemplo.gestaopro.local', senha: `Carga-${Date.now().toString(36)}-Senha` };
+    const criado = await api('POST', '/api/Users', token, {
+      condominiumId, name: 'Conta da carga', email: credencial.email, password: credencial.senha,
+      phone: '31999990000', cpf: '98765432100', role: 'morador',
+    });
+    // Senha definida pela administração pede troca no primeiro acesso: troca para a mesma política, já valendo.
+    await api('PATCH', '/api/Auth/change-password', null, { userId: criado.id, currentPassword: credencial.senha, newPassword: `${credencial.senha}-2` });
+    credencial.senha = `${credencial.senha}-2`;
+  }
 
   const area = await api('POST', '/api/CommonAreas', token, {
     condominiumId, name: 'Salão de festas (carga)', description: 'Área da carga', capacity: 80,
@@ -100,7 +119,7 @@ async function base() {
   await db.collection('users').insertMany(usuarios);
   await cliente.close();
 
-  const estado = { api: API, token, email: sindico.email, senha: sindico.password, condominiumId, userId: login.userId, commonAreaId: area.id, assemblyId: assembleia.id, outroCondominioId: outros[0] };
+  const estado = { api: API, token, email: credencial.email, senha: credencial.senha, condominiumId, userId: login.userId, commonAreaId: area.id, assemblyId: assembleia.id, outroCondominioId: outros[0] };
   writeFileSync(process.env.SAIDA ?? 'estado.json', JSON.stringify(estado, null, 2));
   console.log(`[semear] base pronta: 100 avisos, 50 condomínios, ${usuarios.length} usuários.`);
 }

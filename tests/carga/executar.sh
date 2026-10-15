@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Executa a bateria H1-H8 contra um build publicado, num banco descartável.
 #   bash executar.sh <antes|depois> <porta> <pasta do publish> <pasta de saída>
-# Cria a trava .carga-lock (uma carga por vez na máquina) e sempre a remove no fim.
+# Cria a trava (uma carga por vez na máquina) e sempre a remove no fim.
+# Variáveis: TRAVA (caminho da trava; padrão tests/carga/.carga-lock, dentro do clone; numa máquina com outros
+# projetos medindo, aponte para a trava compartilhada) e K6 (executável; padrão o k6 do PATH).
 set -euo pipefail
 
 VARIANTE="$1"; PORTA="$2"; API_DIR="$3"; SAIDA="$4"
 AQUI="$(cd "$(dirname "$0")" && pwd)"
-TRAVA="${TRAVA:-$AQUI/../../../../.carga-lock}"
-K6="${K6:-/c/Program Files/k6/k6.exe}"
+TRAVA="${TRAVA:-$AQUI/.carga-lock}"
+K6="${K6:-$(command -v k6 || true)}"
+[ -n "$K6" ] || { echo "[carga] k6 não encontrado: instale o k6 ou defina K6 com o caminho do executável."; exit 1; }
 API="http://127.0.0.1:$PORTA"
 mkdir -p "$SAIDA"
 

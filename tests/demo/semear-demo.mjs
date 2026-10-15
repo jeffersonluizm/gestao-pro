@@ -20,10 +20,9 @@ async function api(method, path, token, body) {
   return text ? JSON.parse(text) : undefined
 }
 
-const demo = await api('GET', '/api/demo')
+// Entrada pelo papel (POST /api/demo/entrar): as contas demo não têm senha.
 const entrar = async role => {
-  const conta = demo.accounts.find(item => item.role === role)
-  const login = await api('POST', '/api/Auth/login', null, { registrationNumber: conta.email, password: conta.password })
+  const login = await api('POST', '/api/demo/entrar', null, { papel: role })
   return { ...login, token: login.token, id: login.userId }
 }
 
