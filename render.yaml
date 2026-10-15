@@ -33,9 +33,16 @@ services:
       # Modo demonstração ligado SÓ neste serviço de demonstração.
       - key: Demo__Enabled
         value: "true"
-      - key: Demo__Senha
-        sync: false
+      # Código do condomínio demo (visível no cartão; serve para testar a ativação por CPF). As contas demo não têm senha.
       - key: Demo__CodigoCondominio
         sync: false
-      - key: Demo__IntervaloResetHoras
-        value: "6"
+      # Os dados voltam ao estado inicial a cada 90 minutos (e a cada partida).
+      - key: Demo__IntervaloResetMinutos
+        value: "90"
+      # Tetos da demonstração pública (Atlas gratuito de 512 MB).
+      - key: Demo__LimiteEscrita__PorUsuarioPorMinuto
+        value: "30"
+      - key: Demo__LimiteEscrita__PorIpPorMinuto
+        value: "60"
+      - key: Demo__LimitePorColecao
+        value: "300"

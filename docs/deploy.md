@@ -11,7 +11,7 @@ Resultado final:
 | App (Expo exportado para web) | Vercel, Hobby | `https://gestaopro-app.vercel.app` |
 | Banco | MongoDB Atlas, M0 | cluster só da demonstração |
 
-> Use um banco **exclusivo da demonstração**. As contas demo são públicas (o endpoint `GET /api/demo` mostra as senhas de propósito) e os dados voltam ao estado inicial a cada 6 horas. Nunca ligue `Demo__Enabled` num ambiente com dados reais.
+> Use um banco **exclusivo da demonstração**. Qualquer visitante entra nas contas demo com um clique (`POST /api/demo/entrar`, sem senha), os dados voltam ao estado inicial a cada 90 minutos e há tetos de escrita e de documentos (ver [ADR 0004](adr/0004-modo-demonstracao.md)). Nunca ligue `Demo__Enabled` num ambiente com dados reais.
 
 ## 1. Repositório
 
@@ -36,28 +36,41 @@ Resultado final:
 | `MongoDbSettings__ConnectionString` | a *connection string* do Atlas (passo 2.4) |
 | `Cors__AllowedOrigins__0` | URL do painel na Vercel, sem barra no fim (ex.: `https://gestaopro.vercel.app`) |
 | `Cors__AllowedOrigins__1` | URL do app web na Vercel (ex.: `https://gestaopro-app.vercel.app`) |
-| `Demo__Senha` | senha das contas demo, forte (ex.: `Explore-Gestao-2026`); a API recusa senha óbvia |
-| `Demo__CodigoCondominio` | código do condomínio demo, forte (ex.: `Residencial-Demo-2026`) |
+| `Demo__CodigoCondominio` | código do condomínio demo, forte (ex.: `Residencial-Demo-2026`); fica visível no cartão para testar a ativação por CPF |
 
-Já vêm no blueprint: `ASPNETCORE_ENVIRONMENT=Production`, `MongoDbSettings__DatabaseName=GestaoProDemo`, `JwtSettings__SecretKey` (gerada pelo Render), `Proxy__ConfiarNoProxy=true` (o IP do visitante vem do proxy do Render; sem isso o limite de tentativas trata todo mundo como um IP só), `Demo__Enabled=true` e `Demo__IntervaloResetHoras=6`.
+Já vêm no blueprint: `ASPNETCORE_ENVIRONMENT=Production`, `MongoDbSettings__DatabaseName=GestaoProDemo`, `JwtSettings__SecretKey` (gerada pelo Render), `Proxy__ConfiarNoProxy=true` (o IP do visitante vem do proxy do Render; sem isso o limite de tentativas trata todo mundo como um IP só), `Demo__Enabled=true`, `Demo__IntervaloResetMinutos=90`, `TZ=America/Sao_Paulo` e os tetos da demonstração (`Demo__LimiteEscrita__PorUsuarioPorMinuto=30`, `Demo__LimiteEscrita__PorIpPorMinuto=60`, `Demo__LimitePorColecao=300`).
 
 3. Aguarde o deploy e confira:
    - `https://<sua-api>.onrender.com/api/health/mongodb` responde `{"connected":true,"database":"GestaoProDemo",...}`;
-   - `https://<sua-api>.onrender.com/api/demo` lista as três contas;
+   - `https://<sua-api>.onrender.com/api/demo` lista os três papéis (sem e-mail nem senha) e o código do condomínio;
    - `https://<sua-api>.onrender.com/swagger` responde 404 (documentação fechada em produção).
 
-O plano Free dorme depois de 15 minutos sem uso. A primeira requisição leva de 30 a 60 s; o painel mostra "Acordando o servidor de demonstração" enquanto isso.
+O plano Free dorme depois de 15 minutos sem uso. A primeira requisição leva de 30 a 60 s; o painel mostra "Acordando o servidor de demonstração" enquanto isso. Ao acordar, a API restaura a demonstração e as sessões anteriores deixam de valer (401): o painel e o app voltam ao cartão, que entra de novo no mesmo papel.
+
+### Conferir o IP real (limite de tentativas e de escritas)
+
+Os limites por IP só funcionam se a API enxergar o IP do visitante, e não o do proxy do Render. Com `Proxy__ConfiarNoProxy=true`, a API troca o `RemoteIpAddress` pelo último valor do `X-Forwarded-For` (`Proxy__Saltos=1`). Para conferir depois do deploy:
+
+1. Do computador, erre a senha de uma conta qualquer 11 vezes seguidas em `POST /api/Auth/login`: a 11ª resposta é 429.
+2. Logo em seguida, do celular **na rede móvel** (outro IP), tente entrar: precisa responder normalmente (401 com senha errada, não 429). Se o celular também receber 429, todos os visitantes estão caindo no mesmo balde: a API está vendo o IP do proxy.
+3. Nesse caso, ajuste pela configuração (sem mudar código) e repita os passos 1 e 2 depois de cada tentativa:
+   - se o `X-Forwarded-For` chega com mais de um salto (`cliente, proxy`), aumente `Proxy__Saltos` para a quantidade de proxies na frente da API;
+   - se a borda manda o IP do visitante em `True-Client-IP` (CDN na frente do Render), defina `Proxy__CabecalhoIp=True-Client-IP`.
+4. Se o teste der certo de primeira, não mude nada: `Proxy__Saltos=1` e o `X-Forwarded-For` são o padrão.
 
 ## 4. Painel web: Vercel
 
 1. Em <https://vercel.com>, **Add New > Project**, escolha o repositório e defina **Root Directory = `src/GestaoPro.Web`**. O [`vercel.json`](../src/GestaoPro.Web/vercel.json) já define build (`npm run build`), saída (`dist`), rotas da SPA e cabeçalhos de segurança.
-2. Variável de ambiente (Production): `VITE_API_BASE_URL = https://<sua-api>.onrender.com` (sem barra no fim).
+2. Variáveis de ambiente (Production):
+   - `VITE_API_BASE_URL = https://<sua-api>.onrender.com` (sem barra no fim). **Obrigatória e com https:** sem ela o build falha com a mensagem "VITE_API_BASE_URL não definida", em vez de publicar um painel que chamaria a própria Vercel.
+   - `VITE_SITE_URL = https://<seu-painel>.vercel.app` (opcional): endereço público usado na imagem de prévia do link (`og:image`). Sem ela, o build usa o domínio de produção que a Vercel informa (`VERCEL_PROJECT_PRODUCTION_URL`).
 3. Deploy. Confira: a landing mostra o cartão "Explore a demonstração"; "Entrar como síndico" abre o painel da gestão.
+4. Cabeçalho `Content-Security-Policy` (no [`vercel.json`](../src/GestaoPro.Web/vercel.json)): libera chamadas para `https://*.onrender.com`. Com o endereço definitivo da API, troque o curinga pelo host exato em `connect-src` (e no `wss://` do SignalR) nos dois `vercel.json`. Para conferir a prévia do link, cole a URL no WhatsApp ou no [Post Inspector do LinkedIn](https://www.linkedin.com/post-inspector/).
 
 ## 5. App (Expo para web): Vercel
 
 1. Outro projeto na Vercel com **Root Directory = `src/GestaoPro.Mobile`**. O [`vercel.json`](../src/GestaoPro.Mobile/vercel.json) roda `npx expo export --platform web` e publica `dist`.
-2. Variável de ambiente: `EXPO_PUBLIC_API_URL = https://<sua-api>.onrender.com`.
+2. Variável de ambiente: `EXPO_PUBLIC_API_URL = https://<sua-api>.onrender.com`. **Obrigatória e com https** no export: sem ela, o `app.config.js` interrompe o build com a mensagem "EXPO_PUBLIC_API_URL não definida". Em produção o app também não libera tráfego sem TLS (`usesCleartextTraffic`); para um build de teste na rede local, use `GESTAOPRO_PERMITIR_HTTP=1`.
 3. Deploy. Confira o onboarding, o login e "Entrar como morador".
 
 Para celular de verdade, o mesmo app roda no **Expo Go** (`npx expo start` em `src/GestaoPro.Mobile`, com `EXPO_PUBLIC_API_URL` apontando para a API do Render).
@@ -77,9 +90,13 @@ Para celular de verdade, o mesmo app roda no **Expo Go** (`npx expo start` em `s
 | Render | `Cors__AllowedOrigins__0`, `__1` | sim | URLs do painel e do app |
 | Render | `Proxy__ConfiarNoProxy` | sim | `true` atrás do proxy do Render |
 | Render | `Demo__Enabled` | só na demo | **desligado** em produção real |
-| Render | `Demo__Senha`, `Demo__CodigoCondominio` | recomendadas | sem elas a API sorteia a cada partida |
-| Vercel (painel) | `VITE_API_BASE_URL` | sim | URL da API |
-| Vercel (app) | `EXPO_PUBLIC_API_URL` | sim | URL da API |
+| Render | `Demo__CodigoCondominio` | recomendada | sem ela a API sorteia a cada partida |
+| Render | `Demo__IntervaloResetMinutos`, `Demo__LimiteEscrita__*`, `Demo__LimitePorColecao` | já no blueprint | tetos da demonstração |
+| Render | `Proxy__Saltos`, `Proxy__CabecalhoIp` | só se precisar | ver "Conferir o IP real" |
+| Render | `TZ` | já no blueprint | `America/Sao_Paulo` (logs) |
+| Vercel (painel) | `VITE_API_BASE_URL` | sim | URL https da API; sem ela o build falha |
+| Vercel (painel) | `VITE_SITE_URL` | não | endereço público para o `og:image` |
+| Vercel (app) | `EXPO_PUBLIC_API_URL` | sim | URL https da API; sem ela o export falha |
 
 ## Produção real (fora do portfólio)
 

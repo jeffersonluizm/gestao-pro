@@ -38,7 +38,6 @@ powershell -NoProfile -Command ^
   "$f='.env'; $t=Get-Content $f -Raw;" ^
   "function S($p){ $a='abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'; $p + '-' + (-join (1..14 | %% { $a[(Get-Random -Maximum $a.Length)] })) + '-2026' }" ^
   "$t=$t -replace 'JwtSettings__SecretKey=gerar', ('JwtSettings__SecretKey=' + (S 'Jwt') + (S 'Chave'));" ^
-  "$t=$t -replace 'Demo__Senha=gerar', ('Demo__Senha=' + (S 'Demo'));" ^
   "$t=$t -replace 'Demo__CodigoCondominio=gerar', ('Demo__CodigoCondominio=' + (S 'Codigo'));" ^
   "Set-Content -Path $f -Value $t -NoNewline -Encoding ascii"
 for /f "usebackq eol=# tokens=1,* delims==" %%A in (".env") do if not "%%A"=="" set "%%A=%%B"
@@ -91,7 +90,6 @@ echo  ==========================================================
 echo   Gestao Pro rodando
 echo     Painel   : %WEB_URL%   (clique em "Entrar como ...")
 echo     API      : %API_URL%   (documentacao em %API_URL%/swagger)
-echo     Senha das contas demo     : %Demo__Senha%
 echo     Codigo do condominio demo : %Demo__CodigoCondominio%
 echo   Para o app: iniciar.bat app
 echo   Para parar: feche as janelas e rode "docker compose stop".

@@ -51,7 +51,7 @@ flowchart LR
 | Ativar acesso de morador | `GET /api/Condominiums/public` (id e nome) → `POST /api/auth/check-cpf` (condomínio + CPF + código do condomínio) → `POST /api/auth/register`. |
 | Reservar área comum | `POST /api/reservations`: confere horário de funcionamento, data, e conflito **sob trava por área e data** ([ADR 0005](adr/0005-trava-de-reserva.md)). |
 | Portaria | `POST /api/Visitor/register`, `check-in`, `check-out`; `POST /api/Delivery` e `PUT /api/Delivery/{id}/pickup`. |
-| Demonstração | `GET /api/demo` (só com `Demo:Enabled=true`) → "Entrar como ..." no painel e no app. |
+| Demonstração | `GET /api/demo` (papéis e código do condomínio, só com `Demo:Enabled=true`) → "Entrar como ..." no painel e no app → `POST /api/demo/entrar` devolve a sessão do papel, sem senha. Token de antes do último reset vira 401 ([ADR 0004](adr/0004-modo-demonstracao.md)). |
 
 ## Dados (MongoDB)
 

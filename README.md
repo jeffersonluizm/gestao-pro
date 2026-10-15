@@ -7,9 +7,9 @@ Avisos, reservas de áreas comuns, portaria, encomendas, assembleias e financeir
 | **Demonstração (painel)** | `https://gestaopro.vercel.app` *(link definitivo depois da publicação; ver [docs/deploy.md](docs/deploy.md))* |
 | **Demonstração (app no navegador)** | `https://gestaopro-app.vercel.app` *(idem)* |
 | **API** | `https://gestaopro-api-demo.onrender.com/api/demo` *(idem)* |
-| **Como testar** | Abra o painel e clique em **Entrar como síndico**, **morador** ou **porteiro**. As senhas das contas de demonstração aparecem no próprio cartão (vêm da API). |
+| **Como testar** | Abra o painel (ou o app) e clique em **Entrar como síndico**, **morador** ou **porteiro**: a sessão abre sem senha. Para testar a ativação de acesso, o cartão mostra o código do condomínio e os CPFs pré-cadastrados. |
 
-> A API fica em hospedagem gratuita e dorme sem uso: a primeira resposta pode levar até 1 minuto (o painel avisa "Acordando o servidor de demonstração"). Os dados da demonstração voltam ao estado inicial a cada 6 horas.
+> A API fica em hospedagem gratuita e dorme sem uso: a primeira resposta pode levar até 1 minuto (o painel avisa "Acordando o servidor de demonstração"). Os dados da demonstração voltam ao estado inicial a cada 90 minutos; quem estava dentro volta ao mesmo papel com um clique (ou sozinho, pelo cartão).
 
 ![Início do painel](docs/img/prints/painel-inicio.jpg)
 
@@ -115,7 +115,7 @@ O script confere os pré-requisitos, cria o `.env` com segredos aleatórios (for
 |---|---|
 | `MongoDbSettings__ConnectionString`, `MongoDbSettings__DatabaseName` | banco (sem eles a API não sobe e diz o que falta) |
 | `JwtSettings__SecretKey` | assinatura do token (32+ caracteres) |
-| `Demo__Enabled`, `Demo__Senha`, `Demo__CodigoCondominio` | modo demonstração (desligado por padrão; nunca ligue com dados reais) |
+| `Demo__Enabled`, `Demo__CodigoCondominio`, `Demo__IntervaloResetMinutos` | modo demonstração (desligado por padrão; nunca ligue com dados reais). Tetos: `Demo__LimiteEscrita__PorUsuarioPorMinuto`, `__PorIpPorMinuto`, `Demo__LimitePorColecao` ([ADR 0004](docs/adr/0004-modo-demonstracao.md)) |
 | `Cors__AllowedOrigins__0..n` | origens do painel e do app permitidas (em desenvolvimento valem as portas locais) |
 | `Proxy__ConfiarNoProxy` | `true` atrás de proxy (Render) para o limite de tentativas usar o IP real |
 | `RateLimiting__Auth__PermitLimit`, `__PerCondominiumPermitLimit`, `__WindowSeconds` | limites das rotas de autenticação (padrão 10/min por IP, 30/min por condomínio) |
