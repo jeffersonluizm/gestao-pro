@@ -15,7 +15,9 @@ COPY --from=build /app/publish .
 
 # Segredos e banco vêm de variáveis de ambiente (ver docs/deploy.md); nada de appsettings.Local.json na imagem.
 # TZ: logs no horário de Brasília. As regras de "hoje" (reservas, portaria) já usam Brasília no código (BrazilTime).
-ENV ASPNETCORE_URLS=http://+:10000 \n    ASPNETCORE_ENVIRONMENT=Production \n    TZ=America/Sao_Paulo
+ENV ASPNETCORE_URLS=http://+:10000
+ENV ASPNETCORE_ENVIRONMENT=Production
+ENV TZ=America/Sao_Paulo
 
 EXPOSE 10000
 
