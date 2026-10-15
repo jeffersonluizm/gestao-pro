@@ -58,9 +58,9 @@ flowchart LR
 
 | Suíte | Testes | Comando |
 |---|---|---|
-| API (xUnit, unidade e integração) | 508 | `dotnet test src/GestaoPro.API.Tests` |
-| Painel (Vitest + Testing Library) | 68 | `npm test` em `src/GestaoPro.Web` |
-| App (Vitest) | 18 | `npm test` em `src/GestaoPro.Mobile` |
+| API (xUnit, unidade e integração) | 594 | `dotnet test src/GestaoPro.API.Tests` |
+| Painel (Vitest + Testing Library) | 81 | `npm test` em `src/GestaoPro.Web` |
+| App (Vitest) | 29 | `npm test` em `src/GestaoPro.Mobile` |
 
 Lint (ESLint) sem avisos no painel e no app; GitHub Actions em [`.github/workflows/ci.yml`](.github/workflows/ci.yml).
 
