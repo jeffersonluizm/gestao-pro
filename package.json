@@ -1,9 +1,0 @@
-{
-  "devDependencies": {
-    "@types/react-router-dom": "^5.3.3"
-  },
-  "dependencies": {
-    "@react-native-picker/picker": "^2.11.4",
-    "expo-barcode-scanner": "^13.0.1"
-  }
-}

@@ -28,3 +28,18 @@ appsettings.Local.json
 .env.local
 .env.*.local
 !.env.example
+
+# Expo, Vercel e saídas de build do app web
+.expo/
+.vercel/
+web-build/
+*.tsbuildinfo
+
+# Chaves e certificados
+*.pem
+*.key
+*.p12
+*.jks
+
+# Trava local do teste de estresse (tests/carga/executar.sh)
+.carga-lock/
