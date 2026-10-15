@@ -17,7 +17,7 @@
     "@expo/vector-icons": "^14.0.2",
     "@react-native-async-storage/async-storage": "2.1.2",
     "@react-native-community/datetimepicker": "8.4.1",
-    "@react-native-picker/picker": "2.9.0",
+    "@react-native-picker/picker": "2.11.1",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.18",
     "@react-navigation/native-stack": "^6.11.0",
@@ -26,12 +26,12 @@
     "expo-status-bar": "~2.2.3",
     "react": "19.0.0",
     "react-dom": "19.0.0",
-    "react-native": "0.79.2",
+    "react-native": "0.79.6",
     "react-native-gesture-handler": "~2.24.0",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "5.4.0",
-    "react-native-screens": "~4.10.0",
-    "react-native-web": "^0.21.2"
+    "react-native-screens": "~4.11.1",
+    "react-native-web": "^0.20.0"
   },
   "devDependencies": {
     "@babel/core": "^7.24.0",
@@ -40,7 +40,7 @@
     "eslint": "^9.39.5",
     "eslint-plugin-react-hooks": "^5.2.0",
     "globals": "^15.15.0",
-    "typescript": "^5.3.3",
+    "typescript": "~5.8.3",
     "typescript-eslint": "^8.71.0",
     "vitest": "^2.1.9"
   }
