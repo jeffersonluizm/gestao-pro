@@ -119,6 +119,8 @@ public class DemoWriteLimitTests : IDisposable
             builder.UseSetting("Demo:Enabled", demo.ToString());
             builder.UseSetting("Demo:LimiteEscrita:PorUsuarioPorMinuto", "3");
             builder.UseSetting("Demo:LimiteEscrita:PorIpPorMinuto", "100");
+            // O IP de cada visitante vem do X-Forwarded-For (como atrás do proxy do Render).
+            builder.UseSetting("Proxy:ConfiarNoProxy", "true");
             builder.ConfigureTestServices(services =>
             {
                 foreach (var hosted in services.Where(d => d.ServiceType == typeof(IHostedService)).ToList())
@@ -129,21 +131,63 @@ public class DemoWriteLimitTests : IDisposable
             });
         });
 
-    private static async Task<HttpStatusCode> PublishAsync(WebApplicationFactory<Program> factory, HttpClient client)
-    {
-        var token = new TokenService(Options.Create(new JwtSettings
+    private static string SindicoToken(WebApplicationFactory<Program> factory) =>
+        new TokenService(Options.Create(new JwtSettings
         {
             SecretKey = SecretKey, Issuer = "GestaoPro.API", Audience = "GestaoPro.API", ExpirationHours = 1,
         }), factory.Services.GetRequiredService<DemoCatalog>()).GenerateToken(new Credential
         {
             UserId = "665f1c2e9b1e8a00000000d1", Role = "sindico", CondominiumId = CondominioA, RegistrationNumber = "sindico@demo.gestaopro.local",
         }).token;
+
+    private static async Task<HttpStatusCode> PublishAsync(WebApplicationFactory<Program> factory, HttpClient client, string ip = "203.0.113.10")
+    {
         var request = new HttpRequestMessage(HttpMethod.Post, "/api/announcements")
         {
             Content = new StringContent($"{{\"condominiumId\":\"{CondominioA}\",\"authorId\":\"665f1c2e9b1e8a00000000d1\",\"title\":\"Aviso\",\"content\":\"Texto\",\"category\":\"Geral\"}}", Encoding.UTF8, "application/json"),
         };
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", SindicoToken(factory));
+        request.Headers.Add("X-Forwarded-For", ip);
         return (await client.SendAsync(request)).StatusCode;
+    }
+
+    // Rotas autenticadas de /api/auth (credenciais, redefinição de senha) também entram no teto: cada uma roda BCrypt.
+    [Theory]
+    [InlineData("PATCH", "/api/auth/reset-password", "{\"userId\":\"665f1c2e9b1e8a00000000e1\",\"newPassword\":\"Senha-Nova-Forte-2026\"}")]
+    [InlineData("POST", "/api/auth/credentials", "{\"userId\":\"665f1c2e9b1e8a00000000e1\",\"registrationNumber\":\"x@exemplo.test\",\"password\":\"Senha-Nova-Forte-2026\",\"role\":\"morador\",\"condominiumId\":\"665f1c2e9b1e8a00000000a1\"}")]
+    [InlineData("DELETE", "/api/auth/credentials/665f1c2e9b1e8a00000000e1", null)]
+    public async Task Rotas_autenticadas_de_auth_entram_no_teto_de_escritas(string method, string path, string? body)
+    {
+        await using var factory = CreateFactory(demo: true);
+        var client = factory.CreateClient();
+        var token = SindicoToken(factory);
+
+        var results = new List<HttpStatusCode>();
+        for (var i = 0; i < 4; i++)
+        {
+            var request = new HttpRequestMessage(new HttpMethod(method), path);
+            if (body is not null) request.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+            request.Headers.Add("X-Forwarded-For", "203.0.113.30");
+            results.Add((await client.SendAsync(request)).StatusCode);
+        }
+
+        Assert.DoesNotContain(HttpStatusCode.TooManyRequests, results.Take(3));
+        Assert.Equal(HttpStatusCode.TooManyRequests, results[3]);
+    }
+
+    // Todos os visitantes de um papel usam a mesma conta demo: o balde é por conta e IP, senão um script trava todos.
+    [Fact]
+    public async Task Visitantes_do_mesmo_papel_em_IPs_diferentes_nao_se_bloqueiam()
+    {
+        await using var factory = CreateFactory(demo: true);
+        var client = factory.CreateClient();
+
+        for (var i = 0; i < 4; i++) await PublishAsync(factory, client, ip: "203.0.113.10");
+        var otherVisitor = await PublishAsync(factory, client, ip: "198.51.100.20");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, await PublishAsync(factory, client, ip: "203.0.113.10"));
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, otherVisitor);
     }
 
     [Fact]
