@@ -189,7 +189,12 @@ if (trustProxy)
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-        options.ForwardLimit = 1;
+        // Saltos e cabeçalho conferidos depois do deploy (docs/deploy.md, "Conferir o IP real"): o padrão é o último
+        // valor do X-Forwarded-For; se a borda do proxy mandar o IP em outro cabeçalho (True-Client-IP), configure.
+        options.ForwardLimit = Math.Max(1, builder.Configuration.GetValue("Proxy:Saltos", 1));
+        options.ForwardedForHeaderName = builder.Configuration["Proxy:CabecalhoIp"] is { Length: > 0 } header
+            ? header
+            : ForwardedHeadersDefaults.XForwardedForHeaderName;
         options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });

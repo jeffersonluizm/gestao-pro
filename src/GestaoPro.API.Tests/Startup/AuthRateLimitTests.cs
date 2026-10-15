@@ -134,6 +134,29 @@ public class AuthRateLimitTests : IDisposable
         Assert.Equal(HttpStatusCode.TooManyRequests, await ThirdAttemptFromAnotherIp(untrusted));
     }
 
+    // Se o proxy da hospedagem (por exemplo, a borda do Render) põe o IP do visitante em outro cabeçalho, como o
+    // True-Client-IP, a configuração Proxy:CabecalhoIp aponta para ele (ver docs/deploy.md, "Conferir o IP real").
+    [Fact]
+    public async Task Cabecalho_do_ip_do_proxy_e_configuravel()
+    {
+        await using var factory = CreateFactory(("Proxy:ConfiarNoProxy", "true"), ("Proxy:CabecalhoIp", "True-Client-IP"));
+        var client = factory.CreateClient();
+
+        async Task<HttpStatusCode> LoginFrom(string ip)
+        {
+            var request = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login") { Content = new StringContent("{}", Encoding.UTF8, "application/json") };
+            request.Headers.Add("True-Client-IP", ip);
+            request.Headers.Add("X-Forwarded-For", "10.0.0.1");
+            return (await client.SendAsync(request)).StatusCode;
+        }
+
+        await LoginFrom("203.0.113.10");
+        await LoginFrom("203.0.113.10");
+
+        Assert.Equal(HttpStatusCode.TooManyRequests, await LoginFrom("203.0.113.10"));
+        Assert.NotEqual(HttpStatusCode.TooManyRequests, await LoginFrom("203.0.113.20"));
+    }
+
     [Fact]
     public async Task Rotas_autenticadas_nao_entram_no_limite_de_autenticacao()
     {
