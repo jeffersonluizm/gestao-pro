@@ -31,6 +31,21 @@ async function trackSlow<T>(work: Promise<T>): Promise<T> {
   }
 }
 
+// Erro de chamada à API com o status HTTP (0 quando a resposta não veio no formato da API).
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message)
+    this.name = 'ApiError'
+  }
+}
+
+export const UNEXPECTED_FORMAT_MESSAGE =
+  'O servidor respondeu num formato inesperado. Tente de novo em instantes; se persistir, o endereço da API do painel precisa ser conferido.'
+
+function isJson(response: Response) {
+  return (response.headers.get('Content-Type') ?? '').toLowerCase().includes('json')
+}
+
 export async function requestJson<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers)
   if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json')
@@ -47,18 +62,23 @@ export async function requestJson<T>(path: string, init?: RequestInit): Promise<
     if (response.status === 401) {
       clearStoredSession()
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT))
-      throw new Error('Sua sessão expirou. Entre novamente.')
+      throw new ApiError('Sua sessão expirou. Entre novamente.', 401)
     }
-    throw new Error(formatApiError(text, response.status))
+    throw new ApiError(formatApiError(text, response.status), response.status)
   }
 
   if (response.status === 204) return undefined as T
+  // Página HTML no lugar de JSON (por exemplo, painel publicado sem VITE_API_BASE_URL): mensagem legível.
+  if (!isJson(response)) {
+    console.error(`[api] ${path} respondeu ${response.headers.get('Content-Type') ?? 'sem Content-Type'} em vez de JSON. Confira VITE_API_BASE_URL.`)
+    throw new ApiError(UNEXPECTED_FORMAT_MESSAGE, 0)
+  }
   return response.json()
 }
 
 
 export function isRegistrationLike(value: string) {
-  return /^COND-\d{4}-\d{4}$/i.test(value.trim())
+  return /^COND-\d{4}-\d{4,6}$/i.test(value.trim())
 }
 
 export async function resolveLoggedUserName(userId: string, fallback: string) {
@@ -71,9 +91,20 @@ export async function resolveLoggedUserName(userId: string, fallback: string) {
   }
 }
 
+function apiMessage(text: string) {
+  try {
+    const data = JSON.parse(text) as { message?: unknown }
+    return typeof data.message === 'string' && data.message.trim() ? data.message : null
+  } catch {
+    return null
+  }
+}
+
 export function formatApiError(text: string, status: number) {
-  if (status === 403) return 'Você não tem permissão para realizar esta ação.'
+  // 403 e 503 da API trazem mensagem própria (registro protegido da demo, demonstração sendo preparada).
+  if (status === 403) return apiMessage(text) ?? 'Você não tem permissão para realizar esta ação.'
   if (status === 404) return 'Registro não encontrado.'
+  if (status === 503) return apiMessage(text) ?? 'O servidor está indisponível no momento. Tente novamente.'
   // Erro do servidor (ProblemDetails): nunca mostra o título técnico em inglês.
   if (status >= 500) return 'Ocorreu um erro inesperado. Tente novamente.'
   if (!text) return 'Não foi possível concluir a operação. Tente novamente.'

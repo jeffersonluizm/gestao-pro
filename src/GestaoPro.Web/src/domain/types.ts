@@ -163,12 +163,11 @@ export interface Occurrence {
   createdAt?: string
 }
 
-// GET /api/demo (só existe com o modo demonstração ligado no servidor).
+// GET /api/demo (só existe com o modo demonstração ligado no servidor). Sem e-mail nem senha:
+// a entrada é por POST /api/demo/entrar com o papel.
 export interface DemoAccount {
   role: string
   name: string
-  email: string
-  password: string
 }
 
 export interface DemoInfo {
