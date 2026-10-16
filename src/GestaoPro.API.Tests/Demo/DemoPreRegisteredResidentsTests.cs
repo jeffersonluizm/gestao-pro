@@ -34,15 +34,17 @@ public class DemoPreRegisteredResidentsTests
         Assert.DoesNotContain("outro", ids);
     }
 
+    // O seed roda depois da limpeza: um usuário com o CPF de exemplo que ainda exista foi gravado por um visitante.
+    // Ele não é adotado como registro semeado (a proteção vale por id do que o seed criou, nunca por CPF).
     [Fact]
-    public async Task Cpf_que_ja_esta_no_condominio_demo_e_mantido()
+    public async Task Cpf_de_exemplo_de_usuario_existente_nao_e_adotado()
     {
         var (cpf, _) = DemoCatalog.PreRegisteredResidents[0];
-        _store.Setup(s => s.GetByCpfAsync(cpf)).ReturnsAsync(new User { Id = "ja-existe", Cpf = cpf, CondominiumId = Demo });
+        _store.Setup(s => s.GetByCpfAsync(cpf)).ReturnsAsync(new User { Id = "do-visitante", Cpf = cpf, CondominiumId = Demo });
 
         var ids = await Service().EnsureAsync(Demo);
 
         _store.Verify(s => s.CreateAsync(It.Is<User>(u => u.Cpf == cpf)), Times.Never);
-        Assert.Contains("ja-existe", ids);
+        Assert.DoesNotContain("do-visitante", ids);
     }
 }

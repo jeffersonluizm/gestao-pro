@@ -22,7 +22,8 @@ public sealed class MongoDemoResidentStore : IDemoResidentStore
 }
 
 // Moradores pré-cadastrados sem acesso, para experimentar "Ative o seu acesso" com o código do condomínio.
-// CPF que já pertence a alguém de outro condomínio é ignorado (com log): o seeder nunca move gente de lugar.
+// Roda depois da limpeza: só os usuários criados aqui viram registros semeados (por id). Um usuário que ainda tenha o
+// CPF de exemplo foi gravado por outra pessoa (outro condomínio ou visitante): é ignorado com log, nunca adotado.
 public sealed class DemoPreRegisteredResidents
 {
     private readonly IDemoResidentStore _store;
@@ -43,10 +44,7 @@ public sealed class DemoPreRegisteredResidents
             var existing = await _store.GetByCpfAsync(cpf);
             if (existing is not null)
             {
-                if (existing.CondominiumId == condominiumId)
-                    ids.Add(existing.Id!);
-                else
-                    _logger.LogWarning("Modo demonstração: o CPF de exemplo final {Final} já pertence a outro condomínio e foi ignorado.", cpf[^2..]);
+                _logger.LogWarning("Modo demonstração: o CPF de exemplo final {Final} já pertence a outro usuário e foi ignorado.", cpf[^2..]);
                 continue;
             }
 

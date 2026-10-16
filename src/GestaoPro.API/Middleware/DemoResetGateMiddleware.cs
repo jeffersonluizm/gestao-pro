@@ -30,7 +30,7 @@ public sealed class DemoResetGateMiddleware
             return;
         }
 
-        if (!_gate.TryEnterWrite())
+        if (!_gate.TryEnterWrite(context))
         {
             context.Response.StatusCode = StatusCodes.Status503ServiceUnavailable;
             context.Response.Headers.RetryAfter = RetryAfterSeconds.ToString();
@@ -44,7 +44,7 @@ public sealed class DemoResetGateMiddleware
         }
         finally
         {
-            _gate.ExitWrite();
+            _gate.ExitWrite(context);
         }
     }
 }

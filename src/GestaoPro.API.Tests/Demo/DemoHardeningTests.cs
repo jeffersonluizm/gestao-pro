@@ -178,15 +178,16 @@ public class DemoResetWindowTests
     [Fact]
     public async Task Escrita_em_andamento_termina_antes_de_a_limpeza_comecar()
     {
-        Assert.True(_gate.TryEnterWrite());
+        var write = new DefaultHttpContext();
+        Assert.True(_gate.TryEnterWrite(write));
         var cleaned = false;
         var reset = new DemoResetRunner(new FakeCleaner(() => cleaned = true), new FakeSeeder(0), _catalog, _gate).ResetAsync();
 
         await Task.Delay(100);
         Assert.False(cleaned);
-        Assert.False(_gate.TryEnterWrite());
+        Assert.False(_gate.TryEnterWrite(new DefaultHttpContext()));
 
-        _gate.ExitWrite();
+        _gate.ExitWrite(write);
         await reset;
         Assert.True(cleaned);
     }

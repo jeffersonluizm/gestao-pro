@@ -18,7 +18,14 @@ var builder = WebApplication.CreateBuilder(args);
 // Corpo de requisição pequeno em toda a API (nada aqui envia arquivo): o Kestrel corta no mesmo limite do
 // RequestBodyLimitMiddleware, que responde 413 com mensagem legível.
 builder.WebHost.ConfigureKestrel(options =>
-    options.Limits.MaxRequestBodySize = RequestBodyLimitMiddleware.MaxBytes(builder.Configuration));
+{
+    options.Limits.MaxRequestBodySize = RequestBodyLimitMiddleware.MaxBytes(builder.Configuration);
+    // Corpo a conta-gotas não segura a conexão: no mínimo 1 KB/s depois de 5 s (64 KB chegam em até cerca de 1 min).
+    options.Limits.MinRequestBodyDataRate = new Microsoft.AspNetCore.Server.Kestrel.Core.MinDataRate(1024, TimeSpan.FromSeconds(5));
+});
+// Toda requisição tem até 15 s (o reset da demonstração espera 10 s pelas escritas e aborta as que sobrarem).
+builder.Services.AddRequestTimeouts(options =>
+    options.DefaultPolicy = new Microsoft.AspNetCore.Http.Timeouts.RequestTimeoutPolicy { Timeout = TimeSpan.FromSeconds(15) });
 
 // Segredos locais com prioridade abaixo das variáveis de ambiente e da linha de comando (ver LocalSettings).
 builder.Configuration.AddLocalSettingsFile(builder.Environment.ContentRootPath);
@@ -172,7 +179,12 @@ builder.Services.AddScoped<LegacyCondominiumBackfill>();
 builder.Services.AddHostedService<LegacyCondominiumBackfillInitializer>();
 
 // Id de rota malformado responde 400 em vez de 500 (MalformedIdFilter).
-builder.Services.AddControllers(options => options.Filters.Add<MalformedIdFilter>())
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<MalformedIdFilter>();
+        // Modo demonstração: escrita com época antiga ou durante o reset não chega à ação (DemoEpochWriteFilter).
+        options.Filters.Add<DemoEpochWriteFilter>();
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -255,6 +267,7 @@ app.UseCors();
 // Autenticação antes do limitador: o teto de escritas da demonstração é por usuário (claim do token).
 app.UseAuthentication();
 app.UseRateLimiter();
+app.UseRequestTimeouts();
 // Durante o reset da demonstração, escritas respondem 503 (e as em andamento terminam antes da limpeza).
 app.UseMiddleware<DemoResetGateMiddleware>();
 app.UseMiddleware<ApiAccessMiddleware>();

@@ -66,29 +66,33 @@ public sealed class DemoResetRunner : IDemoReset
     }
 }
 
-// Portão das escritas durante o reset da demonstração: conta as escritas em andamento e, enquanto o reset roda,
-// recusa novas (o DemoResetGateMiddleware responde 503 com Retry-After).
+// Portão das escritas durante o reset da demonstração: guarda as escritas em andamento e, enquanto o reset roda,
+// recusa novas (o DemoResetGateMiddleware responde 503 com Retry-After). Se a espera se esgotar (escrita lenta, por
+// exemplo um corpo chunked a poucos bytes por segundo), aborta as que sobraram e registra aviso antes de limpar.
 public sealed class DemoResetGate
 {
     private readonly object _lock = new();
-    private int _inFlight;
+    private readonly HashSet<HttpContext> _inFlight = new();
+    private readonly ILogger<DemoResetGate>? _logger;
     private bool _resetting;
+
+    public DemoResetGate(ILogger<DemoResetGate>? logger = null) => _logger = logger;
 
     public bool Resetting { get { lock (_lock) return _resetting; } }
 
-    public bool TryEnterWrite()
+    public bool TryEnterWrite(HttpContext context)
     {
         lock (_lock)
         {
             if (_resetting) return false;
-            _inFlight++;
+            _inFlight.Add(context);
             return true;
         }
     }
 
-    public void ExitWrite()
+    public void ExitWrite(HttpContext context)
     {
-        lock (_lock) _inFlight = Math.Max(0, _inFlight - 1);
+        lock (_lock) _inFlight.Remove(context);
     }
 
     public async Task BeginAsync(TimeSpan drainTimeout, CancellationToken cancellationToken = default)
@@ -97,8 +101,17 @@ public sealed class DemoResetGate
         var deadline = DateTime.UtcNow + drainTimeout;
         while (DateTime.UtcNow < deadline)
         {
-            lock (_lock) if (_inFlight == 0) return;
+            lock (_lock) if (_inFlight.Count == 0) return;
             await Task.Delay(25, cancellationToken);
+        }
+
+        HttpContext[] pending;
+        lock (_lock) pending = _inFlight.ToArray();
+        foreach (var context in pending)
+        {
+            _logger?.LogWarning("Reset da demonstração: escrita {Method} {Path} ainda em andamento depois de {Seconds} s foi abortada.",
+                context.Request.Method, context.Request.Path, drainTimeout.TotalSeconds);
+            context.Abort();
         }
     }
 
