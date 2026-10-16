@@ -26,8 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Sintaxe do Dockerfile
-        run: python3 ferramentas/conferir_dockerfile.py Dockerfile
+      - name: Sintaxe do Dockerfile (e testes da conferência)
+        run: |
+          python3 -m unittest discover -s ferramentas -p "test_*.py"
+          python3 ferramentas/conferir_dockerfile.py Dockerfile
       - name: docker build
         run: docker build --file Dockerfile --tag gestaopro-api:ci .
 
