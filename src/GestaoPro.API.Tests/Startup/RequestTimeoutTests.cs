@@ -54,11 +54,14 @@ public class RequestTimeoutTests : IDisposable
         UserId = "665f1c2e9b1e8a0012345678", Role = "morador", CondominiumId = "665f1c2e9b1e8a0012345679", RegistrationNumber = "morador@teste.com",
     }).token;
 
+    // Escrita lenta é cortada no limite. Um cliente TCP manda o cabeçalho e só um pedaço do corpo e para de enviar:
+    // o servidor (Kestrel de verdade, numa porta livre escolhida pelo sistema) responde 504 ou fecha a conexão em poucos
+    // segundos (limite de 1 s no teste, mais 2 s de tolerância), em vez de esperar o cliente.
     [Fact]
     public async Task Escrita_lenta_e_cortada_no_limite()
     {
         await using var factory = CreateFactory();
-        factory.UseKestrel(5150);
+        factory.UseKestrel(0);
         factory.StartServer();
 
         var address = new Uri(factory.Services.GetRequiredService<Microsoft.AspNetCore.Hosting.Server.IServer>()
