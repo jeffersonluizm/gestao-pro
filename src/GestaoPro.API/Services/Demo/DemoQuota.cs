@@ -9,6 +9,9 @@ public interface IDemoRecordCounter
 {
     // Quantos documentos da coleção pertencem ao condomínio demo (ou a coleção inteira, se ela não guarda condomínio).
     Task<long> CountAsync(string collection, string condominiumId, bool byCondominium, CancellationToken cancellationToken);
+
+    // Uma criação aprovada: quem guarda a contagem soma 1 (o teto fica exato dentro da validade do cache).
+    void NoteCreated(string collection, string condominiumId, bool byCondominium) { }
 }
 
 public sealed class MongoDemoRecordCounter : IDemoRecordCounter
@@ -67,6 +70,12 @@ public sealed class CachedDemoRecordCounter : IDemoRecordCounter
         _cache[key] = (count, now + _ttl);
         return count;
     }
+
+    public void NoteCreated(string collection, string condominiumId, bool byCondominium)
+    {
+        var key = $"{collection}|{condominiumId}|{byCondominium}";
+        _cache.AddOrUpdate(key, _ => (0, DateTimeOffset.MinValue), (_, cached) => (cached.Count + 1, cached.Until));
+    }
 }
 
 // Teto de documentos por coleção no condomínio demo (Demo:LimitePorColecao, padrão 300). Acima dele, a criação
@@ -113,6 +122,9 @@ public sealed class DemoQuotaFilter : IAsyncActionFilter
             return;
         }
 
-        await next();
+        var executed = await next();
+        if (_catalog.Enabled && _catalog.CondominiumId is { } created && executed.Exception is null &&
+            executed.Result is ObjectResult { StatusCode: >= 200 and < 300 } or StatusCodeResult { StatusCode: >= 200 and < 300 } or OkResult or CreatedResult or CreatedAtActionResult or NoContentResult)
+            _counter.NoteCreated(_collection, created, _byCondominium);
     }
 }

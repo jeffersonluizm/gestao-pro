@@ -1,4 +1,5 @@
-﻿using MongoDB.Driver;
+﻿using GestaoPro.API.Services;
+using MongoDB.Driver;
 using GestaoPro.API.Models;
 using GestaoPro.API.Settings;
 using Microsoft.Extensions.Options;
@@ -57,7 +58,7 @@ public class OccurrenceRepository
     public async Task AddHistoryAsync(string id, OccurrenceHistory history)
     {
         var update = Builders<Occurrence>.Update
-            .Push(o => o.History, history)
+            .PushEach(o => o.History, new[] { history }, slice: -HistoryLimit.Max)
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
         await _occurrences.UpdateOneAsync(o => o.Id == id, update);
     }
@@ -66,7 +67,7 @@ public class OccurrenceRepository
     {
         var update = Builders<Occurrence>.Update
             .Set(o => o.Status, status)
-            .Push(o => o.History, history)
+            .PushEach(o => o.History, new[] { history }, slice: -HistoryLimit.Max)
             .Set(o => o.UpdatedAt, DateTime.UtcNow);
         await _occurrences.UpdateOneAsync(o => o.Id == id, update);
     }

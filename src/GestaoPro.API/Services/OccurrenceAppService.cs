@@ -96,6 +96,7 @@ public class OccurrenceAppService : IOccurrenceService
         await _repository.UpdateStatusAsync(id, request.Status, history);
         occurrence.Status = request.Status;
         occurrence.History.Add(history);
+        HistoryLimit.Trim(occurrence.History);
         return MapToResponse(occurrence);
     }
 

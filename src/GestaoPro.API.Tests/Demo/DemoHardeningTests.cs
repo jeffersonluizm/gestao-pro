@@ -234,3 +234,56 @@ public class DemoCondominiumRestoreTests
     }
 }
 
+public class DemoQuotaBurstTests
+{
+    private static ActionExecutingContext Context() => new(
+        new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
+        new List<IFilterMetadata>(), new Dictionary<string, object?>(), controller: new object());
+
+    // Com a contagem guardada por 5 s, cada criação aprovada soma 1: uma rajada não passa do teto.
+    [Fact]
+    public async Task Rajada_dentro_do_cache_para_exatamente_no_teto()
+    {
+        var inner = new Mock<IDemoRecordCounter>();
+        inner.Setup(c => c.CountAsync("announcements", CondominioA, true, It.IsAny<CancellationToken>())).ReturnsAsync(298);
+        var counter = new CachedDemoRecordCounter(inner.Object, TimeProvider.System, TimeSpan.FromSeconds(5));
+        var catalog = DemoCatalog.FromConfiguration(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Demo:Enabled"] = "true" }).Build());
+        catalog.CondominiumId = CondominioA;
+        var config = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Demo:LimitePorColecao"] = "300" }).Build();
+
+        var results = new List<IActionResult?>();
+        for (var i = 0; i < 3; i++)
+        {
+            var filter = new DemoQuotaFilter(catalog, counter, config, "announcements", true);
+            var context = Context();
+            await filter.OnActionExecutionAsync(context, () => Task.FromResult(
+                new ActionExecutedContext(context, new List<IFilterMetadata>(), new object()) { Result = new CreatedResult("", null) }));
+            results.Add(context.Result);
+        }
+
+        Assert.Null(results[0]);
+        Assert.Null(results[1]);
+        Assert.IsType<ConflictObjectResult>(results[2]);
+    }
+
+    [Fact]
+    public void Voto_tambem_tem_teto_na_demo()
+    {
+        var method = typeof(VoteController).GetMethod(nameof(VoteController.CastVote))!;
+
+        Assert.NotNull(method.GetCustomAttribute<DemoQuotaAttribute>());
+    }
+
+    // Históricos que crescem a cada atualização (ocorrência, vaga, visitante) guardam só as últimas entradas.
+    [Fact]
+    public void Historico_guarda_so_as_ultimas_entradas()
+    {
+        var history = Enumerable.Range(1, HistoryLimit.Max + 10).ToList();
+
+        HistoryLimit.Trim(history);
+
+        Assert.Equal(HistoryLimit.Max, history.Count);
+        Assert.Equal(HistoryLimit.Max + 10, history[^1]);
+    }
+}

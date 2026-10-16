@@ -42,13 +42,13 @@ public class ParkingRepository : IParkingRepository
             .Set(x => x.Status, "reserved")
             .Set(x => x.ReservedByUserId, userId)
             .Set(x => x.ReservedAt, now)
-            .Push(x => x.History, new ParkingHistory
+            .PushEach(x => x.History, new[] { new ParkingHistory
             {
                 Action = "entrada",
                 Status = "reserved",
                 UserId = userId,
                 Date = now
-            });
+            } }, slice: -HistoryLimit.Max);
         await _collection.UpdateOneAsync(x => x.Id == id, update);
     }
 
@@ -58,12 +58,12 @@ public class ParkingRepository : IParkingRepository
         var action = status == "available" ? "saida" : "entrada";
         var update = Builders<Parking>.Update
             .Set(x => x.Status, status)
-            .Push(x => x.History, new ParkingHistory
+            .PushEach(x => x.History, new[] { new ParkingHistory
             {
                 Action = action,
                 Status = status,
                 Date = now
-            });
+            } }, slice: -HistoryLimit.Max);
 
         if (status == "available")
         {
