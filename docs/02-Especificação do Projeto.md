@@ -40,7 +40,7 @@ Conseguir acompanhar facilmente avisos do condomínio e reservar áreas comuns d
 ### Persona 2 – Maria Aparecida Santos (Síndica)
 
 <p align="center">
-  <img src="https://github.com/ICEI-PUC-Minas-PMV-ADS/pmv-ads-2026-1-e4-infra-t1-gestao-de-condominio-provisorio/blob/main/docs/img/Maria%20Aparecida%20Santos%20(Persona).jpg?raw=true" width="400">
+  <img src="img/Maria%20Aparecida%20Santos%20(Persona).jpg" width="400">
 </p>
 
 **Idade:** 39 anos<br>
@@ -64,7 +64,7 @@ Organizar a comunicação com os moradores e melhorar o controle das atividades 
 ### Persona 3 – Lucas Henrique Almeida (Administrador de Condomínio)
 
 <p align="center">
-  <img src="https://github.com/ICEI-PUC-Minas-PMV-ADS/pmv-ads-2026-1-e4-infra-t1-gestao-de-condominio-provisorio/blob/main/docs/img/Lucas%20Henrique%20Almeida%20(Persona).jpg?raw=true" width="400">
+  <img src="img/Lucas%20Henrique%20Almeida%20(Persona).jpg" width="400">
 </p>
 
 **Idade:** 50 anos<br>
@@ -88,7 +88,7 @@ Centralizar informações administrativas do condomínio em um único sistema pa
 ### Persona 4 – Dona Tereza Oliveira (Moradora Idosa)
 
 <p align="center">
-  <img src="https://github.com/ICEI-PUC-Minas-PMV-ADS/pmv-ads-2026-1-e4-infra-t1-gestao-de-condominio-provisorio/blob/main/docs/img/Dona%20Tereza%20Oliveira%20(Persona).jpg?raw=true" width="400">
+  <img src="img/Dona%20Tereza%20Oliveira%20(Persona).jpg" width="400">
 </p>
 
 **Idade:** 68 anos<br>
@@ -111,7 +111,7 @@ Conseguir acompanhar informações importantes do condomínio de maneira simples
 
 ### Persona 5 – Rafael Gomes da Silva (Porteiro)
 <p align="center">
-  <img src="https://github.com/ICEI-PUC-Minas-PMV-ADS/pmv-ads-2026-1-e4-infra-t1-gestao-de-condominio-provisorio/blob/main/docs/img/Rafael%20Gomes%20da%20Silva%20(Persona).png?raw=true" width="400">
+  <img src="img/Rafael%20Gomes%20da%20Silva%20(Persona).jpg" width="400">
 </p>
 
 **Idade:** 47 anos<br>
