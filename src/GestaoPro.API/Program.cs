@@ -22,6 +22,8 @@ builder.WebHost.ConfigureKestrel(options =>
 
 // Segredos locais com prioridade abaixo das variáveis de ambiente e da linha de comando (ver LocalSettings).
 builder.Configuration.AddLocalSettingsFile(builder.Environment.ContentRootPath);
+// Demo:*, Proxy:* e Limites:* com valor inválido impedem a partida, com a chave e o motivo (StartupSettings).
+StartupSettings.Validate(builder.Configuration);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -196,7 +198,7 @@ if (trustProxy)
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
         // Saltos e cabeçalho conferidos depois do deploy (docs/deploy.md, "Conferir o IP real"): o padrão é o último
         // valor do X-Forwarded-For; se a borda do proxy mandar o IP em outro cabeçalho (True-Client-IP), configure.
-        options.ForwardLimit = Math.Max(1, builder.Configuration.GetValue("Proxy:Saltos", 1));
+        options.ForwardLimit = builder.Configuration.GetValue("Proxy:Saltos", 1);
         options.ForwardedForHeaderName = builder.Configuration["Proxy:CabecalhoIp"] is { Length: > 0 } header
             ? header
             : ForwardedHeadersDefaults.XForwardedForHeaderName;
@@ -234,6 +236,11 @@ if (app.Services.GetRequiredService<DemoCatalog>().Enabled)
     await scope.ServiceProvider.GetRequiredService<IDemoReset>().ResetAsync();
 }
 
+// Configuração de proxy efetiva no log da partida (ver docs/deploy.md, "Conferir o IP real").
+var proxyHeader = builder.Configuration["Proxy:CabecalhoIp"] is { Length: > 0 } configuredHeader ? configuredHeader : null;
+app.Logger.LogInformation("Proxy: confiar no proxy={Confiar}, saltos={Saltos}, cabeçalho do IP={Cabecalho}.",
+    trustProxy, builder.Configuration.GetValue("Proxy:Saltos", 1), proxyHeader ?? "X-Forwarded-For");
+if (trustProxy && proxyHeader is not null) app.UseMiddleware<ProxyHeaderWatchMiddleware>(proxyHeader);
 if (trustProxy) app.UseForwardedHeaders();
 app.UseExceptionHandler();
 app.UseMiddleware<RequestBodyLimitMiddleware>();
