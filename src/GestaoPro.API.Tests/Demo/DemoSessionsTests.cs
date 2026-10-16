@@ -22,6 +22,8 @@ public class DemoSessionsTests
 
     private DemoSessions Service() => new(_catalog, _accounts.Object, new TokenService(Jwt(), _catalog));
 
+    public DemoSessionsTests() => _catalog.CondominiumId = "665f1c2e9b1e8a00000000c1";
+
     private void ContaPronta(bool ativa = true) =>
         _accounts.Setup(a => a.GetCredentialByRegistrationNumberAsync("morador@demo.gestaopro.local")).ReturnsAsync(new Credential
         {
@@ -34,7 +36,10 @@ public class DemoSessionsTests
     public async Task Devolve_token_da_conta_com_a_epoca_atual_da_demonstracao()
     {
         ContaPronta();
-        _accounts.Setup(a => a.GetUserByIdAsync("665f1c2e9b1e8a00000000d2")).ReturnsAsync(new User { Name = "Maria Souza" });
+        _accounts.Setup(a => a.GetUserByIdAsync("665f1c2e9b1e8a00000000d2")).ReturnsAsync(new User
+        {
+            Id = "665f1c2e9b1e8a00000000d2", Name = "Maria Souza", Email = "morador@demo.gestaopro.local", CondominiumId = "665f1c2e9b1e8a00000000c1",
+        });
 
         var session = await Service().EnterAsync("morador");
 

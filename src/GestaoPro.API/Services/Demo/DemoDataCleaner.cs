@@ -8,7 +8,7 @@ namespace GestaoPro.API.Services.Demo;
 // Reset destrutivo do modo demonstração: apaga tudo que pertence ao condomínio de demonstração (o que os
 // visitantes criaram, inclusive contas ativadas com os CPFs pré-cadastrados) para o DataSeeder recriar do zero.
 // Só toca no condomínio demo (identificado pelo CNPJ fixo da demonstração) e só roda com Demo:Enabled=true.
-public sealed class DemoDataCleaner
+public sealed class DemoDataCleaner : IDemoCleaner
 {
     private readonly IMongoDatabase _database;
     private readonly MongoDBSettings _settings;

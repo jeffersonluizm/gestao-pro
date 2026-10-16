@@ -26,6 +26,10 @@ public class CredentialRepository : IAdministratorLookup
     public async Task<Credential?> GetByRegistrationNumberAsync(string registrationNumber) =>
         await _credentials.Find(c => c.RegistrationNumber == registrationNumber).FirstOrDefaultAsync();
 
+    // Credencial que usa o login de uma conta demo mas pertence a outro usuário (gravada por um visitante): sai antes do seed.
+    public async Task DeleteConflictingAsync(string registrationNumber, string userId) =>
+        await _credentials.DeleteManyAsync(c => c.RegistrationNumber == registrationNumber && c.UserId != userId);
+
     public async Task<Credential?> GetByUserIdAsync(string userId) =>
         await _credentials.Find(c => c.UserId == userId).FirstOrDefaultAsync();
 

@@ -29,9 +29,13 @@ public sealed class DemoSessions : IDemoSessions
 
         var credential = await _accounts.GetCredentialByRegistrationNumberAsync(account.Email);
         if (credential is not { IsActive: true }) return null;
+        // Só a conta demo semeada: condomínio demo, papel do catálogo e usuário com o e-mail da conta.
+        if (credential.CondominiumId != _catalog.CondominiumId || credential.Role != account.Role) return null;
+        var user = await _accounts.GetUserByIdAsync(credential.UserId);
+        if (user is null || user.Id != credential.UserId || user.CondominiumId != _catalog.CondominiumId ||
+            !string.Equals(user.Email, account.Email, StringComparison.OrdinalIgnoreCase)) return null;
 
         var (token, expiresAt) = _tokens.GenerateToken(credential);
-        var user = await _accounts.GetUserByIdAsync(credential.UserId);
         return new LoginResponse(token, credential.UserId, user?.Name ?? account.Name, credential.RegistrationNumber,
             credential.Role, credential.CondominiumId, false, expiresAt);
     }

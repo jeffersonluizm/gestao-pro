@@ -149,7 +149,10 @@ builder.Services.AddSingleton(DemoCatalog.FromConfiguration(builder.Configuratio
 builder.Services.AddScoped<IDemoResidentStore, MongoDemoResidentStore>();
 builder.Services.AddScoped<DemoPreRegisteredResidents>();
 builder.Services.AddScoped<DataSeeder>();
+builder.Services.AddScoped<IDemoSeeder>(provider => provider.GetRequiredService<DataSeeder>());
 builder.Services.AddScoped<DemoDataCleaner>();
+builder.Services.AddScoped<IDemoCleaner>(provider => provider.GetRequiredService<DemoDataCleaner>());
+builder.Services.AddSingleton<DemoResetGate>();
 builder.Services.AddScoped<IDemoReset, DemoResetRunner>();
 builder.Services.AddScoped<IDemoSessions, DemoSessions>();
 builder.Services.AddSingleton<MongoDemoRecordCounter>();
@@ -245,6 +248,8 @@ app.UseCors();
 // Autenticação antes do limitador: o teto de escritas da demonstração é por usuário (claim do token).
 app.UseAuthentication();
 app.UseRateLimiter();
+// Durante o reset da demonstração, escritas respondem 503 (e as em andamento terminam antes da limpeza).
+app.UseMiddleware<DemoResetGateMiddleware>();
 app.UseMiddleware<ApiAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();

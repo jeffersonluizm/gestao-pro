@@ -4,10 +4,10 @@ using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Services;
 
-// Dados do modo demonstração (só com Demo:Enabled=true; ver DemoCatalog). Idempotente: a cada execução
-// recria o que falta e devolve as contas demo ao estado conhecido (ativas, papel certo, senha inutilizável).
-// As contas demo não têm senha: a entrada é por POST /api/demo/entrar. Os ids gravados aqui ficam protegidos.
-public class DataSeeder
+// Dados do modo demonstração (só com Demo:Enabled=true; ver DemoCatalog). Roda depois da limpeza do condomínio demo
+// (DemoResetRunner): cria tudo de novo e marca os ids criados como protegidos (por id, nunca por nome). As contas demo
+// voltam ao estado conhecido (ativas, papel certo, senha inutilizável); a entrada é por POST /api/demo/entrar.
+public class DataSeeder : IDemoSeeder
 {
     private static readonly (string Name, string Description, int Capacity, string Open, string Close)[] CommonAreas =
     [
@@ -80,7 +80,7 @@ public class DataSeeder
         var condominium = await EnsureCondominiumAsync();
         _catalog.CondominiumId = condominium.Id;
 
-        var areaIds = await EnsureCommonAreasAsync(condominium.Id!);
+        var areaIds = await CreateCommonAreasAsync(condominium.Id!);
         var unit = await EnsureUnitAsync(condominium.Id!, "101");
         var accounts = new Dictionary<string, User>();
         foreach (var account in _catalog.Accounts)
@@ -89,9 +89,9 @@ public class DataSeeder
         var preRegisteredIds = await _preRegistered.EnsureAsync(condominium.Id!);
         // Registros de exemplo que os visitantes não podem remover (nem trocar, no caso das contas).
         _catalog.SetSeededRecords(areaIds.Append(unit.Id!).Concat(accounts.Values.Select(user => user.Id!)).Concat(preRegisteredIds));
-        await EnsureAnnouncementsAsync(condominium.Id!, accounts["sindico"].Id!);
-        await EnsureBillAsync(condominium.Id!, accounts["morador"].Id!);
-        await EnsureActivityAsync(condominium.Id!, unit.Id!, accounts["sindico"].Id!, accounts["morador"].Id!);
+        await CreateAnnouncementsAsync(condominium.Id!, accounts["sindico"].Id!);
+        await CreateBillAsync(condominium.Id!, accounts["morador"].Id!);
+        await CreateActivityAsync(condominium.Id!, unit.Id!, areaIds[0], accounts["sindico"].Id!, accounts["morador"].Id!);
 
         _logger.LogInformation("Modo demonstração pronto: condomínio {Name} com {Count} contas (entrada em POST /api/demo/entrar).",
             DemoCatalog.CondominiumName, _catalog.Accounts.Count);
@@ -103,34 +103,24 @@ public class DataSeeder
         var condominium = await _condominiums.GetByCnpjAsync(DemoCatalog.CondominiumCnpj);
         if (condominium is null)
         {
-            return await _condominiums.CreateAsync(new Condominium
-            {
-                Name = DemoCatalog.CondominiumName,
-                Cnpj = DemoCatalog.CondominiumCnpj,
-                Address = new Address
-                {
-                    Street = "Rua das Acácias", Number = "100", Neighborhood = "Centro",
-                    City = "Belo Horizonte", State = "MG", ZipCode = "30110-000",
-                },
-                Rules = "Silêncio das 22h às 7h. Reservas pelo app ou pelo painel.",
-                DefaultPassword = codeHash,
-            });
+            var created = new Condominium();
+            DemoCondominium.Restore(created, codeHash);
+            return await _condominiums.CreateAsync(created);
         }
 
-        // O código pode ter mudado na configuração (ou ter sido sorteado de novo): volta ao da partida.
-        condominium.Name = DemoCatalog.CondominiumName;
-        condominium.DefaultPassword = codeHash;
+        // Nome, endereço, regras, regulamento e código voltam ao original (um visitante pode ter editado).
+        DemoCondominium.Restore(condominium, codeHash);
         await _condominiums.UpdateAsync(condominium.Id!, condominium);
         return condominium;
     }
 
-    private async Task<List<string>> EnsureCommonAreasAsync(string condominiumId)
+    // Sempre cria (a limpeza veio antes): uma área de visitante com o mesmo nome nunca vira "semeada".
+    private async Task<List<string>> CreateCommonAreasAsync(string condominiumId)
     {
-        var existing = await _commonAreas.GetByCondominiumAsync(condominiumId);
         var ids = new List<string>();
         foreach (var (name, description, capacity, open, close) in CommonAreas)
         {
-            var area = existing.FirstOrDefault(item => item.Name == name) ?? await _commonAreas.CreateAsync(new CommonArea
+            var area = await _commonAreas.CreateAsync(new CommonArea
             {
                 CondominiumId = condominiumId, Name = name, Description = description, Capacity = capacity,
                 OpenTime = open, CloseTime = close, Rules = "Deixe o espaço limpo ao final do uso.", IsActive = true,
@@ -171,6 +161,7 @@ public class DataSeeder
             await _users.UpdateAsync(user.Id!, user);
         }
 
+        await _credentials.DeleteConflictingAsync(account.Email, user.Id!);
         var credential = await _credentials.GetByUserIdAsync(user.Id!);
         if (credential is null)
         {
@@ -195,12 +186,10 @@ public class DataSeeder
         _ => "90000000003",
     };
 
-    private async Task EnsureAnnouncementsAsync(string condominiumId, string authorId)
+    private async Task CreateAnnouncementsAsync(string condominiumId, string authorId)
     {
-        var existing = await _announcements.GetByCondominiumAsync(condominiumId);
         foreach (var (title, content, category) in Announcements)
         {
-            if (existing.Any(item => item.Title == title)) continue;
             await _announcements.CreateAsync(new Announcement
             {
                 CondominiumId = condominiumId, AuthorId = authorId, Title = title, Content = content, Category = category,
@@ -209,15 +198,12 @@ public class DataSeeder
     }
 
     // Movimento do condomínio para os fluxos parecerem vivos: reserva, encomendas, visita, ocorrência e assembleia.
-    private async Task EnsureActivityAsync(string condominiumId, string unitId, string sindicoId, string moradorId)
+    // Sempre semeia o movimento (a limpeza veio antes), no salão criado por este seed.
+    private async Task CreateActivityAsync(string condominiumId, string unitId, string salaoId, string sindicoId, string moradorId)
     {
-        if ((await _reservations.GetByCondominiumAsync(condominiumId)).Count > 0) return;
-
-        var areas = await _commonAreas.GetByCondominiumAsync(condominiumId);
-        var salao = areas.FirstOrDefault(area => area.Name == "Salão de festas") ?? areas.First();
         await _reservations.CreateAsync(new Reservation
         {
-            CommonAreaId = salao.Id!, UserId = moradorId, CondominiumId = condominiumId,
+            CommonAreaId = salaoId, UserId = moradorId, CondominiumId = condominiumId,
             Date = BrazilTime.Today().AddDays(6).ToString("yyyy-MM-dd"), StartTime = "14:00", EndTime = "18:00",
             Status = ReservationStatus.Pendente, Observations = "Aniversário da Laura",
         });
@@ -257,9 +243,8 @@ public class DataSeeder
         });
     }
 
-    private async Task EnsureBillAsync(string condominiumId, string residentId)
+    private async Task CreateBillAsync(string condominiumId, string residentId)
     {
-        if ((await _bills.GetByUserIdAsync(residentId)).Any()) return;
         var due = DateTime.UtcNow.Date.AddDays(10);
         await _bills.CreateAsync(new BillModel
         {

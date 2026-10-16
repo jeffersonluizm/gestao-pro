@@ -32,11 +32,16 @@ public class AuthController : ControllerBase
 
     private readonly DemoGuard _demo;
 
-    // Conta de demonstração compartilhada: senha e acesso não mudam (403).
+    public const string RoleMismatchMessage = "O papel da credencial precisa ser o mesmo do cadastro da pessoa.";
+    public const string CondominiumMismatchMessage = "A credencial precisa ser do mesmo condomínio da pessoa.";
+
+    // Conta de demonstração compartilhada e registros de exemplo: senha e acesso não mudam (403).
     private async Task<IActionResult?> DenyDemoAccountAsync(string userId)
     {
+        if (!_demo.Enabled) return null;
         var user = await _users.GetByIdAsync(userId);
-        return _demo.IsProtectedEmail(user?.Email) ? DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage) : null;
+        if (_demo.IsProtectedEmail(user?.Email)) return DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage);
+        return _demo.IsSeededRecord(userId) ? DemoGuard.Forbidden(DemoGuard.SeededRecordMessage) : null;
     }
 
     [HttpPost("login")]
@@ -68,6 +73,14 @@ public class AuthController : ControllerBase
     {
         if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
         if (this.DenyManage(this.Caller(), request.CondominiumId, staff: true) is { } otherCondominium) return otherCondominium;
+        if (await DenyDemoAccountAsync(request.UserId) is { } demo) return demo;
+        if (_demo.IsReservedDomain(request.RegistrationNumber)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
+        // Papel e condomínio vêm do cadastro da pessoa: a rota não promove ninguém nem muda de condomínio.
+        var user = await _users.GetByIdAsync(request.UserId);
+        if (user is null) return NotFound();
+        if (!Enum.TryParse<GestaoPro.API.Models.UserRole>(request.Role, ignoreCase: false, out var role) || !Enum.IsDefined(role) || role != user.Role)
+            return BadRequest(new { message = RoleMismatchMessage });
+        if (request.CondominiumId != user.CondominiumId) return BadRequest(new { message = CondominiumMismatchMessage });
         if (WeakPassword(request.Password) is { } weak) return weak;
 
         try
