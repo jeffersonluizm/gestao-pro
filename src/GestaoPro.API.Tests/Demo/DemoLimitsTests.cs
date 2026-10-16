@@ -39,7 +39,8 @@ public class DemoQuotaFilterTests
     private async Task<(IActionResult? Result, bool NextCalled)> RunAsync(bool enabled, long count)
     {
         _counter.Setup(c => c.CountAsync("announcements", CondominioA, true, It.IsAny<CancellationToken>())).ReturnsAsync(count);
-        var filter = new DemoQuotaFilter(Catalog(enabled), _counter.Object, Config(), "announcements", true);
+        var filter = new DemoQuotaFilter(Catalog(enabled), new CachedDemoRecordCounter(_counter.Object, TimeProvider.System, TimeSpan.FromSeconds(5)),
+            Config(), "announcements", true);
         var context = new ActionExecutingContext(
             new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
             new List<IFilterMetadata>(), new Dictionary<string, object?>(), controller: new object());

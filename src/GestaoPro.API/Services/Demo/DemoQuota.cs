@@ -10,8 +10,6 @@ public interface IDemoRecordCounter
     // Quantos documentos da coleção pertencem ao condomínio demo (ou a coleção inteira, se ela não guarda condomínio).
     Task<long> CountAsync(string collection, string condominiumId, bool byCondominium, CancellationToken cancellationToken);
 
-    // Uma criação aprovada: quem guarda a contagem soma 1 (o teto fica exato dentro da validade do cache).
-    void NoteCreated(string collection, string condominiumId, bool byCondominium) { }
 }
 
 public sealed class MongoDemoRecordCounter : IDemoRecordCounter
@@ -52,6 +50,7 @@ public sealed class CachedDemoRecordCounter : IDemoRecordCounter
     private readonly TimeProvider _clock;
     private readonly TimeSpan _ttl;
     private readonly System.Collections.Concurrent.ConcurrentDictionary<string, (long Count, DateTimeOffset Until)> _cache = new();
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, SemaphoreSlim> _locks = new();
 
     public CachedDemoRecordCounter(IDemoRecordCounter inner, TimeProvider clock, TimeSpan ttl)
     {
@@ -71,10 +70,31 @@ public sealed class CachedDemoRecordCounter : IDemoRecordCounter
         return count;
     }
 
-    public void NoteCreated(string collection, string condominiumId, bool byCondominium)
+    // Reserva uma vaga de forma atômica (por coleção e condomínio): confere o teto e soma 1 sob a mesma trava, antes da
+    // criação. Se a criação falhar, Release devolve a vaga.
+    public async Task<bool> TryReserveAsync(string collection, string condominiumId, bool byCondominium, long limit, CancellationToken cancellationToken)
     {
         var key = $"{collection}|{condominiumId}|{byCondominium}";
-        _cache.AddOrUpdate(key, _ => (0, DateTimeOffset.MinValue), (_, cached) => (cached.Count + 1, cached.Until));
+        var gate = _locks.GetOrAdd(key, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            var count = await CountAsync(collection, condominiumId, byCondominium, cancellationToken);
+            if (count >= limit) return false;
+            var until = _cache.TryGetValue(key, out var cached) ? cached.Until : _clock.GetUtcNow() + _ttl;
+            _cache[key] = (count + 1, until);
+            return true;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    public void Release(string collection, string condominiumId, bool byCondominium)
+    {
+        var key = $"{collection}|{condominiumId}|{byCondominium}";
+        _cache.AddOrUpdate(key, _ => (0, DateTimeOffset.MinValue), (_, cached) => (Math.Max(0, cached.Count - 1), cached.Until));
     }
 }
 
@@ -92,13 +112,13 @@ public sealed class DemoQuotaAttribute : TypeFilterAttribute
 public sealed class DemoQuotaFilter : IAsyncActionFilter
 {
     private readonly DemoCatalog _catalog;
-    private readonly IDemoRecordCounter _counter;
+    private readonly CachedDemoRecordCounter _counter;
     private readonly int _limit;
     private readonly int _resetMinutes;
     private readonly string _collection;
     private readonly bool _byCondominium;
 
-    public DemoQuotaFilter(DemoCatalog catalog, IDemoRecordCounter counter, IConfiguration configuration, string collection, bool byCondominium)
+    public DemoQuotaFilter(DemoCatalog catalog, CachedDemoRecordCounter counter, IConfiguration configuration, string collection, bool byCondominium)
     {
         _catalog = catalog;
         _counter = counter;
@@ -115,16 +135,25 @@ public sealed class DemoQuotaFilter : IAsyncActionFilter
 
     public async Task OnActionExecutionAsync(ActionExecutingContext context, ActionExecutionDelegate next)
     {
-        if (_catalog.Enabled && _catalog.CondominiumId is { } condominiumId &&
-            await _counter.CountAsync(_collection, condominiumId, _byCondominium, context.HttpContext.RequestAborted) >= _limit)
+        if (!_catalog.Enabled || _catalog.CondominiumId is not { } condominiumId)
+        {
+            await next();
+            return;
+        }
+
+        if (!await _counter.TryReserveAsync(_collection, condominiumId, _byCondominium, _limit, context.HttpContext.RequestAborted))
         {
             context.Result = new ConflictObjectResult(new { message = FullMessage(_resetMinutes) });
             return;
         }
 
         var executed = await next();
-        if (_catalog.Enabled && _catalog.CondominiumId is { } created && executed.Exception is null &&
-            executed.Result is ObjectResult { StatusCode: >= 200 and < 300 } or StatusCodeResult { StatusCode: >= 200 and < 300 } or OkResult or CreatedResult or CreatedAtActionResult or NoContentResult)
-            _counter.NoteCreated(_collection, created, _byCondominium);
+        var succeeded = executed.Exception is null && executed.Result switch
+        {
+            ObjectResult result => result.StatusCode is null or (>= 200 and < 300),
+            StatusCodeResult result => result.StatusCode is >= 200 and < 300,
+            _ => executed.Result is null,
+        };
+        if (!succeeded) _counter.Release(_collection, condominiumId, _byCondominium);
     }
 }

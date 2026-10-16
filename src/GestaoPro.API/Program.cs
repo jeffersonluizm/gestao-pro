@@ -165,8 +165,9 @@ builder.Services.AddSingleton<DemoResetGate>();
 builder.Services.AddScoped<IDemoReset, DemoResetRunner>();
 builder.Services.AddScoped<IDemoSessions, DemoSessions>();
 builder.Services.AddSingleton<MongoDemoRecordCounter>();
-builder.Services.AddSingleton<IDemoRecordCounter>(provider => new CachedDemoRecordCounter(
-    provider.GetRequiredService<MongoDemoRecordCounter>(), TimeProvider.System, TimeSpan.FromSeconds(5)));
+builder.Services.AddSingleton<IDemoRecordCounter>(provider => provider.GetRequiredService<MongoDemoRecordCounter>());
+builder.Services.AddSingleton(provider => new CachedDemoRecordCounter(
+    provider.GetRequiredService<IDemoRecordCounter>(), TimeProvider.System, TimeSpan.FromSeconds(5)));
 // Desativa a conta e o código públicos das versões antigas, se ainda existirem no banco.
 builder.Services.AddScoped<ILegacySeedStore, MongoLegacySeedStore>();
 builder.Services.AddScoped<LegacySeedRetirement>();

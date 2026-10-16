@@ -132,3 +132,62 @@ public class DemoResetSlowWriteTests
     }
 }
 
+public class DemoQuotaParallelTests
+{
+    private static ActionExecutingContext Context() => new(
+        new ActionContext(new DefaultHttpContext(), new RouteData(), new ActionDescriptor()),
+        new List<IFilterMetadata>(), new Dictionary<string, object?>(), controller: new object());
+
+    private static (DemoCatalog Catalog, IConfiguration Config) Setup(int limit)
+    {
+        var catalog = DemoCatalog.FromConfiguration(new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?> { ["Demo:Enabled"] = "true" }).Build());
+        catalog.CondominiumId = CondominioA;
+        return (catalog, new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["Demo:LimitePorColecao"] = limit.ToString() }).Build());
+    }
+
+    private static async Task<IActionResult?> CreateAsync(DemoCatalog catalog, IConfiguration config, CachedDemoRecordCounter counter, IActionResult outcome)
+    {
+        var filter = new DemoQuotaFilter(catalog, counter, config, "announcements", true);
+        var context = Context();
+        await filter.OnActionExecutionAsync(context, async () =>
+        {
+            await Task.Delay(10);
+            return new ActionExecutedContext(context, new List<IFilterMetadata>(), new object()) { Result = outcome };
+        });
+        return context.Result;
+    }
+
+    // 20 criações simultâneas com teto 8: a vaga é reservada antes da ação, então passam exatamente 8.
+    [Fact]
+    public async Task Rajada_paralela_nao_passa_do_teto()
+    {
+        var inner = new Mock<IDemoRecordCounter>();
+        inner.Setup(c => c.CountAsync("announcements", CondominioA, true, It.IsAny<CancellationToken>())).ReturnsAsync(0);
+        var counter = new CachedDemoRecordCounter(inner.Object, TimeProvider.System, TimeSpan.FromSeconds(5));
+        var (catalog, config) = Setup(8);
+
+        var results = await Task.WhenAll(Enumerable.Range(0, 20).Select(_ => CreateAsync(catalog, config, counter, new CreatedResult("", null))));
+
+        Assert.Equal(8, results.Count(result => result is null));
+        Assert.Equal(12, results.Count(result => result is ConflictObjectResult));
+    }
+
+    // Criação que falha (400) devolve a vaga.
+    [Fact]
+    public async Task Criacao_que_falha_devolve_a_vaga()
+    {
+        var inner = new Mock<IDemoRecordCounter>();
+        inner.Setup(c => c.CountAsync("announcements", CondominioA, true, It.IsAny<CancellationToken>())).ReturnsAsync(7);
+        var counter = new CachedDemoRecordCounter(inner.Object, TimeProvider.System, TimeSpan.FromSeconds(5));
+        var (catalog, config) = Setup(8);
+
+        var failed = await CreateAsync(catalog, config, counter, new BadRequestObjectResult(new { message = "inválido" }));
+        var next = await CreateAsync(catalog, config, counter, new CreatedResult("", null));
+        var full = await CreateAsync(catalog, config, counter, new CreatedResult("", null));
+
+        Assert.Null(failed);
+        Assert.Null(next);
+        Assert.IsType<ConflictObjectResult>(full);
+    }
+}
