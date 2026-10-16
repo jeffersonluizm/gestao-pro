@@ -91,10 +91,13 @@ export const modules: ModuleDef[] = [
       { name: 'unitId', label: 'Unidade' },
       { name: 'name', label: 'Nome', required: true },
       { name: 'email', label: 'E-mail', type: 'email', required: true },
-      { name: 'password', label: 'Senha', type: 'password', defaultValue: '123456' },
+      // Em branco, a API gera uma senha temporária (mostrada uma vez) e a pessoa cria a própria no primeiro acesso.
+      // Preenchida, precisa passar na política de senha do servidor.
+      { name: 'password', label: 'Senha', type: 'password', placeholder: 'Em branco: o sistema gera uma senha temporária' },
       { name: 'phone', label: 'Telefone', required: true },
       { name: 'cpf', label: 'CPF', placeholder: '000.000.000-00', required: true },
-      { name: 'role', label: 'Perfil', type: 'select', options: ['admin', 'morador'], required: true },
+      // Papéis aceitos pela API (enum UserRole).
+      { name: 'role', label: 'Perfil', type: 'select', options: ['admin', 'sindico', 'morador', 'porteiro'], required: true },
       { name: 'birthDate', label: 'Nascimento', placeholder: 'DD/MM/AAAA' },
     ],
   },
