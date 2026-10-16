@@ -16,7 +16,7 @@ Por fim, são apresentados os elementos de gestão de tempo do projeto, incluind
 ### Persona 1 – João Carlos Ferreira (Morador)
 
 <p align="center">
-  <img src="https://github.com/ICEI-PUC-Minas-PMV-ADS/pmv-ads-2026-1-e4-infra-t1-gestao-de-condominio-provisorio/blob/main/docs/img/Jo%C3%A3o%20Carlos%20Ferreira%20(Persona).jpg?raw=true" width="400">
+  <img src="img/Jo%C3%A3o%20Carlos%20Ferreira%20(Persona).jpg" width="400">
 </p>
 
 **Idade:** 34 anos <br>
