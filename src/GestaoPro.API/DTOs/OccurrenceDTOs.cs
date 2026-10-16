@@ -4,25 +4,25 @@ using System.ComponentModel.DataAnnotations;
 namespace GestaoPro.API.DTOs;
 
 public record CreateOccurrenceRequest(
-    [Required] string CondominiumId,
-    [Required] string UserId,
-    [Required] string Title,
-    [Required] string Description,
+    [StringLength(100)][Required] string CondominiumId,
+    [StringLength(100)][Required] string UserId,
+    [StringLength(200)][Required] string Title,
+    [StringLength(4000)][Required] string Description,
     [Required] OccurrenceCategory Category,
     [Required] OccurrencePriority Priority
 );
 
 public record UpdateOccurrenceRequest(
-    string? Title,
-    string? Description,
+    [StringLength(200)] string? Title,
+    [StringLength(4000)] string? Description,
     OccurrenceCategory? Category,
     OccurrencePriority? Priority
 );
 
 public record UpdateOccurrenceStatusRequest(
     [Required] OccurrenceStatus Status,
-    [Required] string Note,
-    [Required] string UpdatedByUserId
+    [StringLength(4000)][Required] string Note,
+    [StringLength(100)][Required] string UpdatedByUserId
 );
 
 public class OccurrenceResponse

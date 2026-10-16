@@ -3,6 +3,7 @@ using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -20,6 +21,7 @@ public class BillsController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("bills")]
     public async Task<IActionResult> Create([FromBody] CreateBillDto dto)
     {
         // Admin/síndico emite cobrança só no próprio condomínio.

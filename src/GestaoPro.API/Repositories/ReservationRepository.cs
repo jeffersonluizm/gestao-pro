@@ -9,11 +9,16 @@ public class ReservationRepository : IReservationRepository
 {
     private readonly IMongoCollection<Reservation> _collection;
 
-    public ReservationRepository(IOptions<MongoDBSettings> settings)
+    // Banco da aplicação e índices das consultas usadas: por condomínio, por morador e por área e data (conflito).
+    public ReservationRepository(IMongoDatabase database, IOptions<MongoDBSettings> settings)
     {
-        var client = new MongoClient(settings.Value.ConnectionString);
-        var database = client.GetDatabase(settings.Value.DatabaseName);
         _collection = database.GetCollection<Reservation>(settings.Value.ReservationsCollection);
+        _collection.Indexes.CreateMany(new[]
+        {
+            new CreateIndexModel<Reservation>(Builders<Reservation>.IndexKeys.Ascending(r => r.CondominiumId).Ascending(r => r.Date)),
+            new CreateIndexModel<Reservation>(Builders<Reservation>.IndexKeys.Ascending(r => r.UserId)),
+            new CreateIndexModel<Reservation>(Builders<Reservation>.IndexKeys.Ascending(r => r.CommonAreaId).Ascending(r => r.Date)),
+        });
     }
 
     public async Task<List<Reservation>> GetAllAsync() =>

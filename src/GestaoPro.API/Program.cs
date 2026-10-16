@@ -2,6 +2,7 @@ using GestaoPro.API.Controllers;
 using GestaoPro.API.Middleware;
 using GestaoPro.API.Repositories;
 using GestaoPro.API.Services;
+using GestaoPro.API.Services.Demo;
 using GestaoPro.API.Settings;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.HttpOverrides;
@@ -14,7 +15,22 @@ using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Configuration.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true);
+// Corpo de requisição pequeno em toda a API (nada aqui envia arquivo): o Kestrel corta no mesmo limite do
+// RequestBodyLimitMiddleware, que responde 413 com mensagem legível.
+builder.WebHost.ConfigureKestrel(options =>
+{
+    options.Limits.MaxRequestBodySize = RequestBodyLimitMiddleware.MaxBytes(builder.Configuration);
+    // Corpo a conta-gotas não segura a conexão: no mínimo 1 KB/s depois de 5 s (64 KB chegam em até cerca de 1 min).
+    options.Limits.MinRequestBodyDataRate = new Microsoft.AspNetCore.Server.Kestrel.Core.MinDataRate(1024, TimeSpan.FromSeconds(5));
+});
+// Sem tempo máximo geral: o limite vale só para as escritas (WriteTimeoutMiddleware). O registro existe para o hub
+// declarar explicitamente que não tem tempo máximo (DisableRequestTimeout).
+builder.Services.AddRequestTimeouts();
+
+// Segredos locais com prioridade abaixo das variáveis de ambiente e da linha de comando (ver LocalSettings).
+builder.Configuration.AddLocalSettingsFile(builder.Environment.ContentRootPath);
+// Demo:*, Proxy:* e Limites:* com valor inválido impedem a partida, com a chave e o motivo (StartupSettings).
+StartupSettings.Validate(builder.Configuration);
 
 builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
@@ -73,6 +89,14 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
                     context.Token = accessToken;
                 }
                 return Task.CompletedTask;
+            },
+            // Modo demonstração: token de outra época (antes do último reset ou de o servidor reiniciar) vira 401.
+            OnTokenValidated = context =>
+            {
+                var demo = context.HttpContext.RequestServices.GetRequiredService<DemoCatalog>();
+                if (!demo.IsCurrentEpoch(context.Principal?.FindFirst(DemoCatalog.EpochClaim)?.Value))
+                    context.Fail("Sessão da demonstração encerrada: os dados foram restaurados.");
+                return Task.CompletedTask;
             }
         };
     });
@@ -94,13 +118,15 @@ builder.Services.AddSingleton<UnitRepository>();
 builder.Services.AddSingleton<CondominiumRepository>();
 builder.Services.AddSingleton<PetRepository>();
 builder.Services.AddSingleton<CredentialRepository>();
-builder.Services.AddSingleton<IAdministratorLookup>(provider => provider.GetRequiredService<CredentialRepository>());
+builder.Services.AddSingleton<IAdministratorLookup>(provider =>
+    new CachedAdministratorLookup(provider.GetRequiredService<CredentialRepository>()));
 builder.Services.AddSingleton<OccurrenceRepository>();
 builder.Services.AddSingleton<CacheService>();
 builder.Services.AddSingleton<EmailService>();
 builder.Services.AddSingleton<SmsService>();
 
 builder.Services.AddScoped<IAnnouncementService, AnnouncementService>();
+builder.Services.AddSingleton<IReservationSlotLock, MongoReservationSlotLock>();
 builder.Services.AddScoped<IReservationService, ReservationService>();
 builder.Services.AddScoped<ICommonAreaService, CommonAreaService>();
 builder.Services.AddScoped<VisitorAppService>();
@@ -114,6 +140,7 @@ builder.Services.AddScoped<UserAppService>();
 builder.Services.AddScoped<IUserDirectory>(provider => provider.GetRequiredService<UserAppService>());
 builder.Services.AddScoped<PetAppService>();
 builder.Services.AddScoped<IPetService>(provider => provider.GetRequiredService<PetAppService>());
+builder.Services.AddScoped<IAuthAccounts, MongoAuthAccounts>();
 builder.Services.AddScoped<AuthAppService>();
 builder.Services.AddScoped<ISelfServiceAccounts, MongoSelfServiceAccounts>();
 builder.Services.AddSingleton<IPasswordVerifier, BcryptPasswordVerifier>();
@@ -127,7 +154,25 @@ builder.Services.AddScoped<IBillService, BillService>();
 builder.Services.AddScoped<IPaymentService, PaymentService>();
 builder.Services.AddScoped<DeliveryService>();
 builder.Services.AddScoped<IDeliveryService>(provider => provider.GetRequiredService<DeliveryService>());
+builder.Services.AddSingleton(DemoCatalog.FromConfiguration(builder.Configuration));
+builder.Services.AddScoped<IDemoResidentStore, MongoDemoResidentStore>();
+builder.Services.AddScoped<DemoPreRegisteredResidents>();
 builder.Services.AddScoped<DataSeeder>();
+builder.Services.AddScoped<IDemoSeeder>(provider => provider.GetRequiredService<DataSeeder>());
+builder.Services.AddScoped<DemoDataCleaner>();
+builder.Services.AddScoped<IDemoCleaner>(provider => provider.GetRequiredService<DemoDataCleaner>());
+builder.Services.AddSingleton<DemoResetGate>();
+builder.Services.AddScoped<IDemoReset, DemoResetRunner>();
+builder.Services.AddScoped<IDemoSessions, DemoSessions>();
+builder.Services.AddSingleton<MongoDemoRecordCounter>();
+builder.Services.AddSingleton<IDemoRecordCounter>(provider => provider.GetRequiredService<MongoDemoRecordCounter>());
+builder.Services.AddSingleton(provider => new CachedDemoRecordCounter(
+    provider.GetRequiredService<IDemoRecordCounter>(), TimeProvider.System, TimeSpan.FromSeconds(5)));
+// Desativa a conta e o código públicos das versões antigas, se ainda existirem no banco.
+builder.Services.AddScoped<ILegacySeedStore, MongoLegacySeedStore>();
+builder.Services.AddScoped<LegacySeedRetirement>();
+builder.Services.AddHostedService<LegacySeedRetirementInitializer>();
+builder.Services.AddHostedService<DemoResetService>();
 builder.Services.AddHostedService<VoteIndexInitializer>();
 // Preenche o condomínio de visitantes e vagas antigos (em segundo plano; falha só gera log).
 builder.Services.AddSingleton<ILegacyCondominiumStore, MongoLegacyCondominiumStore>();
@@ -135,7 +180,12 @@ builder.Services.AddScoped<LegacyCondominiumBackfill>();
 builder.Services.AddHostedService<LegacyCondominiumBackfillInitializer>();
 
 // Id de rota malformado responde 400 em vez de 500 (MalformedIdFilter).
-builder.Services.AddControllers(options => options.Filters.Add<MalformedIdFilter>())
+builder.Services.AddControllers(options =>
+    {
+        options.Filters.Add<MalformedIdFilter>();
+        // Modo demonstração: escrita com época antiga ou durante o reset não chega à ação (DemoEpochWriteFilter).
+        options.Filters.Add<DemoEpochWriteFilter>();
+    })
     .AddJsonOptions(options =>
     {
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
@@ -143,9 +193,13 @@ builder.Services.AddControllers(options => options.Filters.Add<MalformedIdFilter
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddSignalR();
+// Erro inesperado vira ProblemDetails (application/problem+json) sem mensagem nem stack da exceção.
+builder.Services.AddProblemDetails();
 
 // Limites das rotas anônimas de autenticação (por IP e por condomínio; ver AuthRateLimit).
 builder.Services.AddAuthRateLimits(builder.Configuration);
+// Modo demonstração: teto de escritas por usuário e por IP (ver DemoWriteLimit).
+builder.Services.AddDemoWriteLimits(builder.Configuration);
 
 // Atrás de proxy (Render), o IP do cliente vem no X-Forwarded-For. Só é lido com Proxy:ConfiarNoProxy=true:
 // sem proxy na frente, qualquer cliente poderia forjar o cabeçalho e escapar dos limites por IP.
@@ -155,44 +209,76 @@ if (trustProxy)
     builder.Services.Configure<ForwardedHeadersOptions>(options =>
     {
         options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
-        options.ForwardLimit = 1;
+        // Saltos e cabeçalho conferidos depois do deploy (docs/deploy.md, "Conferir o IP real"): o padrão é o último
+        // valor do X-Forwarded-For; se a borda do proxy mandar o IP em outro cabeçalho (True-Client-IP), configure.
+        options.ForwardLimit = builder.Configuration.GetValue("Proxy:Saltos", 1);
+        options.ForwardedForHeaderName = builder.Configuration["Proxy:CabecalhoIp"] is { Length: > 0 } header
+            ? header
+            : ForwardedHeadersDefaults.XForwardedForHeaderName;
         options.KnownIPNetworks.Clear();
         options.KnownProxies.Clear();
     });
 }
 
+// CORS só para as origens do painel configuradas (Cors:AllowedOrigins). Sem configuração, em
+// desenvolvimento valem as portas locais do painel e do Expo web; em produção nenhuma origem é liberada.
+// O app nativo não envia Origin e não depende de CORS.
+var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+    ?? (builder.Environment.IsDevelopment()
+        ? new[] { "http://localhost:3000", "http://localhost:8081", "http://localhost:19006" }
+        : Array.Empty<string>());
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.WithOrigins(allowedOrigins)
               .AllowAnyHeader()
-              .AllowAnyMethod();
+              .AllowAnyMethod()
+              .WithExposedHeaders("Retry-After");
     });
 });
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
-
-// A conta admin de demonstração tem senha conhecida: só existe em desenvolvimento.
-if (app.Environment.IsDevelopment())
+// Modo demonstração (Demo:Enabled=true, independente do ambiente): cria o condomínio e as contas demo.
+// Sem a flag, nenhuma conta de demonstração existe.
+if (app.Services.GetRequiredService<DemoCatalog>().Enabled)
 {
+    // A cada partida a demonstração volta ao estado inicial (apaga o que visitantes criaram e recria).
     using var scope = app.Services.CreateScope();
-    var seeder = scope.ServiceProvider.GetRequiredService<DataSeeder>();
-    await seeder.SeedAsync();
+    await scope.ServiceProvider.GetRequiredService<IDemoReset>().ResetAsync();
 }
 
+// Configuração de proxy efetiva no log da partida (ver docs/deploy.md, "Conferir o IP real").
+var proxyHeader = builder.Configuration["Proxy:CabecalhoIp"] is { Length: > 0 } configuredHeader ? configuredHeader : null;
+app.Logger.LogInformation("Proxy: confiar no proxy={Confiar}, saltos={Saltos}, cabeçalho do IP={Cabecalho}.",
+    trustProxy, builder.Configuration.GetValue("Proxy:Saltos", 1), proxyHeader ?? "X-Forwarded-For");
+if (trustProxy && proxyHeader is not null) app.UseMiddleware<ProxyHeaderWatchMiddleware>(proxyHeader);
 if (trustProxy) app.UseForwardedHeaders();
+app.UseExceptionHandler();
+app.UseMiddleware<RequestBodyLimitMiddleware>();
+app.UseMiddleware<SecurityHeadersMiddleware>();
+// Documentação interativa só em desenvolvimento (ou com Swagger:Enabled=true explícito).
+if (app.Configuration.GetValue("Swagger:Enabled", app.Environment.IsDevelopment()))
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 app.UseCors();
-app.UseRateLimiter();
+// Autenticação antes do limitador: o teto de escritas da demonstração é por usuário (claim do token).
 app.UseAuthentication();
+app.UseRateLimiter();
+app.UseRequestTimeouts();
+// Escritas em /api têm até Limites:TimeoutEscritaSegundos (padrão 15 s); leituras e o hub, não.
+app.UseMiddleware<WriteTimeoutMiddleware>();
+// Durante o reset da demonstração, escritas respondem 503 (e as em andamento terminam antes da limpeza).
+app.UseMiddleware<DemoResetGateMiddleware>();
 app.UseMiddleware<ApiAccessMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 // Conexão aberta não sobrevive ao JWT: ao expirar, o cliente precisa reconectar com token novo.
 app.MapHub<NotificacaoHub>("/notificacaoHub", options => options.CloseOnAuthenticationExpiration = true)
-    .RequireAuthorization();
+    .RequireAuthorization()
+    .DisableRequestTimeout();
 
 app.Run();

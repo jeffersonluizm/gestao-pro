@@ -3,6 +3,7 @@ using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using System.Security.Claims;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -25,8 +26,11 @@ public class AssemblyController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        var assemblies = history ? await _service.GetHistoryAsync() : await _service.GetAllAsync();
-        return Ok(caller.InCondominium(assemblies, assembly => assembly.CondominiumId));
+        // Filtro no banco: só as assembleias do condomínio do token.
+        var assemblies = history
+            ? await _service.GetHistoryByCondominiumAsync(caller.CondominiumId!)
+            : await _service.GetByCondominiumAsync(caller.CondominiumId!);
+        return Ok(assemblies);
     }
 
     [HttpGet("{id}")]
@@ -50,6 +54,7 @@ public class AssemblyController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("assembly")]
     public async Task<IActionResult> Create([FromBody] CreateAssemblyDto dto)
     {
         var caller = this.Caller();

@@ -1,16 +1,19 @@
 ﻿import React, { useEffect, useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  View, TextInput, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, ScrollView, ActivityIndicator, Alert,
 } from 'react-native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 
-import { checkCpf, selfRegister, getCondominiums, Condominium, getFriendlyErrorMessage } from '../../api/client';
+import { checkCpf, selfRegister, getPublicCondominiums, CondominiumSummary, getFriendlyErrorMessage, getDemoInfo, DemoInfo } from '../../api/client';
 import { AuthStackParamList } from '../../navigation/AppNavigator';
 import { isValidCpfFormat, maskCpf, maskPhoneBR, onlyDigits } from '../../utils/formatters';
+import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
 type Props = { navigation: NativeStackNavigationProp<AuthStackParamList, 'Register'> };
 
 type Step = 'cpf' | 'form' | 'success';
@@ -18,13 +21,16 @@ type Step = 'cpf' | 'form' | 'success';
 export default function RegisterScreen({ navigation }: Props) {
   const [step, setStep] = useState<Step>('cpf');
   const [loading, setLoading] = useState(false);
-  const [condominiums, setCondominiums] = useState<Condominium[]>([]);
+  const [condominiums, setCondominiums] = useState<CondominiumSummary[]>([]);
 
   // Passo 1
   const [cpf, setCpf] = useState('');
   const [condominiumId, setCondominiumId] = useState('');
   // Código do condomínio (senha padrão entregue pela administração): prova o vínculo com o condomínio.
   const [condominiumCode, setCondominiumCode] = useState('');
+  // Só com o modo demonstração ligado no servidor: mostra os CPFs pré-cadastrados da demo.
+  const [demo, setDemo] = useState<DemoInfo | null>(null);
+  useEffect(() => { getDemoInfo().then(setDemo).catch(() => setDemo(null)); }, []);
 
   // Passo 2
   const [name, setName] = useState('');
@@ -38,7 +44,7 @@ export default function RegisterScreen({ navigation }: Props) {
   const [registeredEmail, setRegisteredEmail] = useState('');
 
   useEffect(() => {
-    getCondominiums()
+    getPublicCondominiums()
       .then(setCondominiums)
       .catch(() => Alert.alert('Aviso', 'Não foi possível carregar os condomínios. Verifique a conexão com a API.'));
   }, []);
@@ -58,7 +64,7 @@ export default function RegisterScreen({ navigation }: Props) {
       }
       setNeedsProfileData(res.needsProfileData);
       setStep('form');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro ao verificar CPF:', err);
       Alert.alert('Erro', getFriendlyErrorMessage(err, 'Não foi possível verificar o CPF.'));
     } finally {
@@ -68,7 +74,7 @@ export default function RegisterScreen({ navigation }: Props) {
 
   async function handleRegister() {
     if (!email.trim()) { Alert.alert('Atenção', 'Informe seu e-mail.'); return; }
-    if (password.length < 6) { Alert.alert('Atenção', 'A senha deve ter ao menos 6 caracteres.'); return; }
+    if (!isStrongPassword(password)) { Alert.alert('Atenção', WEAK_PASSWORD_MESSAGE); return; }
     if (password !== confirmPassword) { Alert.alert('Atenção', 'As senhas não coincidem.'); return; }
     if (needsProfileData && !name.trim()) { Alert.alert('Atenção', 'Informe seu nome completo.'); return; }
     if (phone && onlyDigits(phone).length !== 10) { Alert.alert('Atenção', 'Informe um telefone válido no formato 31 9999-2702.'); return; }
@@ -86,7 +92,7 @@ export default function RegisterScreen({ navigation }: Props) {
       });
       setRegisteredEmail(res.registrationNumber);
       setStep('success');
-    } catch (err: any) {
+    } catch (err) {
       console.error('Erro ao criar conta:', err);
       Alert.alert('Erro', getFriendlyErrorMessage(err, 'Não foi possível criar a conta.'));
     } finally {
@@ -99,19 +105,19 @@ export default function RegisterScreen({ navigation }: Props) {
     return (
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={22} color="#176b87" />
-            <Text style={styles.backText}>Voltar</Text>
+          <TouchableOpacity accessibilityRole="button" style={styles.backBtn} onPress={() => navigation.goBack()}>
+            <Ionicons name="arrow-back" size={22} color={theme.color.action} />
+            <AppText style={styles.backText}>Voltar</AppText>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Ionicons name="person-add-outline" size={48} color="#176b87" />
-            <Text style={styles.title}>Criar conta</Text>
-            <Text style={styles.subtitle}>Informe seu CPF para verificarmos o seu cadastro no condomínio.</Text>
+            <Ionicons name="person-add-outline" size={48} color={theme.color.action} />
+            <AppText style={styles.title}>Criar conta</AppText>
+            <AppText style={styles.subtitle}>Informe seu CPF para verificarmos o seu cadastro no condomínio.</AppText>
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.label}>Condomínio</Text>
+            <AppText style={styles.label}>Condomínio</AppText>
             <View style={styles.pickerWrap}>
               <Picker
                 selectedValue={condominiumId}
@@ -125,8 +131,8 @@ export default function RegisterScreen({ navigation }: Props) {
               </Picker>
             </View>
 
-            <Text style={styles.label}>CPF</Text>
-            <TextInput
+            <AppText style={styles.label}>CPF</AppText>
+            <TextInput accessibilityLabel="CPF"
               style={styles.input}
               placeholder="000.000.000-00"
               keyboardType="numeric"
@@ -135,8 +141,8 @@ export default function RegisterScreen({ navigation }: Props) {
               maxLength={14}
             />
 
-            <Text style={styles.label}>Código do condomínio</Text>
-            <TextInput
+            <AppText style={styles.label}>Código do condomínio</AppText>
+            <TextInput accessibilityLabel="Código do condomínio"
               style={styles.input}
               placeholder="Informado pela administração"
               secureTextEntry
@@ -145,18 +151,20 @@ export default function RegisterScreen({ navigation }: Props) {
               onChangeText={setCondominiumCode}
             />
 
-            <TouchableOpacity style={styles.button} onPress={handleCheckCpf} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Verificar CPF</Text>}
+            <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={handleCheckCpf} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <AppText style={styles.buttonText}>Verificar CPF</AppText>}
             </TouchableOpacity>
           </View>
 
-          <View style={styles.hintCard}>
-            <Text style={styles.hintTitle}>💡 CPFs de teste disponíveis</Text>
-            <Text style={styles.hintLine}>111.111.111-11 — João da Silva</Text>
-            <Text style={styles.hintLine}>222.222.222-22 — Maria Santos</Text>
-            <Text style={styles.hintLine}>333.333.333-33 — Pedro Oliveira</Text>
-            <Text style={styles.hintNote}>Condomínio: Condomínio GestaoPro</Text>
-          </View>
+          {demo && (
+            <View style={styles.hintCard}>
+              <AppText style={styles.hintTitle}>Demonstração: CPFs pré-cadastrados</AppText>
+              {demo.preRegistered.map(resident => (
+                <AppText key={resident.cpf} style={styles.hintLine}>{resident.cpf} · {resident.name}</AppText>
+              ))}
+              <AppText style={styles.hintNote}>Condomínio: {demo.condominiumName} · código {demo.condominiumCode}</AppText>
+            </View>
+          )}
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -167,22 +175,22 @@ export default function RegisterScreen({ navigation }: Props) {
     return (
       <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <TouchableOpacity style={styles.backBtn} onPress={() => setStep('cpf')}>
-            <Ionicons name="arrow-back" size={22} color="#176b87" />
-            <Text style={styles.backText}>Voltar</Text>
+          <TouchableOpacity accessibilityRole="button" style={styles.backBtn} onPress={() => setStep('cpf')}>
+            <Ionicons name="arrow-back" size={22} color={theme.color.action} />
+            <AppText style={styles.backText}>Voltar</AppText>
           </TouchableOpacity>
 
           <View style={styles.header}>
-            <Ionicons name="create-outline" size={48} color="#176b87" />
-            <Text style={styles.title}>Complete seu cadastro</Text>
-            <Text style={styles.subtitle}>CPF verificado! Preencha seus dados para criar a conta.</Text>
+            <Ionicons name="create-outline" size={48} color={theme.color.action} />
+            <AppText style={styles.title}>Complete seu cadastro</AppText>
+            <AppText style={styles.subtitle}>CPF verificado! Preencha seus dados para criar a conta.</AppText>
           </View>
 
           <View style={styles.card}>
             {needsProfileData && (
               <>
-                <Text style={styles.label}>Nome completo *</Text>
-                <TextInput
+                <AppText style={styles.label}>Nome completo *</AppText>
+                <TextInput accessibilityLabel="Nome completo"
                   style={styles.input}
                   placeholder="Seu nome completo"
                   value={name}
@@ -192,8 +200,8 @@ export default function RegisterScreen({ navigation }: Props) {
               </>
             )}
 
-            <Text style={styles.label}>E-mail *</Text>
-            <TextInput
+            <AppText style={styles.label}>E-mail *</AppText>
+            <TextInput accessibilityLabel="E-mail"
               style={styles.input}
               placeholder="seu@email.com"
               keyboardType="email-address"
@@ -202,8 +210,8 @@ export default function RegisterScreen({ navigation }: Props) {
               onChangeText={setEmail}
             />
 
-            <Text style={styles.label}>Telefone</Text>
-            <TextInput
+            <AppText style={styles.label}>Telefone</AppText>
+            <TextInput accessibilityLabel="Telefone"
               style={styles.input}
               placeholder="31 9999-2702"
               keyboardType="phone-pad"
@@ -212,17 +220,17 @@ export default function RegisterScreen({ navigation }: Props) {
               maxLength={12}
             />
 
-            <Text style={styles.label}>Senha *</Text>
-            <TextInput
+            <AppText style={styles.label}>Senha *</AppText>
+            <TextInput accessibilityLabel="Senha"
               style={styles.input}
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               secureTextEntry
               value={password}
               onChangeText={setPassword}
             />
 
-            <Text style={styles.label}>Confirmar senha *</Text>
-            <TextInput
+            <AppText style={styles.label}>Confirmar senha *</AppText>
+            <TextInput accessibilityLabel="Confirmar senha"
               style={styles.input}
               placeholder="Repita a senha"
               secureTextEntry
@@ -230,8 +238,8 @@ export default function RegisterScreen({ navigation }: Props) {
               onChangeText={setConfirmPassword}
             />
 
-            <TouchableOpacity style={styles.button} onPress={handleRegister} disabled={loading}>
-              {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Criar conta</Text>}
+            <TouchableOpacity accessibilityRole="button" style={styles.button} onPress={handleRegister} disabled={loading}>
+              {loading ? <ActivityIndicator color="#fff" /> : <AppText style={styles.buttonText}>Criar conta</AppText>}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -243,14 +251,14 @@ export default function RegisterScreen({ navigation }: Props) {
   return (
     <View style={[styles.container, styles.successContainer]}>
       <View style={styles.successCard}>
-        <Ionicons name="checkmark-circle" size={72} color="#16a34a" style={{ marginBottom: 16 }} />
-        <Text style={styles.successTitle}>Conta criada!</Text>
-        <Text style={styles.successText}>Seu acesso foi configurado. Faça login com:</Text>
+        <Ionicons name="checkmark-circle" size={72} color={theme.color.success} style={{ marginBottom: 16 }} />
+        <AppText style={styles.successTitle}>Conta criada!</AppText>
+        <AppText style={styles.successText}>Seu acesso foi configurado. Faça login com:</AppText>
         <View style={styles.successEmailBox}>
-          <Text style={styles.successEmail}>{registeredEmail}</Text>
+          <AppText style={styles.successEmail}>{registeredEmail}</AppText>
         </View>
-        <TouchableOpacity style={[styles.button, { marginTop: 24 }]} onPress={() => navigation.navigate('Login')}>
-          <Text style={styles.buttonText}>Ir para Login</Text>
+        <TouchableOpacity accessibilityRole="button" style={[styles.button, { marginTop: 24 }]} onPress={() => navigation.navigate('Login')}>
+          <AppText style={styles.buttonText}>Ir para Login</AppText>
         </TouchableOpacity>
       </View>
     </View>
@@ -258,51 +266,51 @@ export default function RegisterScreen({ navigation }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f4ff' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   scroll: { flexGrow: 1, padding: 24, paddingTop: 56 },
   backBtn: { flexDirection: 'row', alignItems: 'center', marginBottom: 24 },
-  backText: { color: '#176b87', fontSize: 15, marginLeft: 6, fontWeight: '600' },
+  backText: { color: theme.color.action, fontSize: 15, marginLeft: 6, fontWeight: '600' },
   header: { alignItems: 'center', marginBottom: 28 },
-  title: { fontSize: 22, fontWeight: '700', color: '#1e293b', marginTop: 12 },
-  subtitle: { fontSize: 14, color: '#64748b', marginTop: 6, textAlign: 'center' },
+  title: { fontSize: 22, fontWeight: '700', color: theme.color.ink, marginTop: 12 },
+  subtitle: { fontSize: 14, color: theme.color.inkMuted, marginTop: 6, textAlign: 'center' },
   card: {
     backgroundColor: '#fff', borderRadius: 16, padding: 24,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 3,
   },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 4, marginTop: 12 },
+  label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 4, marginTop: 12 },
   input: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10,
-    padding: 12, fontSize: 15, backgroundColor: '#f8fafc', marginBottom: 4,
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: 10,
+    padding: 12, fontSize: 15, backgroundColor: theme.color.background, marginBottom: 4,
   },
   pickerWrap: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10,
-    backgroundColor: '#f8fafc', marginBottom: 4, overflow: 'hidden',
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: 10,
+    backgroundColor: theme.color.background, marginBottom: 4, overflow: 'hidden',
   },
   picker: { height: 50 },
   button: {
-    backgroundColor: '#176b87', borderRadius: 10, padding: 14,
+    backgroundColor: theme.color.action, borderRadius: 10, padding: 14,
     alignItems: 'center', marginTop: 16,
   },
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '700' },
   hintCard: {
-    backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0',
+    backgroundColor: theme.color.successSoft, borderWidth: 1, borderColor: theme.color.successSoft,
     borderRadius: 12, padding: 14, marginTop: 20,
   },
-  hintTitle: { fontSize: 13, fontWeight: '700', color: '#166534', marginBottom: 6 },
-  hintLine: { fontSize: 12, color: '#166534', marginBottom: 2 },
-  hintNote: { fontSize: 12, color: '#166534', marginTop: 4, fontStyle: 'italic' },
+  hintTitle: { fontSize: 13, fontWeight: '700', color: theme.color.success, marginBottom: 6 },
+  hintLine: { fontSize: 12, color: theme.color.success, marginBottom: 2 },
+  hintNote: { fontSize: 12, color: theme.color.success, marginTop: 4, fontStyle: 'italic' },
   successContainer: { justifyContent: 'center', alignItems: 'center', padding: 24 },
   successCard: {
     backgroundColor: '#fff', borderRadius: 20, padding: 32, alignItems: 'center',
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1, shadowRadius: 12, elevation: 5, width: '100%',
   },
-  successTitle: { fontSize: 26, fontWeight: '700', color: '#1e293b', marginBottom: 8 },
-  successText: { fontSize: 15, color: '#64748b', textAlign: 'center', marginBottom: 16 },
+  successTitle: { fontSize: 26, fontWeight: '700', color: theme.color.ink, marginBottom: 8 },
+  successText: { fontSize: 15, color: theme.color.inkMuted, textAlign: 'center', marginBottom: 16 },
   successEmailBox: {
-    backgroundColor: '#eff6ff', borderWidth: 1, borderColor: '#bfdbfe',
+    backgroundColor: theme.color.actionSoft, borderWidth: 1, borderColor: theme.color.border,
     borderRadius: 10, padding: 12, width: '100%', alignItems: 'center',
   },
-  successEmail: { fontSize: 16, fontWeight: '700', color: '#1d4ed8' },
+  successEmail: { fontSize: 16, fontWeight: '700', color: theme.color.actionHover },
 });

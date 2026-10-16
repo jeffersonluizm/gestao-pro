@@ -1,0 +1,14 @@
+{
+  "name": "gestaopro-carga",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Harness do teste de estresse do GestaoPro (banco descartável, nunca o real).",
+  "scripts": {
+    "portao": "node portao.mjs",
+    "semear": "node semear.mjs"
+  },
+  "dependencies": {
+    "mongodb": "^6.9.0"
+  }
+}

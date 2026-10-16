@@ -70,6 +70,12 @@ public class UserRepository : IUserRepository
         return document is null ? null : MapLegacyUser(document);
     }
 
+    // Moradores e síndicos ativos do condomínio, contados no banco (sem trazer os documentos).
+    public async Task<long> CountResidentsAsync(string condominiumId) =>
+        await _users.CountDocumentsAsync(u =>
+            u.CondominiumId == condominiumId && u.IsActive &&
+            (u.Role == UserRole.morador || u.Role == UserRole.sindico));
+
     public async Task<List<User>> GetByCondominiumAsync(string condominiumId) =>
         await _users.Find(u => u.CondominiumId == condominiumId && u.IsActive).ToListAsync();
 

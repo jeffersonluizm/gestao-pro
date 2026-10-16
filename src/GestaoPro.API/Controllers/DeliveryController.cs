@@ -4,6 +4,7 @@ using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
 using Microsoft.AspNetCore.Mvc;
 using QRCoder;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -53,6 +54,7 @@ public class DeliveryController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("deliveries")]
     public async Task<ActionResult<Delivery>> Create(Delivery delivery)
     {
         // Portaria e administração cadastram só para morador do próprio condomínio; o condomínio é o do token.

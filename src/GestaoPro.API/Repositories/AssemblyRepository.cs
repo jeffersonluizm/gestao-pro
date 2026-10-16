@@ -11,6 +11,9 @@ public class AssemblyRepository : IAssemblyRepository
     {
         // "assemblies" Ã© o nome da coleÃ§Ã£o no banco
         _collection = database.GetCollection<AssemblyModel>("assembly");
+        // Listas por condomínio (atuais e histórico).
+        _collection.Indexes.CreateOne(new CreateIndexModel<AssemblyModel>(
+            Builders<AssemblyModel>.IndexKeys.Ascending(a => a.CondominiumId)));
     }
 
     public async Task<List<AssemblyModel>> GetAllAsync() =>

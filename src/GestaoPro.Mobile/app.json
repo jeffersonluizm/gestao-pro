@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "GestaoPro",
+    "name": "Gestão Pro",
     "slug": "gestaopro-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -14,28 +14,43 @@
       "package": "com.gestaopro.mobile",
       "versionCode": 1,
       "jsEngine": "jsc",
-      "usesCleartextTraffic": true,
+      "usesCleartextTraffic": false,
       "permissions": [
         "INTERNET",
         "ACCESS_NETWORK_STATE"
-      ]
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#0E243F"
+      }
     },
-    "web": {},
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "name": "Gestão Pro",
+      "themeColor": "#0E243F"
+    },
     "plugins": [
       [
         "expo-build-properties",
         {
           "android": {
-            "usesCleartextTraffic": true
+            "usesCleartextTraffic": false
           }
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "extra": {
       "eas": {
         "projectId": "3eb35a23-f818-4946-bcef-18d8f40d6455"
       }
     },
-    "owner": "jeffersonluiz_m"
+    "owner": "jeffersonluiz_m",
+    "icon": "./assets/icon.png",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "cover",
+      "backgroundColor": "#0E243F"
+    }
   }
 }

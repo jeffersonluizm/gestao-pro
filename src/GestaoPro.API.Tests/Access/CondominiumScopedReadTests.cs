@@ -87,7 +87,18 @@ public class CommonAreasControllerReadTests
             new() { Id = "area-b", CondominiumId = CondominioB },
         };
         _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
+        _service.Setup(s => s.GetByCondominiumAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => all.Where(a => a.CondominiumId == id).ToList());
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => all.FirstOrDefault(a => a.Id == id));
+    }
+
+    [Fact]
+    public async Task Lista_consulta_so_o_condominio_do_token_sem_ler_todas()
+    {
+        await _controller.As("joao", "morador").GetAll();
+
+        _service.Verify(s => s.GetByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetAllAsync(), Times.Never);
     }
 
     [Fact]
@@ -116,9 +127,13 @@ public class AnnouncementsControllerReadTests
             new() { Id = "aviso-a", CondominiumId = CondominioA, Category = "geral" },
             new() { Id = "aviso-b", CondominiumId = CondominioB, Category = "geral" },
         };
-        _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
-        _service.Setup(s => s.GetActiveAsync()).ReturnsAsync(all);
-        _service.Setup(s => s.GetByCategoryAsync("geral")).ReturnsAsync(all);
+        // O filtro por condomínio é do banco: o serviço só devolve o que a consulta pede.
+        _service.Setup(s => s.QueryAsync(It.IsAny<AnnouncementQuery>()))
+            .ReturnsAsync((AnnouncementQuery q) =>
+            {
+                var items = all.Where(a => a.CondominiumId == q.CondominiumId).ToList();
+                return new PagedResult<AnnouncementModel>(items, items.Count);
+            });
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => all.FirstOrDefault(a => a.Id == id));
     }
 
@@ -135,6 +150,36 @@ public class AnnouncementsControllerReadTests
             Assert.Equal(new[] { "aviso-a" }, ValueOf<IEnumerable<AnnouncementModel>>(list).Select(a => a.Id));
         Assert.Equal(404, StatusOf(other));
         Assert.Equal(404, StatusOf(byOther));
+    }
+
+    [Fact]
+    public async Task Listas_consultam_so_o_condominio_do_token_com_filtros_e_pagina()
+    {
+        var queries = new List<AnnouncementQuery>();
+        _service.Setup(s => s.QueryAsync(Capture.In(queries)))
+            .ReturnsAsync(new PagedResult<AnnouncementModel>(new List<AnnouncementModel>(), 42));
+        var controller = _controller.As("joao", "morador");
+
+        await controller.GetAll(page: 2, pageSize: 10);
+        await controller.GetActive();
+        await controller.GetByCategory("geral");
+
+        Assert.All(queries, q => Assert.Equal(CondominioA, q.CondominiumId));
+        Assert.Equal((2, 10), (queries[0].Page, queries[0].PageSize));
+        Assert.True(queries[1].ActiveOnly);
+        Assert.Equal("geral", queries[2].Category);
+        Assert.Equal("42", controller.Response.Headers["X-Total-Count"].ToString());
+    }
+
+    [Theory]
+    [InlineData(0, 10)]
+    [InlineData(1, 0)]
+    [InlineData(1, 101)]
+    public async Task Pagina_invalida_e_400(int page, int pageSize)
+    {
+        var result = await _controller.As("joao", "morador").GetAll(page, pageSize);
+
+        Assert.Equal(400, StatusOf(result));
     }
 }
 
@@ -153,7 +198,23 @@ public class AssemblyControllerReadTests
         };
         _service.Setup(s => s.GetAllAsync()).ReturnsAsync(all);
         _service.Setup(s => s.GetHistoryAsync()).ReturnsAsync(all);
+        _service.Setup(s => s.GetByCondominiumAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => all.Where(a => a.CondominiumId == id).ToList());
+        _service.Setup(s => s.GetHistoryByCondominiumAsync(It.IsAny<string>()))
+            .ReturnsAsync((string id) => all.Where(a => a.CondominiumId == id).ToList());
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => all.FirstOrDefault(a => a.Id == id));
+    }
+
+    [Fact]
+    public async Task Lista_e_historico_consultam_so_o_condominio_do_token()
+    {
+        await _controller.As("joao", "morador").GetAll();
+        await _controller.As("joao", "morador").GetAll(history: true);
+
+        _service.Verify(s => s.GetByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetHistoryByCondominiumAsync(CondominioA), Times.Once);
+        _service.Verify(s => s.GetAllAsync(), Times.Never);
+        _service.Verify(s => s.GetHistoryAsync(), Times.Never);
     }
 
     [Fact]
@@ -222,6 +283,40 @@ public class CondominiumsControllerReadTests
     {
         _controller = new CondominiumsController(_service.Object);
         _service.Setup(s => s.GetByIdAsync(It.IsAny<string>())).ReturnsAsync((string id) => new CondominiumResponse { Id = id });
+    }
+
+    // Tela de cadastro (anônima): só id e nome, sem CNPJ, endereço nem contagem de moradores.
+    [Fact]
+    public async Task Lista_publica_tem_so_id_e_nome()
+    {
+        _service.Setup(s => s.GetPublicAsync()).ReturnsAsync(new List<CondominiumSummary>
+        {
+            new(CondominioA, "Residencial A"),
+            new(CondominioB, "Residencial B"),
+        });
+
+        var result = await _controller.GetPublic();
+
+        var list = ValueOf<IEnumerable<CondominiumSummary>>(result).ToList();
+        Assert.Equal(new[] { "Residencial A", "Residencial B" }, list.Select(c => c.Name));
+        Assert.Equal(new[] { "Id", "Name" }, typeof(CondominiumSummary).GetProperties().Select(p => p.Name).OrderBy(n => n));
+    }
+
+    [Fact]
+    public async Task Lista_com_login_traz_so_o_proprio_condominio()
+    {
+        var result = await _controller.As("admin-a", "admin").GetAll();
+
+        var list = ValueOf<IEnumerable<CondominiumResponse>>(result).ToList();
+        Assert.Equal(new[] { CondominioA }, list.Select(c => c.Id));
+    }
+
+    [Fact]
+    public async Task Lista_com_token_sem_condominio_e_recusada()
+    {
+        var result = await _controller.As("admin-a", "admin", condominiumId: null).GetAll();
+
+        Assert.Equal(403, StatusOf(result));
     }
 
     [Fact]

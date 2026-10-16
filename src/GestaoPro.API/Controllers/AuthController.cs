@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -19,12 +20,28 @@ public class AuthController : ControllerBase
         AuthAppService service,
         IUserDirectory users,
         SelfServiceAuthService selfService,
-        CondominiumAttemptLimiter condominiumAttempts)
+        CondominiumAttemptLimiter condominiumAttempts,
+        DemoCatalog? demo = null)
     {
         _service = service;
         _users = users;
         _selfService = selfService;
         _condominiumAttempts = condominiumAttempts;
+        _demo = new DemoGuard(demo);
+    }
+
+    private readonly DemoGuard _demo;
+
+    public const string RoleMismatchMessage = "O papel da credencial precisa ser o mesmo do cadastro da pessoa.";
+    public const string CondominiumMismatchMessage = "A credencial precisa ser do mesmo condomínio da pessoa.";
+
+    // Conta de demonstração compartilhada e registros de exemplo: senha e acesso não mudam (403).
+    private async Task<IActionResult?> DenyDemoAccountAsync(string userId)
+    {
+        if (!_demo.Enabled) return null;
+        var user = await _users.GetByIdAsync(userId);
+        if (_demo.IsProtectedEmail(user?.Email)) return DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage);
+        return _demo.IsSeededRecord(userId) ? DemoGuard.Forbidden(DemoGuard.SeededRecordMessage) : null;
     }
 
     [HttpPost("login")]
@@ -56,6 +73,15 @@ public class AuthController : ControllerBase
     {
         if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
         if (this.DenyManage(this.Caller(), request.CondominiumId, staff: true) is { } otherCondominium) return otherCondominium;
+        if (await DenyDemoAccountAsync(request.UserId) is { } demo) return demo;
+        if (_demo.IsReservedDomain(request.RegistrationNumber)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
+        // Papel e condomínio vêm do cadastro da pessoa: a rota não promove ninguém nem muda de condomínio.
+        var user = await _users.GetByIdAsync(request.UserId);
+        if (user is null) return NotFound();
+        if (!Enum.TryParse<GestaoPro.API.Models.UserRole>(request.Role, ignoreCase: false, out var role) || !Enum.IsDefined(role) || role != user.Role)
+            return BadRequest(new { message = RoleMismatchMessage });
+        if (request.CondominiumId != user.CondominiumId) return BadRequest(new { message = CondominiumMismatchMessage });
+        if (WeakPassword(request.Password) is { } weak) return weak;
 
         try
         {
@@ -72,6 +98,9 @@ public class AuthController : ControllerBase
     [EnableRateLimiting(AuthRateLimit.ChangePassword)]
     public async Task<IActionResult> ChangePassword([FromBody] AuthChangePasswordRequest request)
     {
+        // A regra da senha nova não é segredo: responde com ela antes de olhar a conta.
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
+
         try
         {
             await _selfService.ChangePasswordOnFirstAccessAsync(request);
@@ -88,6 +117,8 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> ResetPassword([FromBody] AuthResetPasswordRequest request)
     {
         if (await DenyManageUserAsync(request.UserId) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(request.UserId) is { } demo) return demo;
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
         {
@@ -121,6 +152,7 @@ public class AuthController : ControllerBase
     [EnableRateLimiting(AuthRateLimit.Register)]
     public async Task<IActionResult> SelfRegister([FromBody] SelfRegisterRequest request)
     {
+        if (WeakPassword(request.Password) is { } weak) return weak;
         if (DenyTooManyCondominiumAttempts(request.CondominiumId) is { } tooMany) return tooMany;
 
         try
@@ -139,10 +171,14 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Deactivate(string userId)
     {
         if (await DenyManageUserAsync(userId) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(userId) is { } demo) return demo;
 
         var result = await _service.DeactivateAsync(userId);
         return result ? NoContent() : NotFound();
     }
+
+    private IActionResult? WeakPassword(string? password) =>
+        PasswordPolicy.IsStrong(password) ? null : BadRequest(new { message = PasswordPolicy.WeakPasswordMessage });
 
     // Balde por condomínio do check-cpf e do cadastro (além do balde por IP): 429 com Retry-After.
     private IActionResult? DenyTooManyCondominiumAttempts(string condominiumId)

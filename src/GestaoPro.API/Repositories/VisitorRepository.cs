@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using GestaoPro.API.Services;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using MongoDB.Bson;
 using GestaoPro.API.Models;
@@ -39,31 +40,31 @@ public class VisitorRepository : IVisitorRepository
 
     public async Task CheckInAsync(string id)
     {
-        var now = BrasiliaNow();
+        var now = BrazilTime.Now();
         var update = Builders<Visitor>.Update
             .Set(x => x.Status, "checked-in")
             .Set(x => x.CheckInAt, now)
-            .Push(x => x.History, new VisitorHistory
+            .PushEach(x => x.History, new[] { new VisitorHistory
             {
                 Action = "entrada",
                 Status = "checked-in",
                 Date = now
-            });
+            } }, slice: -HistoryLimit.Max);
         await _collection.UpdateOneAsync(x => x.Id == id, update);
     }
 
     public async Task CheckOutAsync(string id)
     {
-        var now = BrasiliaNow();
+        var now = BrazilTime.Now();
         var update = Builders<Visitor>.Update
             .Set(x => x.Status, "checked-out")
             .Set(x => x.CheckOutAt, now)
-            .Push(x => x.History, new VisitorHistory
+            .PushEach(x => x.History, new[] { new VisitorHistory
             {
                 Action = "saida",
                 Status = "checked-out",
                 Date = now
-            });
+            } }, slice: -HistoryLimit.Max);
         await _collection.UpdateOneAsync(x => x.Id == id, update);
     }
 
@@ -71,19 +72,6 @@ public class VisitorRepository : IVisitorRepository
     {
         if (ObjectId.TryParse(id, out _))
             await _collection.DeleteOneAsync(x => x.Id == id);
-    }
-
-    private static DateTime BrasiliaNow()
-    {
-        try
-        {
-            var zone = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);
-        }
-        catch
-        {
-            return DateTime.UtcNow.AddHours(-3);
-        }
     }
 }
 

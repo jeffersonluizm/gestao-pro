@@ -9,11 +9,12 @@ public class CommonAreaRepository : ICommonAreaRepository
 {
     private readonly IMongoCollection<CommonArea> _collection;
 
-    public CommonAreaRepository(IOptions<MongoDBSettings> settings)
+    // Banco da aplicação (um pool de conexões só) e índice da lista por condomínio.
+    public CommonAreaRepository(IMongoDatabase database, IOptions<MongoDBSettings> settings)
     {
-        var client = new MongoClient(settings.Value.ConnectionString);
-        var database = client.GetDatabase(settings.Value.DatabaseName);
         _collection = database.GetCollection<CommonArea>(settings.Value.CommonAreasCollection);
+        _collection.Indexes.CreateOne(new CreateIndexModel<CommonArea>(
+            Builders<CommonArea>.IndexKeys.Ascending(a => a.CondominiumId).Ascending(a => a.Name)));
     }
 
     public async Task<List<CommonArea>> GetAllAsync() =>

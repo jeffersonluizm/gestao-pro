@@ -2,6 +2,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -11,11 +12,13 @@ public class UnitsController : ControllerBase
 {
     private readonly IUnitService _service;
     private readonly IUserDirectory _users;
+    private readonly DemoGuard _demo;
 
-    public UnitsController(IUnitService service, IUserDirectory users)
+    public UnitsController(IUnitService service, IUserDirectory users, DemoCatalog? demo = null)
     {
         _service = service;
         _users = users;
+        _demo = new DemoGuard(demo);
     }
 
     [HttpGet("condominium/{condominiumId}")]
@@ -39,6 +42,7 @@ public class UnitsController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("units")]
     public async Task<IActionResult> Create([FromBody] CreateUnitRequest request)
     {
         var caller = this.Caller();
@@ -75,6 +79,7 @@ public class UnitsController : ControllerBase
     public async Task<IActionResult> Delete(string id)
     {
         if (await DenyManageAsync(id) is { } denied) return denied;
+        if (_demo.IsSeededRecord(id)) return DemoGuard.Forbidden(DemoGuard.SeededRecordMessage);
 
         var result = await _service.DeleteAsync(id);
         return result ? NoContent() : NotFound();

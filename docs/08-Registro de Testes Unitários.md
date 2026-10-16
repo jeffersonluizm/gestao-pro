@@ -1,5 +1,18 @@
 # Registro de Testes Unitarios - GestaoPro
 
+> **Registro atual (2026-10-15).** Os números abaixo, das seções seguintes, são da entrega acadêmica (176 testes). Hoje a suíte tem:
+>
+> | Suíte | Ferramenta | Testes | Como rodar |
+> |---|---|---|---|
+> | API (unidade e integração) | xUnit + Moq + `WebApplicationFactory` | **645** | `dotnet test src/GestaoPro.API.Tests` |
+> | Painel web (interface por papel, utilitários) | Vitest + Testing Library | **83** | `npm test` em `src/GestaoPro.Web` |
+> | App (utilitários e regras de build) | Vitest | **29** | `npm test` em `src/GestaoPro.Mobile` |
+>
+> Testes da API por área: partida, configuração, cabeçalhos de segurança, CORS, ProblemDetails, limites de tentativa e de corpo, tamanho dos textos de entrada, época da demonstração, validação da configuração, health e desativação dos dados públicos antigos (133); acesso por dono e condomínio, política de senha, tempo do login, senha temporária e autoatendimento (105); reservas, inclusive a corrida de pedidos simultâneos, o formato de data e o fuso de Brasília (49); middleware de acesso e cache de administrador (43); modo demonstração: entrada sem senha, proteção dos registros de exemplo e das credenciais, janela do reset, escrita lenta e tetos de uso (73); votação (39); cobranças (29); estacionamento (27); pagamentos (24); usuários e matrícula (22); áreas comuns (22); avisos (21); assembleias (17); visitantes (14); ocorrências (11); encomendas (7); pets (5); pacotes (4).
+>
+> O CI (`.github/workflows/ci.yml`) roda as três suítes, o lint e o build a cada push.
+
+
 ## 1. O que sao Testes Unitarios?
 
 Testes unitarios sao testes automatizados que validam o comportamento de pequenas unidades isoladas do codigo (metodos, funcoes, classes). Cada teste verifica uma unica responsabilidade, garantindo que a logica de negocio funcione corretamente de forma independente de dependencias externas como bancos de dados ou servicos web.

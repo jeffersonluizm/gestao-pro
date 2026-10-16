@@ -42,8 +42,8 @@ public class LegacyCondominiumBackfillTests
         NullLogger<LegacyCondominiumBackfill>.Instance);
 
     private void CondominiumsInSystem(params string[] ids) =>
-        _condominiums.Setup(c => c.GetAllAsync())
-            .ReturnsAsync(ids.Select(id => new CondominiumResponse { Id = id }).ToList());
+        _condominiums.Setup(c => c.GetPublicAsync())
+            .ReturnsAsync(ids.Select(id => new CondominiumSummary(id, $"Condominio {id}")).ToList());
 
     [Fact]
     public async Task Visitante_sem_condominio_recebe_o_do_morador_e_o_sem_morador_fica_sem()

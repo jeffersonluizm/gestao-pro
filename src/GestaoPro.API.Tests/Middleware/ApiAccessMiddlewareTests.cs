@@ -48,6 +48,8 @@ public class ApiAccessMiddlewareTests
     [InlineData("GET", "/api/condominiums/665f1c2e9b1e8a0012345678")]
     [InlineData("GET", "/api/visitor")]
     [InlineData("GET", "/api/condominiums/")]
+    [InlineData("GET", "/api/condominiums")]
+    [InlineData("GET", "/api/Condominiums")]
     public async Task Leitura_anonima_de_dados_retorna_401_sem_chegar_ao_controller(string method, string path)
     {
         var (statusCode, nextCalled) = await InvokeAsync(method, path);
@@ -57,8 +59,8 @@ public class ApiAccessMiddlewareTests
     }
 
     [Theory]
-    [InlineData("GET", "/api/condominiums")]
-    [InlineData("GET", "/api/Condominiums")]
+    [InlineData("GET", "/api/condominiums/public")]
+    [InlineData("GET", "/api/Condominiums/public")]
     [InlineData("GET", "/api/health/mongodb")]
     [InlineData("OPTIONS", "/api/users")]
     [InlineData("GET", "/swagger/index.html")]
@@ -159,6 +161,27 @@ public class ApiAccessMiddlewareTests
     public async Task Trocar_senha_sem_login_continua_401()
     {
         var (statusCode, nextCalled) = await InvokeAsync("PATCH", "/api/Users/665f1c2e9b1e8a0012345678/change-password");
+
+        Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
+        Assert.False(nextCalled);
+    }
+
+    // Entrada na demonstração sem senha: anônima por definição (o controller responde 404 sem a flag).
+    [Fact]
+    public async Task Entrar_na_demonstracao_e_liberado_sem_login()
+    {
+        var (_, nextCalled) = await InvokeAsync("POST", "/api/demo/entrar");
+
+        Assert.True(nextCalled);
+    }
+
+    [Theory]
+    [InlineData("POST", "/api/demo")]
+    [InlineData("POST", "/api/demo/entrar/outro")]
+    [InlineData("DELETE", "/api/demo/entrar")]
+    public async Task Outras_escritas_em_demo_continuam_exigindo_login(string method, string path)
+    {
+        var (statusCode, nextCalled) = await InvokeAsync(method, path);
 
         Assert.Equal(StatusCodes.Status401Unauthorized, statusCode);
         Assert.False(nextCalled);

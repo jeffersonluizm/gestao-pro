@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { setAuthToken, setOnUnauthorized } from '../api/client';
+import { markSessionExpired } from '../utils/demoSession';
 
 function isJwtExpired(token: string): boolean {
   try {
@@ -47,6 +48,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Register auto-logout: when any API call returns 401, clear session immediately.
   useEffect(() => {
     setOnUnauthorized(async () => {
+      // Se era uma sessão demo (reset dos dados), o cartão da demonstração entra de novo uma vez.
+      markSessionExpired();
       await AsyncStorage.multiRemove(Object.values(KEYS));
       setSession(null);
     });

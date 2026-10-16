@@ -1,6 +1,6 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useRef } from 'react';
 import {
-  View, Text, StyleSheet, TouchableOpacity, Alert,
+  View, StyleSheet, TouchableOpacity, Alert,
   ActivityIndicator, ScrollView, Platform, Modal, TextInput,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -8,9 +8,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { getUserById, changeUserPassword, User, getFriendlyErrorMessage } from '../../api/client';
+import { isStrongPassword, WEAK_PASSWORD_MESSAGE } from '../../utils/passwordPolicy';
 import { useAuth } from '../../context/AuthContext';
 import { sw, sf, HP } from '../../utils/responsive';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
 const ROLE_LABEL: Record<string, string> = {
   admin: 'Administrador',
   sindico: 'Síndico',
@@ -37,8 +40,8 @@ export default function ProfileScreen() {
       setPwdError('Preencha todos os campos.');
       return;
     }
-    if (newPwd.length < 6) {
-      setPwdError('A nova senha deve ter pelo menos 6 caracteres.');
+    if (!isStrongPassword(newPwd)) {
+      setPwdError(WEAK_PASSWORD_MESSAGE);
       return;
     }
     if (newPwd !== confirmPwd) {
@@ -51,7 +54,7 @@ export default function ProfileScreen() {
       setPwdModal(false);
       setCurrentPwd(''); setNewPwd(''); setConfirmPwd('');
       Alert.alert('Sucesso', 'Senha alterada com sucesso.');
-    } catch (e: any) {
+    } catch (e) {
       console.error('Erro ao alterar senha:', e);
       setPwdError(getFriendlyErrorMessage(e, 'Não foi possível alterar a senha.'));
     } finally {
@@ -73,7 +76,7 @@ export default function ProfileScreen() {
         setTimeout(() => reject(new Error('timeout')), 5000)
       );
       const data = await Promise.race([getUserById(session!.userId), timeoutPromise]);
-      if (data) setUser(data as any);
+      if (data) setUser(data);
     } catch {
       // Usa os dados da sessão como fallback
     } finally {
@@ -81,7 +84,10 @@ export default function ProfileScreen() {
     }
   }
 
-  useFocusEffect(useCallback(() => { load(); }, []));
+  // Recarrega ao voltar para a aba, sempre com a versão atual de load (sessão em dia).
+  const loadRef = useRef(load);
+  loadRef.current = load;
+  useFocusEffect(useCallback(() => { loadRef.current(); }, []));
 
   function handleLogout() {
     if (Platform.OS === 'web') {
@@ -113,71 +119,71 @@ export default function ProfileScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Perfil</Text>
+        <AppText style={styles.title}>Perfil</AppText>
       </View>
 
       {loading ? (
-        <ActivityIndicator size="large" color="#176b87" style={{ marginTop: sw(60) }} />
+        <ActivityIndicator size="large" color={theme.color.action} style={{ marginTop: sw(60) }} />
       ) : (
         <ScrollView contentContainerStyle={styles.scroll}>
           {/* Avatar + nome */}
           <View style={styles.avatarSection}>
             <View style={styles.avatar}>
-              <Text style={styles.avatarText}>{initials || '?'}</Text>
+              <AppText style={styles.avatarText}>{initials || '?'}</AppText>
             </View>
-            <Text style={styles.displayName}>{displayName}</Text>
+            <AppText style={styles.displayName}>{displayName}</AppText>
             <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>{displayRole}</Text>
+              <AppText style={styles.roleText}>{displayRole}</AppText>
             </View>
           </View>
 
           {/* Informações */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Informações</Text>
+            <AppText style={styles.sectionTitle}>Informações</AppText>
 
-            <InfoRow icon="mail-outline" label="E-mail" value={displayEmail || '—'} />
-            <InfoRow icon="call-outline" label="Telefone" value={user?.phone || '—'} />
+            <InfoRow icon="mail-outline" label="E-mail" value={displayEmail || 'Não informado'} />
+            <InfoRow icon="call-outline" label="Telefone" value={user?.phone || 'Não informado'} />
             <InfoRow
               icon="card-outline"
               label="CPF"
-              value={user?.cpf ? maskCpf(user.cpf) : '—'}
+              value={user?.cpf ? maskCpf(user.cpf) : 'Não informado'}
             />
             <InfoRow
               icon="home-outline"
               label="Matrícula / E-mail"
-              value={user?.registrationNumber || session?.registrationNumber || '—'}
+              value={user?.registrationNumber || session?.registrationNumber || 'Não informado'}
             />
           </View>
 
           {/* Ações */}
           <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Conta</Text>
+            <AppText style={styles.sectionTitle}>Conta</AppText>
 
-            <TouchableOpacity style={styles.actionRow} onPress={openPwdModal}>
+            <TouchableOpacity accessibilityRole="button" style={styles.actionRow} onPress={openPwdModal}>
               <View style={styles.actionLeft}>
-                <View style={[styles.actionIcon, { backgroundColor: '#eff6ff' }]}>
-                  <Ionicons name="lock-closed-outline" size={sw(18)} color="#176b87" />
+                <View style={[styles.actionIcon, { backgroundColor: theme.color.actionSoft }]}>
+                  <Ionicons name="lock-closed-outline" size={sw(18)} color={theme.color.action} />
                 </View>
-                <Text style={styles.actionLabel}>Alterar senha</Text>
+                <AppText style={styles.actionLabel}>Alterar senha</AppText>
               </View>
-              <Ionicons name="chevron-forward" size={sw(18)} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={sw(18)} color={theme.color.inkMuted} />
             </TouchableOpacity>
 
             <View style={styles.divider} />
 
-            <TouchableOpacity style={styles.actionRow} onPress={handleLogout}>
+            <TouchableOpacity accessibilityRole="button" style={styles.actionRow} onPress={handleLogout}>
               <View style={styles.actionLeft}>
-                <View style={[styles.actionIcon, { backgroundColor: '#fef2f2' }]}>
-                  <Ionicons name="log-out-outline" size={sw(18)} color="#ef4444" />
+                <View style={[styles.actionIcon, { backgroundColor: theme.color.dangerSoft }]}>
+                  <Ionicons name="log-out-outline" size={sw(18)} color={theme.color.danger} />
                 </View>
-                <Text style={[styles.actionLabel, { color: '#ef4444' }]}>Sair da conta</Text>
+                <AppText style={[styles.actionLabel, { color: theme.color.danger }]}>Sair da conta</AppText>
               </View>
-              <Ionicons name="chevron-forward" size={sw(18)} color="#94a3b8" />
+              <Ionicons name="chevron-forward" size={sw(18)} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
 
           {/* Versão */}
-          <Text style={styles.version}>GestaoPro Mobile v1.0.0</Text>
+          <AppText style={styles.version}>GestaoPro Mobile v1.0.0</AppText>
         </ScrollView>
       )}
 
@@ -185,22 +191,22 @@ export default function ProfileScreen() {
       <Modal visible={pwdModal} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={pwdStyles.container}>
           <View style={pwdStyles.header}>
-            <Text style={pwdStyles.title}>Alterar Senha</Text>
-            <TouchableOpacity onPress={() => setPwdModal(false)}>
-              <Ionicons name="close" size={sw(26)} color="#64748b" />
+            <AppText style={pwdStyles.title}>Alterar Senha</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={() => setPwdModal(false)}>
+              <Ionicons name="close" size={sw(26)} color={theme.color.inkMuted} />
             </TouchableOpacity>
           </View>
 
           <ScrollView style={pwdStyles.body} keyboardShouldPersistTaps="handled">
             {pwdError ? (
               <View style={pwdStyles.errorBox}>
-                <Ionicons name="alert-circle-outline" size={sw(16)} color="#dc2626" />
-                <Text style={pwdStyles.errorText}>{pwdError}</Text>
+                <Ionicons name="alert-circle-outline" size={sw(16)} color={theme.color.danger} />
+                <AppText style={pwdStyles.errorText}>{pwdError}</AppText>
               </View>
             ) : null}
 
-            <Text style={pwdStyles.label}>Senha atual *</Text>
-            <TextInput
+            <AppText style={pwdStyles.label}>Senha atual *</AppText>
+            <TextInput accessibilityLabel="Senha atual"
               style={pwdStyles.input}
               secureTextEntry
               placeholder="••••••••"
@@ -208,17 +214,17 @@ export default function ProfileScreen() {
               onChangeText={setCurrentPwd}
             />
 
-            <Text style={pwdStyles.label}>Nova senha *</Text>
-            <TextInput
+            <AppText style={pwdStyles.label}>Nova senha *</AppText>
+            <TextInput accessibilityLabel="Nova senha"
               style={pwdStyles.input}
               secureTextEntry
-              placeholder="Mínimo 6 caracteres"
+              placeholder="Mínimo 8 caracteres"
               value={newPwd}
               onChangeText={setNewPwd}
             />
 
-            <Text style={pwdStyles.label}>Confirmar nova senha *</Text>
-            <TextInput
+            <AppText style={pwdStyles.label}>Confirmar nova senha *</AppText>
+            <TextInput accessibilityLabel="Confirmar nova senha"
               style={pwdStyles.input}
               secureTextEntry
               placeholder="••••••••"
@@ -226,10 +232,10 @@ export default function ProfileScreen() {
               onChangeText={setConfirmPwd}
             />
 
-            <TouchableOpacity style={pwdStyles.btn} onPress={handleChangePassword} disabled={savingPwd}>
+            <TouchableOpacity accessibilityRole="button" style={pwdStyles.btn} onPress={handleChangePassword} disabled={savingPwd}>
               {savingPwd
                 ? <ActivityIndicator color="#fff" />
-                : <Text style={pwdStyles.btnText}>Salvar nova senha</Text>}
+                : <AppText style={pwdStyles.btnText}>Salvar nova senha</AppText>}
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -238,15 +244,15 @@ export default function ProfileScreen() {
   );
 }
 
-function InfoRow({ icon, label, value }: { icon: any; label: string; value: string }) {
+function InfoRow({ icon, label, value }: { icon: React.ComponentProps<typeof Ionicons>['name']; label: string; value: string }) {
   return (
     <View style={infoStyles.row}>
       <View style={infoStyles.iconWrap}>
-        <Ionicons name={icon} size={sw(18)} color="#64748b" />
+        <Ionicons name={icon} size={sw(18)} color={theme.color.inkMuted} />
       </View>
       <View style={infoStyles.textWrap}>
-        <Text style={infoStyles.label}>{label}</Text>
-        <Text style={infoStyles.value}>{value}</Text>
+        <AppText style={infoStyles.label}>{label}</AppText>
+        <AppText style={infoStyles.value}>{value}</AppText>
       </View>
     </View>
   );
@@ -262,73 +268,73 @@ const infoStyles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', paddingVertical: sw(10) },
   iconWrap: { width: sw(32), alignItems: 'center' },
   textWrap: { flex: 1, marginLeft: sw(8) },
-  label: { fontSize: sf(11), color: '#94a3b8', fontWeight: '600', textTransform: 'uppercase', marginBottom: sw(1) },
-  value: { fontSize: sf(15), color: '#1e293b' },
+  label: { fontSize: sf(11), color: theme.color.inkMuted, fontWeight: '600', textTransform: 'uppercase', marginBottom: sw(1) },
+  value: { fontSize: sf(15), color: theme.color.ink },
 });
 
 const pwdStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    padding: HP, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    padding: HP, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  title: { fontSize: sf(18), fontWeight: '700', color: '#1e293b' },
+  title: { fontSize: sf(18), fontWeight: '700', color: theme.color.ink },
   body: { padding: HP },
   errorBox: {
     flexDirection: 'row', alignItems: 'center', gap: sw(6),
-    backgroundColor: '#fef2f2', borderRadius: sw(8), padding: sw(12), marginBottom: sw(12),
+    backgroundColor: theme.color.dangerSoft, borderRadius: sw(8), padding: sw(12), marginBottom: sw(12),
   },
-  errorText: { color: '#dc2626', fontSize: sf(13), flex: 1 },
-  label: { fontSize: sf(13), fontWeight: '600', color: '#475569', marginBottom: sw(6), marginTop: sw(14) },
+  errorText: { color: theme.color.danger, fontSize: sf(13), flex: 1 },
+  label: { fontSize: sf(13), fontWeight: '600', color: theme.color.inkMuted, marginBottom: sw(6), marginTop: sw(14) },
   input: {
-    borderWidth: 1, borderColor: '#e2e8f0', borderRadius: sw(10),
+    borderWidth: 1, borderColor: theme.color.border, borderRadius: sw(10),
     padding: sw(12), fontSize: sf(15), backgroundColor: '#fff',
   },
   btn: {
-    backgroundColor: '#176b87', borderRadius: sw(12),
+    backgroundColor: theme.color.action, borderRadius: sw(12),
     padding: sw(16), alignItems: 'center', marginTop: sw(28), marginBottom: sw(40),
   },
   btnText: { color: '#fff', fontSize: sf(16), fontWeight: '700' },
 });
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
+  container: { flex: 1, backgroundColor: theme.color.background },
   header: {
     paddingHorizontal: HP, paddingVertical: sw(16),
-    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0',
+    backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border,
   },
-  title: { fontSize: sf(20), fontWeight: '700', color: '#1e293b' },
+  title: { fontSize: sf(20), fontWeight: '700', color: theme.color.ink },
   scroll: { padding: HP, paddingBottom: sw(40) },
   avatarSection: { alignItems: 'center', paddingVertical: sw(28) },
   avatar: {
     width: sw(80), height: sw(80), borderRadius: sw(40),
-    backgroundColor: '#176b87', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: theme.color.action, justifyContent: 'center', alignItems: 'center',
     marginBottom: sw(12),
-    shadowColor: '#176b87', shadowOffset: { width: 0, height: 4 },
+    shadowColor: theme.color.action, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 6,
   },
   avatarText: { fontSize: sf(28), fontWeight: '700', color: '#fff' },
-  displayName: { fontSize: sf(20), fontWeight: '700', color: '#1e293b', marginBottom: sw(6) },
+  displayName: { fontSize: sf(20), fontWeight: '700', color: theme.color.ink, marginBottom: sw(6) },
   roleBadge: {
-    backgroundColor: '#eff6ff', borderRadius: sw(20), paddingHorizontal: sw(14), paddingVertical: sw(4),
+    backgroundColor: theme.color.actionSoft, borderRadius: sw(20), paddingHorizontal: sw(14), paddingVertical: sw(4),
   },
-  roleText: { fontSize: sf(13), color: '#176b87', fontWeight: '600' },
+  roleText: { fontSize: sf(13), color: theme.color.action, fontWeight: '600' },
   card: {
     backgroundColor: '#fff', borderRadius: sw(16), padding: HP, marginBottom: sw(16),
     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.06, shadowRadius: 4, elevation: 2,
   },
   sectionTitle: {
-    fontSize: sf(12), fontWeight: '700', color: '#94a3b8',
+    fontSize: sf(12), fontWeight: '700', color: theme.color.inkMuted,
     textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: sw(8),
   },
-  divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: sw(4) },
+  divider: { height: 1, backgroundColor: theme.color.surfaceSoft, marginVertical: sw(4) },
   actionRow: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingVertical: sw(12),
   },
   actionLeft: { flexDirection: 'row', alignItems: 'center', gap: sw(12) },
   actionIcon: { width: sw(36), height: sw(36), borderRadius: sw(10), justifyContent: 'center', alignItems: 'center' },
-  actionLabel: { fontSize: sf(15), color: '#1e293b', fontWeight: '500' },
-  version: { textAlign: 'center', fontSize: sf(12), color: '#cbd5e1', marginTop: sw(8) },
+  actionLabel: { fontSize: sf(15), color: theme.color.ink, fontWeight: '500' },
+  version: { textAlign: 'center', fontSize: sf(12), color: theme.color.borderStrong, marginTop: sw(8) },
 });

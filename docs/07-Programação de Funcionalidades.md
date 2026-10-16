@@ -1,6 +1,6 @@
 # Programação de Funcionalidades
 
-<span style="color:red">Pré-requisitos: <a href="2-Especificação do Projeto.md"> Especificação do Projeto</a></span>, <a href="3-Projeto de Interface.md"> Projeto de Interface</a>, <a href="4-Metodologia.md"> Metodologia</a>, <a href="5-Arquitetura da Solução.md"> Arquitetura da Solução</a>
+<span style="color:red">Pré-requisitos: <a href="02-Especificação do Projeto.md"> Especificação do Projeto</a></span>, <a href="04-Projeto de Interface.md"> Projeto de Interface</a>, <a href="03-Metodologia.md"> Metodologia</a>, <a href="05-Arquitetura da Solução.md"> Arquitetura da Solução</a>
 
 Esta seção descreve a implementação dos requisitos funcionais do sistema GestaoPro, relacionando cada requisito com os artefatos de código criados, as tecnologias utilizadas e as instruções para verificação.
 
@@ -34,20 +34,28 @@ src/
 │
 ├── GestaoPro.API.Tests/        # Testes unitários do backend (xUnit)
 │
-├── GestaoPro.Web/              # Frontend Web - React + TypeScript + Vite
+├── GestaoPro.Web/              # Painel web - React + TypeScript + Vite + React Router
 │   └── src/
-│       ├── components/         # Componentes React
-│       └── App.tsx             # Componente raiz (módulos, chamadas à API e telas)
+│       ├── App.tsx             # Rotas (públicas, conexão, painel por papel, 404)
+│       ├── api/                # HTTP, erros amigáveis, aviso de servidor acordando
+│       ├── auth/               # Sessão e AuthContext (papel vem do token)
+│       ├── components/         # ui/ (tabela, toast, diálogo, estados), form/
+│       ├── domain/             # Tipos dos contratos da API
+│       ├── features/           # Módulos (config, telas de recurso, demo, avisos)
+│       ├── layouts/            # Público, conexão e casca do painel
+│       ├── lib/                # Máscaras, rótulos, formulários, política de senha
+│       ├── pages/              # Início, Sobre, Entrar, Cadastro, Perfil, 404, 403...
+│       └── styles/             # tokens.css, base.css, components.css
 │
-└── GestaoPro.Mobile/           # Frontend Mobile - React Native + Expo
+└── GestaoPro.Mobile/           # App - React Native + Expo
     └── src/
         ├── api/                # Cliente HTTP para comunicação com a API
+        ├── components/         # AppText, voltar, demo, data/hora, ErrorBoundary
         ├── context/            # Contextos React (AuthContext)
-        ├── navigation/         # Configuração de navegação (AppNavigator)
-        ├── screens/            # Telas do aplicativo
-        │   ├── auth/           # Login e Cadastro
-        │   └── main/           # Telas principais (Home, Reservas, etc.)
-        └── utils/              # Utilitários (formatters, responsive)
+        ├── navigation/         # Abas + pilha do "Mais"
+        ├── screens/            # auth/ (onboarding, login, cadastro) e main/
+        ├── theme/              # theme.ts (mesmos tokens do painel)
+        └── utils/              # Formatação, financeiro, política de senha
 ```
 
 ## Implementação dos Requisitos Funcionais
@@ -60,9 +68,9 @@ src/
 | RF-004, RF-005 | `AuthController.cs`, `AuthAppService.cs`, `LoginScreen.tsx`, `RegisterScreen.tsx` | Jefferson |
 | RF-006 | `UsersController.cs` (endpoint de atualização de role) | Jefferson |
 
-**Descrição:** O sistema utiliza autenticação JWT. O login aceita matrícula ou e-mail com senha (hash BCrypt). O token JWT contém o `userId`, `role` e `condominiumId`, permitindo controle de acesso por papel (morador/admin). O cadastro de moradores e administradores é feito pelo painel web. As telas de login e cadastro no mobile (`LoginScreen.tsx`, `RegisterScreen.tsx`) consomem o endpoint `api/auth/login`.
+**Descrição:** O sistema utiliza autenticação JWT. O login aceita e-mail (ou a matrícula antiga) com senha (hash BCrypt), com tempo de resposta igual para conta existente ou não e limite de tentativas. O token JWT contém o `userId`, `role` e `condominiumId`, permitindo controle de acesso por papel (morador, porteiro, síndico, administrador) e por condomínio. O cadastro de moradores e administradores é feito pelo painel web. As telas de login e cadastro no mobile (`LoginScreen.tsx`, `RegisterScreen.tsx`) consomem o endpoint `api/auth/login`.
 
-**Verificação:** Acessar `http://localhost:5000/swagger` → endpoint `POST /api/auth/login`.
+**Verificação:** com `iniciar.bat`, acessar `http://localhost:5088/swagger` → endpoint `POST /api/Auth/login`.
 
 ### Reservas de Áreas Comuns (RF-007 a RF-009)
 

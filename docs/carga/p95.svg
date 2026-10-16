@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" role="img" aria-labelledby="t d" font-family="Inter, Segoe UI, Arial, sans-serif">
+<title id="t">Latência p95 (menor é melhor)</title><desc id="d">Barras agrupadas por cenário: antes (dourado) e depois (azul). Valores escritos ao lado de cada barra.</desc>
+<rect width="760" height="470" fill="#FFFFFF"/>
+<text x="24" y="30" font-size="17" font-weight="700" fill="#17212B">Latência p95 (menor é melhor)</text>
+<rect x="24" y="44" width="12" height="12" rx="2" fill="#B07A28"/><text x="42" y="54" font-size="12" fill="#55626F">antes (main)</text>
+<rect x="140" y="44" width="12" height="12" rx="2" fill="#1A7FA3"/><text x="158" y="54" font-size="12" fill="#55626F">depois (feat/portfolio-ui-ux)</text>
+<text x="240" y="92" font-size="12" text-anchor="end" fill="#17212B">H1 login, 50 VUs</text>
+<rect x="250" y="70" width="171.516423977299" height="18" rx="4" fill="#B07A28"><title>H1 login, 50 VUs, antes: 1.053,0 ms</title></rect>
+<text x="427.51642397729904" y="83" font-size="11" fill="#55626F">1.053,0 ms</text>
+<rect x="250" y="90" width="161.4150801797108" height="18" rx="4" fill="#1A7FA3"><title>H1 login, 50 VUs, depois: 991,0 ms</title></rect>
+<text x="417.4150801797108" y="103" font-size="11" fill="#55626F">991,0 ms</text>
+<text x="240" y="152" font-size="12" text-anchor="end" fill="#17212B">H2 avisos, 50 VUs</text>
+<rect x="250" y="130" width="6.017892740353375" height="18" rx="4" fill="#B07A28"><title>H2 avisos, 50 VUs, antes: 36,9 ms</title></rect>
+<text x="262.0178927403534" y="143" font-size="11" fill="#55626F">36,9 ms</text>
+<rect x="250" y="150" width="7.2325286845849" height="18" rx="4" fill="#1A7FA3"><title>H2 avisos, 50 VUs, depois: 44,4 ms</title></rect>
+<text x="263.2325286845849" y="163" font-size="11" fill="#55626F">44,4 ms</text>
+<text x="240" y="212" font-size="12" text-anchor="end" fill="#17212B">H3 avisos + ruído, 50 VUs</text>
+<rect x="250" y="190" width="420" height="18" rx="4" fill="#B07A28"><title>H3 avisos + ruído, 50 VUs, antes: 2.578,6 ms</title></rect>
+<text x="676" y="203" font-size="11" fill="#55626F">2.578,6 ms</text>
+<rect x="250" y="210" width="7.309351266973922" height="18" rx="4" fill="#1A7FA3"><title>H3 avisos + ruído, 50 VUs, depois: 44,9 ms</title></rect>
+<text x="263.3093512669739" y="223" font-size="11" fill="#55626F">44,9 ms</text>
+<text x="240" y="272" font-size="12" text-anchor="end" fill="#17212B">H4 lista de condomínios, 20 VUs</text>
+<rect x="250" y="250" width="48.23705519251214" height="18" rx="4" fill="#B07A28"><title>H4 lista de condomínios, 20 VUs, antes: 296,2 ms</title></rect>
+<text x="304.2370551925121" y="263" font-size="11" fill="#55626F">296,2 ms</text>
+<rect x="250" y="270" width="2" height="18" rx="4" fill="#1A7FA3"><title>H4 lista de condomínios, 20 VUs, depois: 10,5 ms</title></rect>
+<text x="258" y="283" font-size="11" fill="#55626F">10,5 ms</text>
+<text x="240" y="332" font-size="12" text-anchor="end" fill="#17212B">H5 publicar aviso, 50 VUs</text>
+<rect x="250" y="310" width="4.685946240340422" height="18" rx="4" fill="#B07A28"><title>H5 publicar aviso, 50 VUs, antes: 28,8 ms</title></rect>
+<text x="260.6859462403404" y="323" font-size="11" fill="#55626F">28,8 ms</text>
+<rect x="250" y="330" width="2.2997797592243083" height="18" rx="4" fill="#1A7FA3"><title>H5 publicar aviso, 50 VUs, depois: 14,1 ms</title></rect>
+<text x="258.2997797592243" y="343" font-size="11" fill="#55626F">14,1 ms</text>
+<text x="240" y="392" font-size="12" text-anchor="end" fill="#17212B">H8 health, 50 VUs</text>
+<rect x="250" y="370" width="2" height="18" rx="4" fill="#B07A28"><title>H8 health, 50 VUs, antes: 8,1 ms</title></rect>
+<text x="258" y="383" font-size="11" fill="#55626F">8,1 ms</text>
+<rect x="250" y="390" width="2" height="18" rx="4" fill="#1A7FA3"><title>H8 health, 50 VUs, depois: 7,5 ms</title></rect>
+<text x="258" y="403" font-size="11" fill="#55626F">7,5 ms</text>
+<line x1="250" y1="64" x2="250" y2="440" stroke="#DCE4EA"/>
+<text x="24" y="460" font-size="11" fill="#55626F">Mesma máquina para gerador (k6), API e banco: compare antes x depois, não leia como capacidade de produção.</text>
+</svg>

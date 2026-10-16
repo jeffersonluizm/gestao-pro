@@ -2,6 +2,7 @@ using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 using Microsoft.AspNetCore.Mvc;
 
 namespace GestaoPro.API.Controllers;
@@ -12,10 +13,12 @@ namespace GestaoPro.API.Controllers;
 public class CommonAreasController : ControllerBase
 {
     private readonly ICommonAreaService _service;
+    private readonly DemoGuard _demo;
 
-    public CommonAreasController(ICommonAreaService service)
+    public CommonAreasController(ICommonAreaService service, DemoCatalog? demo = null)
     {
         _service = service;
+        _demo = new DemoGuard(demo);
     }
 
     [HttpGet]
@@ -25,8 +28,8 @@ public class CommonAreasController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
 
-        var commonAreas = await _service.GetAllAsync();
-        return Ok(caller.InCondominium(commonAreas, area => area.CondominiumId));
+        // Filtro no banco: só as áreas do condomínio do token.
+        return Ok(await _service.GetByCondominiumAsync(caller.CondominiumId!));
     }
 
     [HttpGet("{id}")]
@@ -55,6 +58,7 @@ public class CommonAreasController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(CommonArea), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [DemoQuota("commonareas")]
     public async Task<IActionResult> Create([FromBody] CreateCommonAreaDto dto)
     {
         if (!ModelState.IsValid) return BadRequest(ModelState);
@@ -71,6 +75,8 @@ public class CommonAreasController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateCommonAreaDto dto)
     {
         if (await DenyManageAsync(id) is { } denied) return denied;
+        // Área de exemplo da demonstração não é desativada (some da tela de reservas de todos os visitantes).
+        if (dto.IsActive == false && _demo.IsSeededRecord(id)) return DemoGuard.Forbidden(DemoGuard.SeededRecordMessage);
 
         var commonArea = await _service.UpdateAsync(id, dto);
         return commonArea is null ? NotFound("Área comum não encontrada.") : Ok(commonArea);
@@ -82,6 +88,7 @@ public class CommonAreasController : ControllerBase
     public async Task<IActionResult> Delete(string id)
     {
         if (await DenyManageAsync(id) is { } denied) return denied;
+        if (_demo.IsSeededRecord(id)) return DemoGuard.Forbidden(DemoGuard.SeededRecordMessage);
 
         var deleted = await _service.DeleteAsync(id);
         return deleted ? NoContent() : NotFound("Área comum não encontrada.");

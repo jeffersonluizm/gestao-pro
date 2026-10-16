@@ -7,8 +7,8 @@ describe('resolveProxyTarget', () => {
   })
 
   it('usa VITE_API_PROXY_TARGET quando definida', () => {
-    expect(resolveProxyTarget({ VITE_API_PROXY_TARGET: 'https://gestaopro-api-99vx.onrender.com' }))
-      .toBe('https://gestaopro-api-99vx.onrender.com')
+    expect(resolveProxyTarget({ VITE_API_PROXY_TARGET: 'https://api.exemplo.test' }))
+      .toBe('https://api.exemplo.test')
   })
 
   it('ignora VITE_API_PROXY_TARGET vazia ou só com espaços', () => {

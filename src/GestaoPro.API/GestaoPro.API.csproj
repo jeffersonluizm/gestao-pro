@@ -6,17 +6,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <RootNamespace>GestaoPro.API</RootNamespace>
     <AllowMissingPrunePackageData>true</AllowMissingPrunePackageData>
-    <!-- Avisos de vulnerabilidade em dependências transitivas do MongoDB.Driver 2.x -->
-    <!-- Não afetam a segurança em ambiente de desenvolvimento local -->
-    <NoWarn>NU1902;NU1903</NoWarn>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- Segredos locais (banco real): nunca vao para bin/ nem para a pasta do publish. -->
+    <Content Update="appsettings.Local.json" CopyToOutputDirectory="Never" CopyToPublishDirectory="Never" />
+  </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="BCrypt.Net-Next" Version="4.0.3" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="10.0.0" />
-    <PackageReference Include="MongoDB.Driver" Version="2.28.0" />
+    <PackageReference Include="MongoDB.Driver" Version="3.12.0" />
     <PackageReference Include="QRCoder" Version="1.7.0" />
-    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.0.1" />
+    <PackageReference Include="Swashbuckle.AspNetCore" Version="10.3.0" />
   </ItemGroup>
 
 </Project>

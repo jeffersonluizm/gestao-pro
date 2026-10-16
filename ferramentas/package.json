@@ -1,0 +1,13 @@
+{
+  "name": "gestaopro-ferramentas",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Ferramentas de apoio: prints das telas no Chrome headless (README e revisão visual).",
+  "scripts": {
+    "prints": "node capturar-telas.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.64.0"
+  }
+}

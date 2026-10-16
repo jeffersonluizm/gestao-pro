@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator, Alert, FlatList, Modal, RefreshControl, ScrollView,
-  Platform, StyleSheet, Text, TextInput, TouchableOpacity, View,
+  Platform, StyleSheet, TextInput, TouchableOpacity, View,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { maskPhoneBR, onlyDigits } from '../../utils/formatters';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 const STATUSES = ['checked-in', 'checked-out'];
 
 function canManageVisitors(role?: string) {
@@ -70,7 +73,6 @@ export default function VisitantesScreen() {
   const deletingRef = useRef(false);
 
   const condominiumNames = useMemo(() => new Map(condominiums.map(item => [item.id, item.name])), [condominiums]);
-  const userNames = useMemo(() => new Map(users.map(item => [item.id, item.name])), [users]);
   const unitNames = useMemo(() => new Map(units.map(item => [item.id, unitLabel(item)])), [units]);
 
   const loadVisitors = useCallback(async (silent = false) => {
@@ -86,7 +88,7 @@ export default function VisitantesScreen() {
       ]);
       setCondominiums(condominiumData);
       setUsers(userData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar visitantes:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar os visitantes.'));
     } finally {
@@ -163,8 +165,7 @@ export default function VisitantesScreen() {
       reason: form.reason.trim(),
       status: canManage ? form.status : undefined,
     };
-    try {
-      const isEditing = Boolean(editingId);
+    try {
       if (!editingId) {
         await createVisitor(payload);
 
@@ -279,31 +280,32 @@ export default function VisitantesScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <View><Text style={styles.title}>Visitantes</Text><Text style={styles.subtitle}>Cadastro, entrada e saída de visitantes</Text></View>
-        <TouchableOpacity style={styles.addBtn} onPress={openCreate}><Ionicons name="add" size={22} color="#fff" /><Text style={styles.addBtnText}>Novo</Text></TouchableOpacity>
+        <BackButton />
+        <View><AppText style={styles.title}>Visitantes</AppText><AppText style={styles.subtitle}>Cadastro, entrada e saída de visitantes</AppText></View>
+        <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={openCreate}><Ionicons name="add" size={22} color="#fff" /><AppText style={styles.addBtnText}>Novo</AppText></TouchableOpacity>
       </View>
 
-      {loading && !refreshing ? <ActivityIndicator size="large" color="#176b87" style={styles.loader} /> : listError ? (
-        <View style={styles.center}><Ionicons name="alert-circle-outline" size={36} color="#ef4444" /><Text style={styles.errorText}>{listError}</Text><TouchableOpacity style={styles.retryBtn} onPress={() => loadVisitors()}><Text style={styles.retryText}>Tentar novamente</Text></TouchableOpacity></View>
+      {loading && !refreshing ? <ActivityIndicator size="large" color={theme.color.action} style={styles.loader} /> : listError ? (
+        <View style={styles.center}><Ionicons name="alert-circle-outline" size={36} color={theme.color.danger} /><AppText style={styles.errorText}>{listError}</AppText><TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadVisitors()}><AppText style={styles.retryText}>Tentar novamente</AppText></TouchableOpacity></View>
       ) : (
         <FlatList
           data={visitors} keyExtractor={(item, index) => visitorId(item) || `${item.document}-${index}`} contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadVisitors(true); }} colors={['#176b87']} />}
-          ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>Nenhum visitante cadastrado.</Text></View>}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadVisitors(true); }} colors={[theme.color.action]} />}
+          ListEmptyComponent={<View style={styles.center}><AppText style={styles.emptyText}>Nenhum visitante cadastrado.</AppText></View>}
           renderItem={({ item }) => (
             <View style={styles.card}>
-              <View style={styles.cardTop}><Text style={styles.cardTitle}>{item.fullName}</Text><Text style={styles.badge}>{item.status}</Text></View>
-              <Text style={styles.cardText}>Documento: {item.document}</Text>
-              <Text style={styles.cardText}>Telefone: {item.phone || '-'}</Text>
-              <Text style={styles.cardText}>Condomínio: {condominiumNames.get(item.condominiumId ?? '') ?? item.condominiumId ?? '-'}</Text>
-              <Text style={styles.cardText}>Unidade: {unitNames.get(item.unitId) ?? item.unitId}</Text>
-              <Text style={styles.cardText}>Entrada: {formatDateTime(item.checkInAt)}</Text>
-              <Text style={styles.cardText}>Saída: {formatDateTime(item.checkOutAt)}</Text>
+              <View style={styles.cardTop}><AppText style={styles.cardTitle}>{item.fullName}</AppText><AppText style={styles.badge}>{item.status}</AppText></View>
+              <AppText style={styles.cardText}>Documento: {item.document}</AppText>
+              <AppText style={styles.cardText}>Telefone: {item.phone || '-'}</AppText>
+              <AppText style={styles.cardText}>Condomínio: {condominiumNames.get(item.condominiumId ?? '') ?? item.condominiumId ?? '-'}</AppText>
+              <AppText style={styles.cardText}>Unidade: {unitNames.get(item.unitId) ?? item.unitId}</AppText>
+              <AppText style={styles.cardText}>Entrada: {formatDateTime(item.checkInAt)}</AppText>
+              <AppText style={styles.cardText}>Saída: {formatDateTime(item.checkOutAt)}</AppText>
               {frontDesk ? <View style={styles.actions}>
-                {canManage ? <Action icon="create-outline" color="#2563eb" label="Editar" onPress={() => openEdit(item)} /> : null}
-                <Action icon="log-in-outline" color="#15803d" label="Entrada" onPress={() => runAction(item, 'check-in')} />
-                <Action icon="log-out-outline" color="#b45309" label="Saída" onPress={() => runAction(item, 'check-out')} />
-                {canManage ? <Action icon="trash-outline" color="#dc2626" label={deletingId === visitorId(item) ? 'Removendo...' : 'Remover'} onPress={() => handleDelete(item)} disabled={Boolean(deletingId)} /> : null}
+                {canManage ? <Action icon="create-outline" color={theme.color.action} label="Editar" onPress={() => openEdit(item)} /> : null}
+                <Action icon="log-in-outline" color={theme.color.success} label="Entrada" onPress={() => runAction(item, 'check-in')} />
+                <Action icon="log-out-outline" color={theme.color.warning} label="Saída" onPress={() => runAction(item, 'check-out')} />
+                {canManage ? <Action icon="trash-outline" color={theme.color.danger} label={deletingId === visitorId(item) ? 'Removendo...' : 'Remover'} onPress={() => handleDelete(item)} disabled={Boolean(deletingId)} /> : null}
               </View> : null}
             </View>
           )}
@@ -312,26 +314,26 @@ export default function VisitantesScreen() {
 
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
-          <View style={styles.modalHeader}><Text style={styles.modalTitle}>{editingId ? 'Editar Visitante' : 'Novo Visitante'}</Text><TouchableOpacity onPress={closeModal}><Ionicons name="close" size={26} color="#64748b" /></TouchableOpacity></View>
+          <View style={styles.modalHeader}><AppText style={styles.modalTitle}>{editingId ? 'Editar Visitante' : 'Novo Visitante'}</AppText><TouchableOpacity accessibilityRole="button" onPress={closeModal}><Ionicons name="close" size={26} color={theme.color.inkMuted} /></TouchableOpacity></View>
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-            {formError ? <Text style={styles.formError}>{formError}</Text> : null}
+            {formError ? <AppText style={styles.formError}>{formError}</AppText> : null}
             {canManage ? <>
-              <Text style={styles.label}>Condomínio *</Text>
+              <AppText style={styles.label}>Condomínio *</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>{condominiums.map(item => <Choice key={item.id} label={item.name} selected={form.condominiumId === item.id} onPress={() => setForm({ ...form, condominiumId: item.id, unitId: '' })} />)}</ScrollView>
             </> : null}
             <Field label="Nome completo *" value={form.fullName} onChangeText={fullName => setForm({ ...form, fullName })} />
             <Field label="Documento *" value={form.document} onChangeText={document => setForm({ ...form, document })} />
             <Field label="Telefone" placeholder="31 9999-2702" keyboardType="phone-pad" maxLength={12} value={form.phone} onChangeText={phone => setForm({ ...form, phone: maskPhoneBR(phone) })} />
             {canManage ? <>
-              <Text style={styles.label}>Morador *</Text>
+              <AppText style={styles.label}>Morador *</AppText>
               <ScrollView horizontal showsHorizontalScrollIndicator={false}>{users.map(item => <Choice key={item.id} label={item.name} selected={form.residentId === item.id} onPress={() => setForm({ ...form, residentId: item.id, unitId: item.unitId ?? form.unitId })} />)}</ScrollView>
             </> : null}
-            <Text style={styles.label}>Unidade *</Text>
+            <AppText style={styles.label}>Unidade *</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>{units.map(item => <Choice key={item.id} label={unitLabel(item)} selected={form.unitId === item.id} onPress={() => setForm({ ...form, unitId: item.id })} />)}</ScrollView>
             <Field label="Motivo *" value={form.reason} onChangeText={reason => setForm({ ...form, reason })} />
-            {canManage ? <><Text style={styles.label}>Status</Text><ScrollView horizontal showsHorizontalScrollIndicator={false}>{STATUSES.map(status => <Choice key={status} label={status} selected={form.status === status} onPress={() => setForm({ ...form, status })} />)}</ScrollView></> : null}
-            <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</Text>
+            {canManage ? <><AppText style={styles.label}>Status</AppText><ScrollView horizontal showsHorizontalScrollIndicator={false}>{STATUSES.map(status => <Choice key={status} label={status} selected={form.status === status} onPress={() => setForm({ ...form, status })} />)}</ScrollView></> : null}
+            <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+              <AppText style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</AppText>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -341,30 +343,30 @@ export default function VisitantesScreen() {
 }
 
 function Field({ label, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
-  return <View><Text style={styles.label}>{label}</Text><TextInput {...props} style={styles.input} /></View>;
+  return <View><AppText style={styles.label}>{label}</AppText><TextInput accessibilityLabel={label.replace(" *", "")} {...props} style={styles.input} /></View>;
 }
 function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return <TouchableOpacity style={[styles.choice, selected && styles.choiceActive]} onPress={onPress}><Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{label}</Text></TouchableOpacity>;
+  return <TouchableOpacity accessibilityRole="button" style={[styles.choice, selected && styles.choiceActive]} onPress={onPress}><AppText style={[styles.choiceText, selected && styles.choiceTextActive]}>{label}</AppText></TouchableOpacity>;
 }
 function Action({ icon, color, label, onPress, disabled = false }: { icon: string; color: string; label: string; onPress: () => void; disabled?: boolean }) {
-  return <TouchableOpacity style={[styles.actionBtn, disabled && styles.disabled]} onPress={onPress} disabled={disabled}><Ionicons name={icon as any} size={17} color={color} /><Text style={{ color, fontWeight: '600' }}>{label}</Text></TouchableOpacity>;
+  return <TouchableOpacity accessibilityRole="button" style={[styles.actionBtn, disabled && styles.disabled]} onPress={onPress} disabled={disabled}><Ionicons name={icon as never} size={17} color={color} /><AppText style={{ color, fontWeight: '600' }}>{label}</AppText></TouchableOpacity>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  title: { fontSize: 20, fontWeight: '700', color: '#1e293b' }, subtitle: { fontSize: 12, color: '#64748b', marginTop: 2, maxWidth: 230 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 }, addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  container: { flex: 1, backgroundColor: theme.color.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  title: { fontSize: 20, fontWeight: '700', color: theme.color.ink }, subtitle: { fontSize: 12, color: theme.color.inkMuted, marginTop: 2, maxWidth: 230 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 }, addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   disabled: { opacity: 0.55 },
   loader: { marginTop: 60 }, list: { padding: 16, paddingBottom: 80, gap: 12, flexGrow: 1 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
-  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }, cardTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', flex: 1 },
-  badge: { color: '#176b87', backgroundColor: '#e0f2fe', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, fontSize: 11, fontWeight: '700' },
-  cardText: { fontSize: 13, color: '#64748b', marginTop: 3 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' }, actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }, emptyText: { color: '#94a3b8', fontSize: 15, fontWeight: '600' }, errorText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#176b87', borderRadius: 8 }, retryText: { color: '#fff', fontWeight: '600' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' }, modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
-  form: { padding: 20, paddingBottom: 40 }, formError: { color: '#dc2626', backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, marginBottom: 8 }, label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff' }, choice: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' }, choiceActive: { backgroundColor: '#176b87', borderColor: '#176b87' }, choiceText: { color: '#475569', fontWeight: '600' }, choiceTextActive: { color: '#fff' },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 }, saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
+  cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 }, cardTitle: { fontSize: 16, fontWeight: '700', color: theme.color.ink, flex: 1 },
+  badge: { color: theme.color.action, backgroundColor: theme.color.actionSoft, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, fontSize: 11, fontWeight: '700' },
+  cardText: { fontSize: 13, color: theme.color.inkMuted, marginTop: 3 }, actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border }, actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 }, emptyText: { color: theme.color.inkMuted, fontSize: 15, fontWeight: '600' }, errorText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.color.action, borderRadius: 8 }, retryText: { color: '#fff', fontWeight: '600' },
+  modal: { flex: 1, backgroundColor: theme.color.background }, modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border }, modalTitle: { fontSize: 18, fontWeight: '700', color: theme.color.ink },
+  form: { padding: 20, paddingBottom: 40 }, formError: { color: theme.color.danger, backgroundColor: theme.color.dangerSoft, borderRadius: 8, padding: 12, marginBottom: 8 }, label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 6, marginTop: 12 },
+  input: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff' }, choice: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' }, choiceActive: { backgroundColor: theme.color.action, borderColor: theme.color.action }, choiceText: { color: theme.color.inkMuted, fontWeight: '600' }, choiceTextActive: { color: '#fff' },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 }, saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

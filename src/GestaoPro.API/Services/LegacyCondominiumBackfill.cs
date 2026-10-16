@@ -177,7 +177,7 @@ public class LegacyCondominiumBackfill
     {
         if (!_singleCondominiumChecked)
         {
-            var all = await _condominiums.GetAllAsync();
+            var all = await _condominiums.GetPublicAsync();
             _singleCondominium = all.Count == 1 ? all[0].Id : null;
             _singleCondominiumChecked = true;
         }

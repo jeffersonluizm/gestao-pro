@@ -2,6 +2,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -68,6 +69,7 @@ public class PetsController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("pets")]
     public async Task<IActionResult> Create([FromBody] CreatePetRequest request)
     {
         var caller = this.Caller();

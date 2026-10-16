@@ -2,6 +2,7 @@
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 using MongoDB.Bson;
 
 namespace GestaoPro.API.Controllers;
@@ -14,11 +15,25 @@ public class UsersController : ControllerBase
     private readonly IUserDirectory _directory;
     private readonly ILogger<UsersController> _logger;
 
-    public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger)
+    private readonly DemoGuard _demo;
+
+    public const string UnexpectedErrorMessage = "Não foi possível concluir a operação agora. Tente de novo em instantes.";
+
+    public UsersController(UserAppService service, IUserDirectory directory, ILogger<UsersController> logger, DemoCatalog? demo = null)
     {
         _service = service;
         _directory = directory;
         _logger = logger;
+        _demo = new DemoGuard(demo);
+    }
+
+    // Conta de demonstração compartilhada: nada nela muda (403). Pré-cadastrados de exemplo também não.
+    private async Task<ActionResult?> DenyDemoAccountAsync(string id)
+    {
+        if (!_demo.Enabled) return null;
+        var user = await _directory.GetByIdAsync(id);
+        if (_demo.IsProtectedEmail(user?.Email)) return DemoGuard.Forbidden(DemoGuard.ProtectedAccountMessage);
+        return _demo.IsSeededRecord(id) ? DemoGuard.Forbidden(DemoGuard.SeededRecordMessage) : null;
     }
 
     // Leituras: só usuários do condomínio do token. Administração recebe os dados completos;
@@ -89,6 +104,7 @@ public class UsersController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("users")]
     public async Task<IActionResult> Create([FromBody] CreateUserRequest request)
     {
         // Sem login só chega aqui o cadastro inicial (antes de existir administrador; ver ApiAccessMiddleware).
@@ -97,6 +113,8 @@ public class UsersController : ControllerBase
             var caller = this.Caller();
             if (this.DenyManage(caller, request.CondominiumId, caller.IsAdministrator) is { } denied) return denied;
         }
+        if (_demo.IsReservedDomain(request.Email)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
+        if (!string.IsNullOrEmpty(request.Password) && WeakPassword(request.Password) is { } weak) return weak;
 
         try
         {
@@ -109,7 +127,8 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            _logger.LogError(ex, "Falha inesperada em {Acao}", nameof(UsersController));
+            return BadRequest(new { message = UnexpectedErrorMessage });
         }
     }
 
@@ -117,6 +136,8 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> Update(string id, [FromBody] UpdateUserRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
+        if (_demo.IsReservedDomain(request.Email)) return BadRequest(new { message = DemoGuard.ReservedDomainMessage });
 
         try
         {
@@ -138,6 +159,7 @@ public class UsersController : ControllerBase
         if (!ObjectId.TryParse(id, out _))
             return BadRequest(new { message = "Identificador de usuário inválido." });
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
 
         try
         {
@@ -161,6 +183,8 @@ public class UsersController : ControllerBase
         var caller = this.Caller();
         if (!caller.HasSession) return this.Deny(AccessDecision.InvalidSession)!;
         if (!string.Equals(caller.UserId, id, StringComparison.Ordinal)) return this.Forbidden();
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
         {
@@ -177,11 +201,14 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> ResetPassword(string id)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
 
         try
         {
-            var result = await _service.ResetPasswordAsync(id);
-            return result ? NoContent() : NotFound();
+            var temporaryPassword = await _service.ResetPasswordAsync(id);
+            return temporaryPassword is null
+                ? NotFound()
+                : Ok(new { temporaryPassword, message = "Senha redefinida. Entregue a senha temporária à pessoa; ela cria uma nova no próximo acesso." });
         }
         catch (InvalidOperationException ex)
         {
@@ -193,6 +220,8 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> UpdatePassword(string id, [FromBody] ResetPasswordRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
+        if (WeakPassword(request.NewPassword) is { } weak) return weak;
 
         try
         {
@@ -209,6 +238,8 @@ public class UsersController : ControllerBase
     public async Task<IActionResult> CreateCredentialForExistingUser(string id, [FromBody] CreateUserCredentialRequest request)
     {
         if (await DenyManageUserAsync(id) is { } denied) return denied;
+        if (await DenyDemoAccountAsync(id) is { } demo) return demo;
+        if (WeakPassword(request.Password) is { } weak) return weak;
 
         try
         {
@@ -225,8 +256,11 @@ public class UsersController : ControllerBase
         }
         catch (Exception ex)
         {
-            return BadRequest(new { message = ex.Message });
+            _logger.LogError(ex, "Falha inesperada em {Acao}", nameof(UsersController));
+            return BadRequest(new { message = UnexpectedErrorMessage });
         }
     }
-}
 
+    private ActionResult? WeakPassword(string? password) =>
+        PasswordPolicy.IsStrong(password) ? null : BadRequest(new { message = PasswordPolicy.WeakPasswordMessage });
+}

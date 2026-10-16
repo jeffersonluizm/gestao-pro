@@ -44,8 +44,8 @@ public class AuthControllerAccessTests
             new CondominiumAttemptLimiter(100, TimeSpan.FromMinutes(1)));
 
         var check = await controller.CheckCpf(new CheckCpfRequest("11111111111", CondominioA, "Jardim-Azul-2026"));
-        var register = await controller.SelfRegister(new SelfRegisterRequest("11111111111", CondominioA, "Jardim-Azul-2026", "senha", null, null, null));
-        var change = await controller.ChangePassword(new AuthChangePasswordRequest("joao", "x", "y"));
+        var register = await controller.SelfRegister(new SelfRegisterRequest("11111111111", CondominioA, "Jardim-Azul-2026", "Senha-Forte-2026", null, null, null));
+        var change = await controller.ChangePassword(new AuthChangePasswordRequest("joao", "x", "Senha-Forte-2026"));
 
         Assert.Equal(SelfServiceAuthService.CheckRefusedMessage, MessageOf(check));
         Assert.Equal(SelfServiceAuthService.RegisterRefusedMessage, MessageOf(register));

@@ -1,3 +1,4 @@
+using GestaoPro.API.Services.Demo;
 using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Repositories;
@@ -24,6 +25,7 @@ public class VoteController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("votes", byCondominium: false)]
     public async Task<IActionResult> CastVote([FromBody] CreateVoteDto dto)
     {
         var currentUserId = CurrentUserId();

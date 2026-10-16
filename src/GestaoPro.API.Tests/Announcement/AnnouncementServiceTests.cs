@@ -261,29 +261,18 @@ public class AnnouncementServiceTests
         Assert.Null(result);
     }
 
-    // ── GetAllAsync ──────────────────────────────────────────────
+    // ── QueryAsync ───────────────────────────────────────────────
 
     [Fact]
-    public async Task GetAllAsync_RetornaTodosComunicados()
+    public async Task QueryAsync_RepassaAConsultaDoCondominioAoRepositorio()
     {
-        var announcements = new List<AnnouncementModel> { MakeModel(), MakeModel() };
-        _repoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(announcements);
+        var query = new AnnouncementQuery("cond1", ActiveOnly: true, Category: "Importante", Page: 2, PageSize: 10);
+        var page = new PagedResult<AnnouncementModel>(new List<AnnouncementModel> { MakeModel() }, 11);
+        _repoMock.Setup(r => r.QueryAsync(query)).ReturnsAsync(page);
 
-        var result = await _service.GetAllAsync();
+        var result = await _service.QueryAsync(query);
 
-        Assert.NotEmpty(result);
-        Assert.Equal(2, result.Count);
-    }
-
-    [Fact]
-    public async Task GetAllAsync_SemComunicados_RetornaListaVazia()
-    {
-        var announcements = new List<AnnouncementModel>();
-        _repoMock.Setup(r => r.GetAllAsync()).ReturnsAsync(announcements);
-
-        var result = await _service.GetAllAsync();
-
-        Assert.Empty(result);
+        Assert.Same(page, result);
     }
 
     // ── GetByCondominiumAsync ────────────────────────────────────
@@ -309,32 +298,6 @@ public class AnnouncementServiceTests
         var result = await _service.GetByCondominiumAsync("cond1");
 
         Assert.Empty(result);
-    }
-
-    // ── GetActiveAsync ───────────────────────────────────────────
-
-    [Fact]
-    public async Task GetActiveAsync_RetornaComunicadosAtivos()
-    {
-        var announcements = new List<AnnouncementModel> { MakeModel() };
-        _repoMock.Setup(r => r.GetActiveAsync()).ReturnsAsync(announcements);
-
-        var result = await _service.GetActiveAsync();
-
-        Assert.NotEmpty(result);
-    }
-
-    // ── GetByCategoryAsync ───────────────────────────────────────
-
-    [Fact]
-    public async Task GetByCategoryAsync_RetornaComunicadosPorCategoria()
-    {
-        var announcements = new List<AnnouncementModel> { MakeModel() };
-        _repoMock.Setup(r => r.GetByCategoryAsync("Importante")).ReturnsAsync(announcements);
-
-        var result = await _service.GetByCategoryAsync("Importante");
-
-        Assert.NotEmpty(result);
     }
 
     // ── Helpers ──────────────────────────────────────────────────

@@ -8,7 +8,6 @@ import {
   RefreshControl,
   ScrollView,
   StyleSheet,
-  Text,
   TextInput,
   TouchableOpacity,
   View,
@@ -30,6 +29,9 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { isValidTime, maskTime } from '../../utils/formatters';
 
+import { theme } from '../../theme/theme';
+import AppText from '../../components/AppText';
+import BackButton from '../../components/BackButton';
 function emptyForm(condominiumId = '') {
   return {
     condominiumId,
@@ -73,7 +75,7 @@ export default function AreasComunsScreen() {
       const [areaData, condominiumData] = await Promise.all([getCommonAreas(), getCondominiums()]);
       setAreas(areaData);
       setCondominiums(condominiumData);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao carregar áreas comuns:', error);
       setListError(getFriendlyErrorMessage(error, 'Não foi possível carregar as áreas comuns.'));
     } finally {
@@ -149,7 +151,6 @@ export default function AreasComunsScreen() {
     };
 
     try {
-      const isEditing = Boolean(editingId);
       if (!editingId) {
         await createCommonArea(payload);
 
@@ -229,26 +230,27 @@ export default function AreasComunsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
+        <BackButton />
         <View>
-          <Text style={styles.title}>Áreas Comuns</Text>
-          <Text style={styles.subtitle}>Espaços reserváveis do condomínio</Text>
+          <AppText style={styles.title}>Áreas Comuns</AppText>
+          <AppText style={styles.subtitle}>Espaços reserváveis do condomínio</AppText>
         </View>
         {canManage ? (
-          <TouchableOpacity style={styles.addBtn} onPress={openCreate}>
+          <TouchableOpacity accessibilityRole="button" style={styles.addBtn} onPress={openCreate}>
             <Ionicons name="add" size={22} color="#fff" />
-            <Text style={styles.addBtnText}>Novo</Text>
+            <AppText style={styles.addBtnText}>Novo</AppText>
           </TouchableOpacity>
         ) : null}
       </View>
 
       {loading && !refreshing ? (
-        <ActivityIndicator size="large" color="#176b87" style={styles.loader} />
+        <ActivityIndicator size="large" color={theme.color.action} style={styles.loader} />
       ) : listError ? (
         <View style={styles.center}>
-          <Ionicons name="alert-circle-outline" size={36} color="#ef4444" />
-          <Text style={styles.errorText}>{listError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => loadAreas()}>
-            <Text style={styles.retryText}>Tentar novamente</Text>
+          <Ionicons name="alert-circle-outline" size={36} color={theme.color.danger} />
+          <AppText style={styles.errorText}>{listError}</AppText>
+          <TouchableOpacity accessibilityRole="button" style={styles.retryBtn} onPress={() => loadAreas()}>
+            <AppText style={styles.retryText}>Tentar novamente</AppText>
           </TouchableOpacity>
         </View>
       ) : (
@@ -256,27 +258,27 @@ export default function AreasComunsScreen() {
           data={areas}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.list}
-          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAreas(true); }} colors={['#176b87']} />}
-          ListEmptyComponent={<View style={styles.center}><Text style={styles.emptyText}>Nenhuma área comum cadastrada.</Text></View>}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadAreas(true); }} colors={[theme.color.action]} />}
+          ListEmptyComponent={<View style={styles.center}><AppText style={styles.emptyText}>Nenhuma área comum cadastrada.</AppText></View>}
           renderItem={({ item }) => (
             <View style={styles.card}>
               <View style={styles.cardTop}>
-                <Text style={styles.cardTitle}>{item.name}</Text>
-                <Text style={[styles.badge, !item.isActive && styles.badgeInactive]}>{item.isActive ? 'Ativa' : 'Inativa'}</Text>
+                <AppText style={styles.cardTitle}>{item.name}</AppText>
+                <AppText style={[styles.badge, !item.isActive && styles.badgeInactive]}>{item.isActive ? 'Ativa' : 'Inativa'}</AppText>
               </View>
-              <Text style={styles.cardText}>Capacidade: {item.capacity}</Text>
-              <Text style={styles.cardText}>Abertura: {item.openTime}</Text>
-              <Text style={styles.cardText}>Fechamento: {item.closeTime}</Text>
-              <Text style={styles.cardText}>Condomínio: {condominiumNames.get(item.condominiumId) ?? item.condominiumId}</Text>
+              <AppText style={styles.cardText}>Capacidade: {item.capacity}</AppText>
+              <AppText style={styles.cardText}>Abertura: {item.openTime}</AppText>
+              <AppText style={styles.cardText}>Fechamento: {item.closeTime}</AppText>
+              <AppText style={styles.cardText}>Condomínio: {condominiumNames.get(item.condominiumId) ?? item.condominiumId}</AppText>
               {canManage ? (
                 <View style={styles.actions}>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(item)}>
-                    <Ionicons name="create-outline" size={18} color="#2563eb" />
-                    <Text style={styles.editText}>Editar</Text>
+                  <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => openEdit(item)}>
+                    <Ionicons name="create-outline" size={18} color={theme.color.action} />
+                    <AppText style={styles.editText}>Editar</AppText>
                   </TouchableOpacity>
-                  <TouchableOpacity style={styles.actionBtn} onPress={() => handleDelete(item)}>
-                    <Ionicons name="trash-outline" size={18} color="#dc2626" />
-                    <Text style={styles.deleteText}>Remover</Text>
+                  <TouchableOpacity accessibilityRole="button" style={styles.actionBtn} onPress={() => handleDelete(item)}>
+                    <Ionicons name="trash-outline" size={18} color={theme.color.danger} />
+                    <AppText style={styles.deleteText}>Remover</AppText>
                   </TouchableOpacity>
                 </View>
               ) : null}
@@ -288,12 +290,12 @@ export default function AreasComunsScreen() {
       <Modal visible={modalVisible} animationType="slide" presentationStyle="pageSheet">
         <SafeAreaView style={styles.modal}>
           <View style={styles.modalHeader}>
-            <Text style={styles.modalTitle}>{editingId ? 'Editar Área Comum' : 'Nova Área Comum'}</Text>
-            <TouchableOpacity onPress={closeModal}><Ionicons name="close" size={26} color="#64748b" /></TouchableOpacity>
+            <AppText style={styles.modalTitle}>{editingId ? 'Editar Área Comum' : 'Nova Área Comum'}</AppText>
+            <TouchableOpacity accessibilityRole="button" onPress={closeModal}><Ionicons name="close" size={26} color={theme.color.inkMuted} /></TouchableOpacity>
           </View>
           <ScrollView contentContainerStyle={styles.form} keyboardShouldPersistTaps="handled">
-            {formError ? <Text style={styles.formError}>{formError}</Text> : null}
-            <Text style={styles.label}>Condomínio *</Text>
+            {formError ? <AppText style={styles.formError}>{formError}</AppText> : null}
+            <AppText style={styles.label}>Condomínio *</AppText>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               {condominiums.map(item => <Choice key={item.id} label={item.name} selected={form.condominiumId === item.id} onPress={() => setForm({ ...form, condominiumId: item.id })} />)}
             </ScrollView>
@@ -303,8 +305,8 @@ export default function AreasComunsScreen() {
             <Field label="Abertura *" placeholder="14:00" keyboardType="numeric" maxLength={5} value={form.openTime} onChangeText={openTime => setForm({ ...form, openTime: maskTime(openTime) })} />
             <Field label="Fechamento *" placeholder="14:00" keyboardType="numeric" maxLength={5} value={form.closeTime} onChangeText={closeTime => setForm({ ...form, closeTime: maskTime(closeTime) })} />
             <Field label="Regras" multiline value={form.rules} onChangeText={rules => setForm({ ...form, rules })} />
-            <TouchableOpacity style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
-              <Text style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</Text>
+            <TouchableOpacity accessibilityRole="button" style={[styles.saveBtn, saving && styles.disabled]} onPress={handleSave} disabled={saving}>
+              <AppText style={styles.saveBtnText}>{saving ? 'Salvando...' : editingId ? 'Atualizar' : 'Salvar'}</AppText>
             </TouchableOpacity>
           </ScrollView>
         </SafeAreaView>
@@ -314,50 +316,50 @@ export default function AreasComunsScreen() {
 }
 
 function Field({ label, multiline = false, ...props }: React.ComponentProps<typeof TextInput> & { label: string }) {
-  return <View><Text style={styles.label}>{label}</Text><TextInput {...props} multiline={multiline} style={[styles.input, multiline && styles.textarea]} /></View>;
+  return <View><AppText style={styles.label}>{label}</AppText><TextInput accessibilityLabel={label.replace(" *", "")} {...props} multiline={multiline} style={[styles.input, multiline && styles.textarea]} /></View>;
 }
 
 function Choice({ label, selected, onPress }: { label: string; selected: boolean; onPress: () => void }) {
-  return <TouchableOpacity style={[styles.choice, selected && styles.choiceActive]} onPress={onPress}><Text style={[styles.choiceText, selected && styles.choiceTextActive]}>{label}</Text></TouchableOpacity>;
+  return <TouchableOpacity accessibilityRole="button" style={[styles.choice, selected && styles.choiceActive]} onPress={onPress}><AppText style={[styles.choiceText, selected && styles.choiceTextActive]}>{label}</AppText></TouchableOpacity>;
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  title: { fontSize: 20, fontWeight: '700', color: '#1e293b' },
-  subtitle: { fontSize: 12, color: '#64748b', marginTop: 2, maxWidth: 230 },
-  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#176b87', borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
+  container: { flex: 1, backgroundColor: theme.color.background },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, gap: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  title: { fontSize: 20, fontWeight: '700', color: theme.color.ink },
+  subtitle: { fontSize: 12, color: theme.color.inkMuted, marginTop: 2, maxWidth: 230 },
+  addBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: theme.color.action, borderRadius: 8, paddingHorizontal: 14, paddingVertical: 8, gap: 4 },
   addBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
   disabled: { opacity: 0.55 },
   loader: { marginTop: 60 },
   list: { padding: 16, paddingBottom: 80, gap: 12, flexGrow: 1 },
   card: { backgroundColor: '#fff', borderRadius: 14, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 4, elevation: 2 },
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 6 },
-  cardTitle: { fontSize: 16, fontWeight: '700', color: '#1e293b', flex: 1 },
-  badge: { color: '#15803d', backgroundColor: '#dcfce7', borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, fontSize: 11, fontWeight: '700' },
-  badgeInactive: { color: '#b45309', backgroundColor: '#fef3c7' },
-  cardText: { fontSize: 13, color: '#64748b', marginTop: 3 },
-  actions: { flexDirection: 'row', gap: 14, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#e2e8f0' },
+  cardTitle: { fontSize: 16, fontWeight: '700', color: theme.color.ink, flex: 1 },
+  badge: { color: theme.color.success, backgroundColor: theme.color.successSoft, borderRadius: 12, paddingHorizontal: 9, paddingVertical: 3, fontSize: 11, fontWeight: '700' },
+  badgeInactive: { color: theme.color.warning, backgroundColor: theme.color.warningSoft },
+  cardText: { fontSize: 13, color: theme.color.inkMuted, marginTop: 3 },
+  actions: { flexDirection: 'row', gap: 14, marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: theme.color.border },
   actionBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  editText: { color: '#2563eb', fontWeight: '600' },
-  deleteText: { color: '#dc2626', fontWeight: '600' },
+  editText: { color: theme.color.action, fontWeight: '600' },
+  deleteText: { color: theme.color.danger, fontWeight: '600' },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24 },
-  emptyText: { color: '#94a3b8', fontSize: 15, fontWeight: '600' },
-  errorText: { color: '#64748b', fontSize: 14, textAlign: 'center', marginTop: 8 },
-  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: '#176b87', borderRadius: 8 },
+  emptyText: { color: theme.color.inkMuted, fontSize: 15, fontWeight: '600' },
+  errorText: { color: theme.color.inkMuted, fontSize: 14, textAlign: 'center', marginTop: 8 },
+  retryBtn: { marginTop: 16, paddingHorizontal: 20, paddingVertical: 10, backgroundColor: theme.color.action, borderRadius: 8 },
   retryText: { color: '#fff', fontWeight: '600' },
-  modal: { flex: 1, backgroundColor: '#f8fafc' },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e293b' },
+  modal: { flex: 1, backgroundColor: theme.color.background },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: theme.color.border },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: theme.color.ink },
   form: { padding: 20, paddingBottom: 40 },
-  formError: { color: '#dc2626', backgroundColor: '#fef2f2', borderRadius: 8, padding: 12, marginBottom: 8 },
-  label: { fontSize: 13, fontWeight: '600', color: '#475569', marginBottom: 6, marginTop: 12 },
-  input: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff' },
+  formError: { color: theme.color.danger, backgroundColor: theme.color.dangerSoft, borderRadius: 8, padding: 12, marginBottom: 8 },
+  label: { fontSize: 13, fontWeight: '600', color: theme.color.inkMuted, marginBottom: 6, marginTop: 12 },
+  input: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 10, padding: 12, fontSize: 15, backgroundColor: '#fff' },
   textarea: { minHeight: 80, textAlignVertical: 'top' },
-  choice: { borderWidth: 1, borderColor: '#e2e8f0', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' },
-  choiceActive: { backgroundColor: '#176b87', borderColor: '#176b87' },
-  choiceText: { color: '#475569', fontWeight: '600' },
+  choice: { borderWidth: 1, borderColor: theme.color.border, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, marginRight: 8, backgroundColor: '#fff' },
+  choiceActive: { backgroundColor: theme.color.action, borderColor: theme.color.action },
+  choiceText: { color: theme.color.inkMuted, fontWeight: '600' },
   choiceTextActive: { color: '#fff' },
-  saveBtn: { backgroundColor: '#176b87', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
+  saveBtn: { backgroundColor: theme.color.action, borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 24 },
   saveBtnText: { color: '#fff', fontSize: 16, fontWeight: '700' },
 });

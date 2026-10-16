@@ -3,6 +3,7 @@ using GestaoPro.API.DTOs;
 using GestaoPro.API.Models;
 using GestaoPro.API.Services;
 using GestaoPro.API.Services.Access;
+using GestaoPro.API.Services.Demo;
 
 namespace GestaoPro.API.Controllers;
 
@@ -66,6 +67,7 @@ public class OccurrencesController : ControllerBase
     }
 
     [HttpPost]
+    [DemoQuota("occurrences")]
     public async Task<IActionResult> Create([FromBody] CreateOccurrenceRequest request)
     {
         var caller = this.Caller();

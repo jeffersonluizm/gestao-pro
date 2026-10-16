@@ -13,6 +13,7 @@ public static class CondominiumCodePolicy
     {
         "123456", "1234567", "12345678", "123456789", "1234567890", "87654321", "password", "senha123",
         "senha1234", "qwerty12", "qwerty123", "qwertyui", "abc12345", "admin123", "condominio", "12341234",
+        "senha123", "mudar123", "password1", "admin1234", "123mudar", "trocar123",
     };
 
     public static string Normalize(string? code) => (code ?? string.Empty).Trim();
@@ -22,6 +23,8 @@ public static class CondominiumCodePolicy
         var value = Normalize(code);
         if (value.Length < MinimumLength) return false;
         if (CommonCodes.Contains(value)) return false;
+        // "Admin@123", "Senha#123": a senha comum com símbolos no meio continua comum.
+        if (CommonCodes.Contains(new string(value.Where(char.IsLetterOrDigit).ToArray()))) return false;
         if (value.Distinct().Count() < 4) return false;
         return !IsSequence(value);
     }

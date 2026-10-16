@@ -15,15 +15,9 @@ public class CondominiumAppService : ICondominiumService
         _userRepository = userRepository;
     }
 
-    // Busca todos os condomínios e converte para CondominiumResponse.
-    public async Task<List<CondominiumResponse>> GetAllAsync()
-    {
-        var condominiums = await _condominiumRepository.GetAllAsync();
-        var responses = new List<CondominiumResponse>();
-        foreach (var condominium in condominiums)
-            responses.Add(await MapToResponseAsync(condominium));
-        return responses;
-    }
+    // Lista pública: uma consulta só, com projeção de id e nome (sem moradores, sem CNPJ, sem endereço).
+    public Task<List<CondominiumSummary>> GetPublicAsync() =>
+        _condominiumRepository.GetSummariesAsync();
 
     // Busca um condomínio pelo ID.
     public async Task<CondominiumResponse?> GetByIdAsync(string id)
@@ -121,9 +115,7 @@ public class CondominiumAppService : ICondominiumService
     // Converte o objeto Condominium do banco em CondominiumResponse.
     private async Task<CondominiumResponse> MapToResponseAsync(Condominium c)
     {
-        var users = await _userRepository.GetByCondominiumAsync(c.Id!);
-        var residentCount = users.Count(u =>
-            u.Role == UserRole.morador || u.Role == UserRole.sindico);
+        var residentCount = (int)await _userRepository.CountResidentsAsync(c.Id!);
 
         return new CondominiumResponse
         {

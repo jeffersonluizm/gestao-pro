@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Options;
+﻿using GestaoPro.API.Services;
+using Microsoft.Extensions.Options;
 using MongoDB.Driver;
 using GestaoPro.API.Models;
 using GestaoPro.API.Settings;
@@ -36,33 +37,33 @@ public class ParkingRepository : IParkingRepository
 
     public async Task ReserveAsync(string id, string userId)
     {
-        var now = BrasiliaNow();
+        var now = BrazilTime.Now();
         var update = Builders<Parking>.Update
             .Set(x => x.Status, "reserved")
             .Set(x => x.ReservedByUserId, userId)
             .Set(x => x.ReservedAt, now)
-            .Push(x => x.History, new ParkingHistory
+            .PushEach(x => x.History, new[] { new ParkingHistory
             {
                 Action = "entrada",
                 Status = "reserved",
                 UserId = userId,
                 Date = now
-            });
+            } }, slice: -HistoryLimit.Max);
         await _collection.UpdateOneAsync(x => x.Id == id, update);
     }
 
     public async Task UpdateStatusAsync(string id, string status)
     {
-        var now = BrasiliaNow();
+        var now = BrazilTime.Now();
         var action = status == "available" ? "saida" : "entrada";
         var update = Builders<Parking>.Update
             .Set(x => x.Status, status)
-            .Push(x => x.History, new ParkingHistory
+            .PushEach(x => x.History, new[] { new ParkingHistory
             {
                 Action = action,
                 Status = status,
                 Date = now
-            });
+            } }, slice: -HistoryLimit.Max);
 
         if (status == "available")
         {
@@ -77,17 +78,5 @@ public class ParkingRepository : IParkingRepository
     public async Task DeleteAsync(string id) =>
         await _collection.DeleteOneAsync(x => x.Id == id);
 
-    private static DateTime BrasiliaNow()
-    {
-        try
-        {
-            var zone = TimeZoneInfo.FindSystemTimeZoneById("E. South America Standard Time");
-            return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, zone);
-        }
-        catch
-        {
-            return DateTime.UtcNow.AddHours(-3);
-        }
-    }
 }
 

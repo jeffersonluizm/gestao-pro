@@ -1,7 +1,7 @@
 
 # Metodologia
 
-<span style="color:red">Pré-requisitos: <a href="2-Especificação do Projeto.md"> Documentação de Especificação</a></span>
+<span style="color:red">Pré-requisitos: <a href="02-Especificação do Projeto.md"> Documentação de Especificação</a></span>
 
 A equipe adotou uma abordagem ágil baseada no **Kanban**, com entregas organizadas em 5 etapas incrementais. O controle de versão é feito com Git e GitHub, e a comunicação da equipe ocorre via WhatsApp e reuniões presenciais durante as aulas.
 

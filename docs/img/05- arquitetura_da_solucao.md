@@ -6,7 +6,7 @@ Cada microsserviço possui seu próprio banco de dados MongoDB (padrão **Databa
 
 ## Visão Geral da Arquitetura
 
-![Arquitetura de Microsserviços](img/arquitetura_microsservicos.png)
+![Arquitetura de Microsserviços](05%20-arquitetura_microsservicos.png)
 
 ## Componentes da Arquitetura
 
@@ -109,7 +109,7 @@ Cada microsserviço possui seu banco de dados exclusivo no MongoDB Atlas, garant
 
 O diagrama abaixo representa as coleções MongoDB do sistema e seus relacionamentos, organizados por microsserviço seguindo o padrão Database-per-Service.
 
-![Diagrama de Classes MongoDB](img/diagrama_classes_mongodb.png)
+![Diagrama de Classes MongoDB](05%20-%20diagrama_classes_mongodb.png)
 
 ---
 

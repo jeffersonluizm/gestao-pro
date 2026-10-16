@@ -125,6 +125,8 @@ export interface User {
   registrationNumber: string;
   birthDate?: string;
   isActive: boolean;
+  // Só na resposta do cadastro sem senha.
+  temporaryPassword?: string;
 }
 
 export interface Unit {
@@ -174,7 +176,29 @@ export interface Pet {
   updatedAt: string;
 }
 
+// Erro de chamada à API com o status HTTP (0 quando a resposta não veio no formato da API).
+export class ApiError extends Error {
+  constructor(message: string, readonly status: number) {
+    super(message);
+    this.name = 'ApiError';
+  }
+}
+
+export const UNEXPECTED_FORMAT_MESSAGE =
+  'O servidor respondeu num formato inesperado. Tente de novo em instantes; se persistir, o endereço da API do app precisa ser conferido.';
+
+function serverMessage(text: string) {
+  try {
+    const data = JSON.parse(text) as { message?: unknown };
+    return typeof data.message === 'string' && isSafeMessage(data.message) ? data.message.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 function friendlyApiError(text: string, status: number) {
+  // 503 da API traz mensagem própria (por exemplo, "a demonstração está sendo preparada").
+  if (status === 503) return serverMessage(text) ?? 'O servidor está indisponível no momento. Tente novamente.';
   if (status >= 500) return 'Erro interno no servidor. Tente novamente mais tarde.';
 
   const validationMessage = validationErrorMessage(text);
@@ -263,7 +287,7 @@ function validationErrorMessage(text: string) {
       })
       .filter(Boolean);
     return [...new Set(messages)].join('\n');
-  } catch {}
+  } catch { /* resposta sem JSON válido: segue para a mensagem padrão */ }
   return '';
 }
 
@@ -290,7 +314,7 @@ export function getFriendlyErrorMessage(error: unknown, fallback = 'Não foi pos
     try {
       const message = friendlyApiError(JSON.stringify(data), status);
       if (message !== 'Não foi possível concluir a operação. Tente novamente.') return message;
-    } catch {}
+    } catch { /* resposta sem JSON válido: segue para a mensagem padrão */ }
   }
   return fallback;
 }
@@ -328,13 +352,18 @@ async function request<T>(
     if (response.status === 401) {
       _authToken = null;
       _onUnauthorized?.();
-      throw new Error('Sua sessão expirou. Faça login novamente.');
+      throw new ApiError('Sua sessão expirou. Faça login novamente.', 401);
     }
     const text = await response.text();
-    throw new Error(friendlyApiError(text, response.status));
+    throw new ApiError(friendlyApiError(text, response.status), response.status);
   }
 
   if (response.status === 204) return undefined as T;
+  // Página HTML no lugar de JSON (endereço da API errado no build): mensagem legível, sem "Unexpected token".
+  if (!(response.headers.get('Content-Type') ?? '').toLowerCase().includes('json')) {
+    console.error(`[api] ${path} não respondeu JSON. Confira EXPO_PUBLIC_API_URL.`);
+    throw new ApiError(UNEXPECTED_FORMAT_MESSAGE, 0);
+  }
   return response.json() as Promise<T>;
 }
 
@@ -377,9 +406,34 @@ export const changeUserPassword = (userId: string, currentPassword: string, newP
     body: JSON.stringify({ currentPassword, newPassword }),
   });
 
+// ─── Demonstração ─────────────────────────────────────────────────────────────
+// GET /api/demo só existe com o modo demonstração ligado no servidor (404 desligado). Sem e-mail nem senha:
+// a entrada é por POST /api/demo/entrar com o papel.
+export interface DemoInfo {
+  condominiumName: string;
+  condominiumCode: string;
+  accounts: { role: string; name: string }[];
+  preRegistered: { cpf: string; name: string }[];
+}
+
+export const getDemoInfo = () => request<DemoInfo>('/api/demo', {}, false);
+
+export const enterDemo = (role: string) =>
+  request<LoginResponse>('/api/demo/entrar', { method: 'POST', body: JSON.stringify({ papel: role }) }, false);
+
 // ─── Condomínios ──────────────────────────────────────────────────────────────
+// Com login: só o condomínio do próprio token (lista de um item).
 export const getCondominiums = () =>
   request<Condominium[]>('/api/Condominiums');
+
+// Sem login (tela de cadastro): só id e nome.
+export interface CondominiumSummary {
+  id: string;
+  name: string;
+}
+
+export const getPublicCondominiums = () =>
+  request<CondominiumSummary[]>('/api/Condominiums/public', {}, false);
 
 export const createCondominium = (data: {
   name: string;
@@ -439,7 +493,8 @@ export const createUser = (data: {
   unitId?: string;
   name: string;
   email: string;
-  password: string;
+  // Opcional: sem senha, a API usa o código do condomínio como senha inicial.
+  password?: string;
   phone: string;
   cpf: string;
   role: string;
@@ -455,7 +510,8 @@ export const updateUser = (id: string, data: {
   unitId?: string;
   name: string;
   email: string;
-  password: string;
+  // Opcional: sem senha, a API usa o código do condomínio como senha inicial.
+  password?: string;
   phone: string;
   cpf: string;
   role: string;
@@ -506,8 +562,46 @@ export const deleteUnit = (id: string) =>
   });
 
 // ─── Avisos ───────────────────────────────────────────────────────────────────
+// Avisos ativos do condomínio do token (a API filtra no banco; mais recentes primeiro).
 export const getAnnouncements = () =>
-  request<Announcement[]>('/api/announcements');
+  request<Announcement[]>('/api/announcements/active');
+
+// Síndico e administração publicam; o condomínio vai o do token (a API recusa outro).
+export const createAnnouncement = (data: {
+  condominiumId: string;
+  authorId: string;
+  title: string;
+  content: string;
+  category: string;
+}) =>
+  request<Announcement>('/api/announcements', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  });
+
+// ─── Financeiro ───────────────────────────────────────────────────────────────
+export interface Bill {
+  id: string;
+  description: string;
+  amount: number;
+  dueDate: string;
+  status: string;
+  barcode?: string;
+}
+
+export interface Payment {
+  id: string;
+  billId: string;
+  paymentDate: string;
+  amountPaid: number;
+  paymentMethod: string;
+}
+
+export const getBillsByUser = (userId: string) =>
+  request<Bill[]>(`/api/Bills/user/${encodeURIComponent(userId)}`);
+
+export const getPaymentsByBill = (billId: string) =>
+  request<Payment[]>(`/api/Payments/bill/${encodeURIComponent(billId)}`);
 
 // ─── Áreas Comuns ─────────────────────────────────────────────────────────────
 export const getCommonAreas = () =>
@@ -789,7 +883,7 @@ export interface VoteResponse {
   voteEndDate?: string;
   status?: string;
   createdAt?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 export const getAssemblies = (history = false) =>
