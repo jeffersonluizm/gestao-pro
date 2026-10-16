@@ -100,4 +100,21 @@ public class StartupValidationIntegrationTests : IDisposable
         Assert.Contains(logs, log => log.StartsWith("Warning") && log.Contains("True-Client-IP") && log.Contains("não chegou"));
     }
 
+    // Corpo sem Content-Length (chunked) acima de 64 KB: 413 com mensagem, não 500 com exceção no log.
+    [Fact]
+    public async Task Corpo_chunked_acima_do_limite_responde_413()
+    {
+        var logs = new ConcurrentQueue<string>();
+        await using var factory = CreateFactory(logs);
+        // Rota sem acesso ao banco (o controller só lê o corpo): o teste isola o limite de leitura.
+        var content = new StreamContent(new MemoryStream(Encoding.UTF8.GetBytes("{\"papel\":\"" + new string('a', 70 * 1024) + "\"}")));
+        content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/json");
+        var request = new HttpRequestMessage(HttpMethod.Post, "/api/demo/entrar") { Content = content };
+        request.Headers.TransferEncodingChunked = true;
+
+        var response = await factory.CreateClient().SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.RequestEntityTooLarge, response.StatusCode);
+        Assert.DoesNotContain(logs, log => log.StartsWith("Error"));
+    }
 }
