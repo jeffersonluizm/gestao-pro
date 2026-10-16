@@ -23,9 +23,9 @@ builder.WebHost.ConfigureKestrel(options =>
     // Corpo a conta-gotas não segura a conexão: no mínimo 1 KB/s depois de 5 s (64 KB chegam em até cerca de 1 min).
     options.Limits.MinRequestBodyDataRate = new Microsoft.AspNetCore.Server.Kestrel.Core.MinDataRate(1024, TimeSpan.FromSeconds(5));
 });
-// Toda requisição tem até 15 s (o reset da demonstração espera 10 s pelas escritas e aborta as que sobrarem).
-builder.Services.AddRequestTimeouts(options =>
-    options.DefaultPolicy = new Microsoft.AspNetCore.Http.Timeouts.RequestTimeoutPolicy { Timeout = TimeSpan.FromSeconds(15) });
+// Sem tempo máximo geral: o limite vale só para as escritas (WriteTimeoutMiddleware). O registro existe para o hub
+// declarar explicitamente que não tem tempo máximo (DisableRequestTimeout).
+builder.Services.AddRequestTimeouts();
 
 // Segredos locais com prioridade abaixo das variáveis de ambiente e da linha de comando (ver LocalSettings).
 builder.Configuration.AddLocalSettingsFile(builder.Environment.ContentRootPath);
@@ -269,6 +269,8 @@ app.UseCors();
 app.UseAuthentication();
 app.UseRateLimiter();
 app.UseRequestTimeouts();
+// Escritas em /api têm até Limites:TimeoutEscritaSegundos (padrão 15 s); leituras e o hub, não.
+app.UseMiddleware<WriteTimeoutMiddleware>();
 // Durante o reset da demonstração, escritas respondem 503 (e as em andamento terminam antes da limpeza).
 app.UseMiddleware<DemoResetGateMiddleware>();
 app.UseMiddleware<ApiAccessMiddleware>();
@@ -276,6 +278,7 @@ app.UseAuthorization();
 app.MapControllers();
 // Conexão aberta não sobrevive ao JWT: ao expirar, o cliente precisa reconectar com token novo.
 app.MapHub<NotificacaoHub>("/notificacaoHub", options => options.CloseOnAuthenticationExpiration = true)
-    .RequireAuthorization();
+    .RequireAuthorization()
+    .DisableRequestTimeout();
 
 app.Run();

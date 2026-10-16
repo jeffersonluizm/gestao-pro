@@ -17,6 +17,7 @@ public static class StartupSettings
         ("Demo:LimiteEscrita:PorIpPorMinuto", 1, int.MaxValue),
         ("Proxy:Saltos", 1, 10),
         ("Limites:CorpoMaximoBytes", 1024, 16 * 1024 * 1024),
+        ("Limites:TimeoutEscritaSegundos", 1, 300),
         ("RateLimiting:DemoEntrar:PermitLimit", 1, int.MaxValue),
     };
 
