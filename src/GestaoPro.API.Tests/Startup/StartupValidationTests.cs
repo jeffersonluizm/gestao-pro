@@ -29,6 +29,11 @@ public class StartupValidationTests
     [InlineData("Proxy:Saltos", "0")]
     [InlineData("Proxy:Saltos", "dois")]
     [InlineData("Limites:CorpoMaximoBytes", "grande")]
+    // Acima de int.MaxValue o código leria como int e daria 500 em toda criação.
+    [InlineData("Demo:LimitePorColecao", "3000000000")]
+    [InlineData("Demo:LimiteEscrita:PorUsuarioPorMinuto", "2147483648")]
+    [InlineData("Limites:CorpoMaximoBytes", "9999999999")]
+    [InlineData("Proxy:Saltos", "5000000000")]
     public void Valor_invalido_aponta_a_chave(string key, string value)
     {
         var problems = StartupSettings.Problems(Config((key, value)));

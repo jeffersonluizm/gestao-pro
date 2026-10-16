@@ -8,15 +8,16 @@ public static class StartupSettings
 {
     private static readonly string[] Booleans = { "Demo:Enabled", "Proxy:ConfiarNoProxy" };
 
-    private static readonly (string Key, long Min)[] Integers =
+    // O código lê esses valores como int: a faixa vai até int.MaxValue (ou menos, onde faz sentido).
+    private static readonly (string Key, int Min, int Max)[] Integers =
     {
-        ("Demo:LimitePorColecao", 1),
-        ("Demo:IntervaloResetMinutos", 1),
-        ("Demo:LimiteEscrita:PorUsuarioPorMinuto", 1),
-        ("Demo:LimiteEscrita:PorIpPorMinuto", 1),
-        ("Proxy:Saltos", 1),
-        ("Limites:CorpoMaximoBytes", 1024),
-        ("RateLimiting:DemoEntrar:PermitLimit", 1),
+        ("Demo:LimitePorColecao", 1, int.MaxValue),
+        ("Demo:IntervaloResetMinutos", 15, 1440),
+        ("Demo:LimiteEscrita:PorUsuarioPorMinuto", 1, int.MaxValue),
+        ("Demo:LimiteEscrita:PorIpPorMinuto", 1, int.MaxValue),
+        ("Proxy:Saltos", 1, 10),
+        ("Limites:CorpoMaximoBytes", 1024, 16 * 1024 * 1024),
+        ("RateLimiting:DemoEntrar:PermitLimit", 1, int.MaxValue),
     };
 
     public static List<string> Problems(IConfiguration configuration)
@@ -28,14 +29,14 @@ public static class StartupSettings
             if (value is not null && !bool.TryParse(value, out _))
                 problems.Add($"{Env(key)}=\"{value}\": use true ou false.");
         }
-        foreach (var (key, min) in Integers)
+        foreach (var (key, min, max) in Integers)
         {
             var value = configuration[key];
             if (value is null) continue;
-            if (!long.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
-                problems.Add($"{Env(key)}=\"{value}\": use um número inteiro.");
-            else if (number < min)
-                problems.Add($"{Env(key)}={number}: o mínimo é {min}.");
+            if (!int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var number))
+                problems.Add($"{Env(key)}=\"{value}\": use um número inteiro de {min} a {max}.");
+            else if (number < min || number > max)
+                problems.Add($"{Env(key)}={number}: use de {min} a {max}.");
         }
         return problems;
     }
