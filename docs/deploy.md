@@ -58,6 +58,8 @@ Os limites por IP só funcionam se a API enxergar o IP do visitante, e não o do
    - se a borda manda o IP do visitante em `True-Client-IP` (CDN na frente do Render), defina `Proxy__CabecalhoIp=True-Client-IP`.
 4. Se o teste der certo de primeira, não mude nada: `Proxy__Saltos=1` e o `X-Forwarded-For` são o padrão.
 
+O log da partida mostra a configuração efetiva ("Proxy: confiar no proxy=..., saltos=..., cabeçalho do IP=..."). Com `Proxy__CabecalhoIp` configurado, um aviso aparece no log se uma requisição chegar sem esse cabeçalho. Valor inválido (por exemplo `Proxy__Saltos=0`) impede a partida, com a chave no erro.
+
 ## 4. Painel web: Vercel
 
 1. Em <https://vercel.com>, **Add New > Project**, escolha o repositório e defina **Root Directory = `src/GestaoPro.Web`**. O [`vercel.json`](../src/GestaoPro.Web/vercel.json) já define build (`npm run build`), saída (`dist`), rotas da SPA e cabeçalhos de segurança.
