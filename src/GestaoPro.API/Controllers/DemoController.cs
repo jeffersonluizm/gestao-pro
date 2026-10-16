@@ -46,15 +46,21 @@ public class DemoController : ControllerBase
 
     [HttpPost("entrar")]
     [EnableRateLimiting(AuthRateLimit.DemoEnter)]
-    public async Task<IActionResult> Enter([FromBody] DemoEnterRequest request, [FromServices] IDemoSessions sessions)
+    public Task<IActionResult> Enter([FromBody] DemoEnterRequest request) =>
+        EnterCore(request, () => HttpContext.RequestServices.GetRequiredService<IDemoSessions>());
+
+    [NonAction]
+    public Task<IActionResult> Enter(DemoEnterRequest request, IDemoSessions sessions) => EnterCore(request, () => sessions);
+
+    // O serviço de sessão (contas no banco) só é montado depois das conferências: sem a flag, 404 sem tocar no banco.
+    private async Task<IActionResult> EnterCore(DemoEnterRequest request, Func<IDemoSessions> sessions)
     {
         if (!_catalog.Enabled) return NotFound();
 
         var account = _catalog.AccountFor(request.Papel);
         if (account is null) return BadRequest(new { message = InvalidRoleMessage });
 
-        // O serviço de sessão (contas no banco) só é montado aqui, depois das conferências.
-        var session = await sessions.EnterAsync(account.Role);
+        var session = await sessions().EnterAsync(account.Role);
         return session is null
             ? StatusCode(StatusCodes.Status503ServiceUnavailable, new { message = NotReadyMessage })
             : Ok(session);

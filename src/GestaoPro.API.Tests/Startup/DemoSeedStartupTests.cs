@@ -51,9 +51,13 @@ public class DemoSeedStartupTests : IDisposable
         var client = factory.CreateClient();
         var users = await client.GetAsync("/api/users");
         var demo = await client.GetAsync("/api/demo");
+        // A entrada também responde 404 sem tocar no banco (o serviço de sessão não é montado).
+        var enter = await client.PostAsync("/api/demo/entrar",
+            new StringContent("{\"papel\":\"morador\"}", System.Text.Encoding.UTF8, "application/json"));
 
         Assert.Equal(HttpStatusCode.Unauthorized, users.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, demo.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, enter.StatusCode);
     }
 
     // Os repositórios do seeder acessam o banco já no construtor: o timeout prova que o
