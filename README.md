@@ -4,9 +4,9 @@ Avisos, reservas de áreas comuns, portaria, encomendas, assembleias e financeir
 
 | | |
 |---|---|
-| **Demonstração (painel)** | `https://gestaopro.vercel.app` *(link definitivo depois da publicação; ver [docs/deploy.md](docs/deploy.md))* |
-| **Demonstração (app no navegador)** | `https://gestaopro-app.vercel.app` *(idem)* |
-| **API** | `https://gestaopro-api-demo.onrender.com/api/demo` *(idem)* |
+| **Demonstração (painel)** | <https://gestaopro-painel.vercel.app> |
+| **Demonstração (app no navegador)** | <https://gestaopro-app.vercel.app> |
+| **API** | <https://gestaopro-api-demo.onrender.com/api/demo> |
 | **Como testar** | Abra o painel (ou o app) e clique em **Entrar como síndico**, **morador** ou **porteiro**: a sessão abre sem senha. Para testar a ativação de acesso, o cartão mostra o código do condomínio e os CPFs pré-cadastrados. |
 
 > A API fica em hospedagem gratuita e dorme sem uso: a primeira resposta pode levar até 1 minuto (o painel avisa "Acordando o servidor de demonstração"). Os dados da demonstração voltam ao estado inicial a cada 90 minutos; quem estava dentro volta ao mesmo papel com um clique (ou sozinho, pelo cartão).

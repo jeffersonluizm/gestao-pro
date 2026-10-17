@@ -7,7 +7,7 @@ Resultado final:
 | Peça | Onde | Endereço (exemplo) |
 |---|---|---|
 | API (.NET, Docker) | Render, plano Free | `https://gestaopro-api-demo.onrender.com` |
-| Painel web (React) | Vercel, Hobby | `https://gestaopro.vercel.app` |
+| Painel web (React) | Vercel, Hobby | `https://gestaopro-painel.vercel.app` |
 | App (Expo exportado para web) | Vercel, Hobby | `https://gestaopro-app.vercel.app` |
 | Banco | MongoDB Atlas, M0 | cluster só da demonstração |
 
@@ -34,7 +34,7 @@ Resultado final:
 | Variável | Valor |
 |---|---|
 | `MongoDbSettings__ConnectionString` | a *connection string* do Atlas (passo 2.4) |
-| `Cors__AllowedOrigins__0` | URL do painel na Vercel, sem barra no fim (ex.: `https://gestaopro.vercel.app`) |
+| `Cors__AllowedOrigins__0` | URL do painel na Vercel, sem barra no fim (ex.: `https://gestaopro-painel.vercel.app`) |
 | `Cors__AllowedOrigins__1` | URL do app web na Vercel (ex.: `https://gestaopro-app.vercel.app`) |
 | `Demo__CodigoCondominio` | código do condomínio demo, forte (ex.: `Residencial-Demo-2026`); fica visível no cartão para testar a ativação por CPF |
 
